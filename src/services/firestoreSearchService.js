@@ -72,54 +72,94 @@ class FirestoreSearchService {
     }
   }
 
-  // Fallback to Google Places API (Legacy)
+  // Fallback to Google Places API (NEW API)
   async fallbackToGooglePlaces(bounds, filters) {
     try {
-      console.log('🔄 Using legacy Google Places API for fallback...');
+      console.log('🔄 Using NEW Google Places API for fallback...');
       
-      // Create a temporary map element for PlacesService
-      const tempMapDiv = document.createElement('div');
-      const service = new google.maps.places.PlacesService(tempMapDiv);
+      // Import the new Places API
+      const { Place } = await google.maps.importLibrary("places");
       
       const request = {
-        location: new google.maps.LatLng(
-          (bounds.north + bounds.south) / 2,
-          (bounds.east + bounds.west) / 2
-        ),
-        radius: 5000, // 5km radius
-        type: 'restaurant',
-        keyword: filters.foodType !== 'all' ? filters.foodType : 'food'
+        textQuery: filters.foodType !== 'all' 
+          ? `${filters.foodType} restaurant` 
+          : 'restaurant',
+        fields: [
+          'id', 'displayName', 'location', 'rating', 'userRatingCount', 
+          'priceLevel', 'types', 'formattedAddress', 'photos', 
+          'currentOpeningHours', 'formattedPhoneNumber', 'websiteUri',
+          'businessStatus', 'utcOffsetMinutes', 'viewport', 'attributions'
+        ],
+        locationBias: {
+          center: {
+            lat: (bounds.north + bounds.south) / 2,
+            lng: (bounds.east + bounds.west) / 2
+          },
+          radius: 5000 // 5km radius
+        },
+        maxResultCount: 20,
+        language: 'en-MY',
+        region: 'MY',
       };
       
-      return new Promise((resolve) => {
-        service.nearbySearch(request, (results, status) => {
-          if (status === google.maps.places.PlacesServiceStatus.OK && results) {
-            console.log(`✅ Found ${results.length} restaurants via legacy API`);
-            
-            // Normalize format
-            const normalizedResults = results.map(place => ({
-              place_id: place.place_id,
-              name: place.name,
-              address: place.vicinity,
-              location: {
-                lat: place.geometry.location.lat(),
-                lng: place.geometry.location.lng()
-              },
-              rating: place.rating || 0,
-              photos: place.photos || [],
-              types: place.types || [],
-              source: 'google_places_legacy'
-            }));
-            
-            resolve(normalizedResults);
-          } else {
-            console.error('❌ Legacy Places API error:', status);
-            resolve([]);
+      const { places } = await Place.searchByText(request);
+      
+      console.log(`✅ Found ${places.length} restaurants via NEW API`);
+      
+      // Normalize format with ALL available Google Places data
+      const normalizedResults = places.map(place => ({
+        // Basic Info
+        place_id: place.id,
+        name: place.displayName,
+        address: place.formattedAddress,
+        location: {
+          lat: typeof place.location.lat === 'function' ? place.location.lat() : place.location.lat,
+          lng: typeof place.location.lng === 'function' ? place.location.lng() : place.location.lng
+        },
+        
+        // Rich Google Places Data
+        rating: place.rating || 0,
+        userRatingCount: place.userRatingCount || 0,
+        priceLevel: place.priceLevel || null,
+        types: place.types || [],
+        photos: place.photos || [],
+        
+        // Contact & Business Info
+        phone: place.formattedPhoneNumber || '',
+        website: place.websiteUri || '',
+        businessStatus: place.businessStatus || 'OPERATIONAL',
+        
+        // Operating Hours
+        currentOpeningHours: place.currentOpeningHours ? {
+          openNow: place.currentOpeningHours.openNow,
+          periods: place.currentOpeningHours.periods || [],
+          weekdayDescriptions: place.currentOpeningHours.weekdayDescriptions || []
+        } : null,
+        
+        // Location Details
+        utcOffsetMinutes: place.utcOffsetMinutes || 0,
+        viewport: place.viewport ? {
+          northeast: {
+            lat: typeof place.viewport.northeast.lat === 'function' ? place.viewport.northeast.lat() : place.viewport.northeast.lat,
+            lng: typeof place.viewport.northeast.lng === 'function' ? place.viewport.northeast.lng() : place.viewport.northeast.lng
+          },
+          southwest: {
+            lat: typeof place.viewport.southwest.lat === 'function' ? place.viewport.southwest.lat() : place.viewport.southwest.lat,
+            lng: typeof place.viewport.southwest.lng === 'function' ? place.viewport.southwest.lng() : place.viewport.southwest.lng
           }
-        });
-      });
+        } : null,
+        
+        // Attribution
+        attributions: place.attributions || [],
+        
+        // System Metadata
+        source: 'google_places_new',
+        lastUpdated: new Date()
+      }));
+      
+      return normalizedResults;
     } catch (error) {
-      console.error('❌ Google Places fallback error:', error);
+      console.error('❌ NEW Google Places API error:', error);
       return [];
     }
   }
@@ -140,13 +180,26 @@ class FirestoreSearchService {
         if (existing.empty) {
           await addDoc(collection(db, 'eateries'), {
             ...restaurant,
+            // System Metadata
             verified: false,
             createdBy: 'system',
             createdAt: new Date(),
             updatedAt: new Date(),
-            source: 'google_places_auto'
+            source: 'google_places_auto',
+            status: 'active',
+            
+            // Additional Fields for User Experience
+            cuisineType: 'unknown', // Will be filled by user submissions or admin
+            halalStatus: 'unknown', // Will be filled by user submissions or admin
+            description: '', // Will be filled by user submissions
+            tags: [], // Will be populated based on types and user input
+            popularity: 0, // Will be tracked based on user interactions
+            lastVerified: null // For admin verification tracking
           });
-          console.log(`✅ Saved new eatery: ${restaurant.name}`);
+          console.log(`✅ Saved rich eatery data: ${restaurant.name} (${Object.keys(restaurant).length} fields)`);
+        } else {
+          // Update existing record with new data (if available)
+          console.log(`📝 Eatery already exists: ${restaurant.name}`);
         }
       }
     } catch (error) {

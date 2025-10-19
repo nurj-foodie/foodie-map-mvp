@@ -1,0 +1,122 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // User documents - users can only access their own data
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Eatery documents - public read/write for development (user submissions)
+    match /eateries/{eateryId} {
+      allow read: if true;
+      allow create: if true; // Allow anonymous users to create for development
+      allow update, delete: if true; // Allow anonymous users to update/delete for development
+      // In production, use: if request.auth != null;
+    }
+    
+    // Analytics documents - authenticated users only
+    match /analytics/{analyticsId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // User favorites - users can only access their own favorites
+    match /favorites/{favoriteId} {
+      allow read: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
+    
+    // User reviews - users can only access their own reviews
+    match /reviews/{reviewId} {
+      allow read: if true; // Public read for reviews
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
+    
+    // User check-ins - users can only access their own check-ins
+    match /checkIns/{checkinId} {
+      allow read: if true; // Public read for check-ins
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
+    
+    // User photos - users can only access their own photos
+    match /photos/{photoId} {
+      allow read: if true; // Public read for photos
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
+    
+    // Social posts - public read, authenticated users can create
+    match /socialPosts/{postId} {
+      allow read: if true; // Public read for social feed
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
+    
+    // Post likes - authenticated users only
+    match /postLikes/{likeId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow delete: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
+    
+    // Post comments - public read, authenticated users can create
+    match /postComments/{commentId} {
+      allow read: if true; // Public read for comments
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
+    
+    // Post shares - authenticated users only
+    match /postShares/{shareId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow delete: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
+    
+    // User follows - authenticated users only
+    match /userFollows/{followId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.followerId;
+      allow delete: if request.auth != null && request.auth.uid == resource.data.followerId;
+    }
+    
+    // Test collection - for connection testing
+    match /test/{testId} {
+      allow read, write: if true; // Public access for development
+    }
+    
+        // Saved routes - users can access their own routes, public read for development
+        match /saved_routes/{routeId} {
+          allow read: if true; // Public read for development
+          allow create: if true; // Allow anonymous users to create for development
+          allow update, delete: if true; // Allow anonymous users to update/delete for development
+          // In production, use: if request.auth != null && request.auth.uid == resource.data.userId;
+        }
+        
+        // Route cache - public read/write for development
+        match /route_cache/{routeId} {
+          allow read, write: if true; // Public access for development
+          // In production, consider restricting write access
+        }
+        
+        // Route index - public read/write for development
+        match /route_index/{routeId} {
+          allow read, write: if true; // Public access for development
+          // In production, consider restricting write access
+        }
+        
+        // User activities - public read/write for development
+        match /user_activities/{activityId} {
+          allow read, write: if true; // Public access for development
+          // In production, use: if request.auth != null && request.auth.uid == resource.data.userId;
+        }
+    
+    // Admin collections - admin only
+    match /admin/{document=**} {
+      allow read, write: if request.auth != null && request.auth.token.admin == true;
+    }
+  }
+}

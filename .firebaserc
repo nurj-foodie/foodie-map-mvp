@@ -1,0 +1,9 @@
+{
+  "projects": {
+    "y": "foodie-map-23842",
+    "development": "foodie-map-23842",
+    "staging": "foodie-map-23842"
+  },
+  "targets": {},
+  "etags": {}
+}

@@ -20,6 +20,8 @@ const EaterySubmissionForm = ({ onClose }) => {
   const [searchResults, setSearchResults] = useState([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
+  const [nearbyRestaurants, setNearbyRestaurants] = useState([]);
+  const [showNearbyRestaurants, setShowNearbyRestaurants] = useState(false);
 
   // Search Google Places for restaurant
   const searchGooglePlaces = async (query) => {
@@ -78,6 +80,67 @@ const EaterySubmissionForm = ({ onClose }) => {
     console.log('📍 Selected place:', place.name);
   };
 
+  // Discover nearby restaurants for auto-population
+  const discoverNearbyRestaurants = async (lat, lng) => {
+    try {
+      console.log('🍽️ Discovering restaurants within 8km...');
+      
+      // Create bounds around the location (8km radius)
+      const radiusKm = 8;
+      const bounds = {
+        north: lat + (radiusKm / 111), // Rough conversion: 1 degree ≈ 111km
+        south: lat - (radiusKm / 111),
+        east: lng + (radiusKm / (111 * Math.cos(lat * Math.PI / 180))),
+        west: lng - (radiusKm / (111 * Math.cos(lat * Math.PI / 180)))
+      };
+      
+      // Use Firestore-first search
+      const { firestoreSearchService } = await import('../services/firestoreSearchService');
+      const places = await firestoreSearchService.searchRestaurants(bounds, {
+        foodType: 'all',
+        minRating: 0,
+        halalOnly: false,
+        openNow: false
+      });
+      
+      console.log(`🍽️ Found ${places.length} restaurants nearby`);
+      
+      // Calculate distances and sort by proximity
+      const restaurantsWithDistance = places.map(place => {
+        const distance = calculateHaversineDistance({ lat, lng }, place.location);
+        return {
+          ...place,
+          distanceFromUser: distance,
+          distanceFromUserKm: distance.toFixed(1) + ' km'
+        };
+      }).sort((a, b) => a.distanceFromUser - b.distanceFromUser)
+        .slice(0, 10); // Show top 10 closest
+      
+      setNearbyRestaurants(restaurantsWithDistance);
+      setShowNearbyRestaurants(true);
+      
+      console.log(`📍 Showing ${restaurantsWithDistance.length} closest restaurants`);
+      
+    } catch (error) {
+      console.error('❌ Nearby restaurant discovery failed:', error);
+    }
+  };
+
+  // Helper function for Haversine distance calculation
+  const calculateHaversineDistance = (point1, point2) => {
+    const R = 6371; // Earth's radius in km
+    const dLat = (point2.lat - point1.lat) * (Math.PI / 180);
+    const dLng = (point2.lng - point1.lng) * (Math.PI / 180);
+    
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(point1.lat * Math.PI / 180) * 
+              Math.cos(point2.lat * Math.PI / 180) *
+              Math.sin(dLng/2) * Math.sin(dLng/2);
+    
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c; // Distance in km
+  };
+
   // Get user's current location
   const handleLocateMe = () => {
     if (!navigator.geolocation) {
@@ -96,7 +159,7 @@ const EaterySubmissionForm = ({ onClose }) => {
           const geocoder = new google.maps.Geocoder();
           const latlng = new google.maps.LatLng(latitude, longitude);
           
-          geocoder.geocode({ location: latlng }, (results, status) => {
+          geocoder.geocode({ location: latlng }, async (results, status) => {
             if (status === 'OK' && results[0]) {
               const address = results[0].formatted_address;
               
@@ -110,7 +173,11 @@ const EaterySubmissionForm = ({ onClose }) => {
               });
               
               console.log('📍 Current location found:', address);
-              alert(`Location found: ${address}`);
+              
+              // Auto-discover nearby restaurants
+              await discoverNearbyRestaurants(latitude, longitude);
+              
+              alert(`Location found: ${address}\n🍽️ Found ${nearbyRestaurants.length} nearby restaurants!`);
             } else {
               console.error('❌ Geocoding failed:', status);
               alert('Could not get address for current location');
@@ -153,6 +220,20 @@ const EaterySubmissionForm = ({ onClose }) => {
     );
   };
 
+  // Handle selecting a nearby restaurant
+  const handleSelectNearbyRestaurant = (restaurant) => {
+    setFormData({
+      ...formData,
+      name: restaurant.name || restaurant.displayName,
+      address: restaurant.address || restaurant.formattedAddress,
+      location: restaurant.location,
+      place_id: restaurant.place_id || restaurant.id,
+      rating: restaurant.rating || 0
+    });
+    setShowNearbyRestaurants(false);
+    console.log('📍 Selected nearby restaurant:', restaurant.name);
+  };
+
   // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -165,8 +246,22 @@ const EaterySubmissionForm = ({ onClose }) => {
     setIsSubmitting(true);
     
     try {
+      // Clean and validate form data to prevent NaN values
+      const cleanFormData = {
+        name: formData.name.trim(),
+        address: formData.address.trim(),
+        location: formData.location,
+        place_id: formData.place_id || '',
+        cuisineType: formData.cuisineType || 'unknown',
+        halalStatus: formData.halalStatus || 'unknown',
+        rating: isNaN(formData.rating) ? 0 : Math.max(0, Math.min(5, formData.rating)),
+        phone: formData.phone.trim() || '',
+        website: formData.website.trim() || '',
+        description: formData.description.trim() || ''
+      };
+
       await addDoc(collection(db, 'eateries'), {
-        ...formData,
+        ...cleanFormData,
         verified: false,
         createdBy: 'user_submission', // In a real app, this would be currentUser.uid
         createdAt: new Date(),
@@ -328,10 +423,74 @@ const EaterySubmissionForm = ({ onClose }) => {
             >
               {isLocating ? '📍 Locating...' : '📍 Locate Me'}
             </button>
-          </div>
-        </div>
+                  </div>
+                </div>
 
-        {/* Cuisine Type */}
+                {/* Nearby Restaurants */}
+                {showNearbyRestaurants && nearbyRestaurants.length > 0 && (
+                  <div style={{ marginBottom: '15px' }}>
+                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+                      🍽️ Nearby Restaurants (8km radius)
+                    </label>
+                    <div style={{ 
+                      backgroundColor: '#f0f8ff', 
+                      padding: '10px', 
+                      borderRadius: '4px', 
+                      border: '1px solid #2196F3',
+                      maxHeight: '200px',
+                      overflowY: 'auto'
+                    }}>
+                      <div style={{ fontSize: '12px', color: '#666', marginBottom: '8px' }}>
+                        💡 Found {nearbyRestaurants.length} restaurants nearby. Click to auto-fill form:
+                      </div>
+                      {nearbyRestaurants.map((restaurant, index) => (
+                        <div
+                          key={index}
+                          onClick={() => handleSelectNearbyRestaurant(restaurant)}
+                          style={{
+                            padding: '8px',
+                            border: '1px solid #ddd',
+                            borderRadius: '4px',
+                            marginBottom: '5px',
+                            cursor: 'pointer',
+                            backgroundColor: '#fff',
+                            transition: 'background-color 0.2s'
+                          }}
+                          onMouseEnter={(e) => e.target.style.backgroundColor = '#e3f2fd'}
+                          onMouseLeave={(e) => e.target.style.backgroundColor = '#fff'}
+                        >
+                          <div style={{ fontWeight: 'bold', fontSize: '14px' }}>
+                            {restaurant.name || restaurant.displayName}
+                          </div>
+                          <div style={{ fontSize: '12px', color: '#666' }}>
+                            {restaurant.address || restaurant.formattedAddress}
+                          </div>
+                          <div style={{ fontSize: '11px', color: '#888' }}>
+                            📍 {restaurant.distanceFromUserKm} | ⭐ {restaurant.rating || 'N/A'} | Source: {restaurant.source || 'unknown'}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowNearbyRestaurants(false)}
+                      style={{
+                        marginTop: '5px',
+                        padding: '5px 10px',
+                        backgroundColor: '#666',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        fontSize: '12px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Hide Nearby Restaurants
+                    </button>
+                  </div>
+                )}
+
+                {/* Cuisine Type */}
         <div style={{ marginBottom: '15px' }}>
           <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
             Cuisine Type
@@ -392,11 +551,15 @@ const EaterySubmissionForm = ({ onClose }) => {
           </label>
           <input
             type="number"
-            min="1"
+            min="0"
             max="5"
             step="0.1"
-            value={formData.rating}
-            onChange={(e) => setFormData({...formData, rating: parseFloat(e.target.value)})}
+            value={formData.rating || ''}
+            onChange={(e) => {
+              const value = e.target.value;
+              setFormData({...formData, rating: value === '' ? 0 : parseFloat(value) || 0});
+            }}
+            placeholder="Enter rating (optional)"
             style={{
               width: '100%',
               padding: '10px',

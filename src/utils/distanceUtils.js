@@ -78,8 +78,8 @@ export const calculateRouteBounds = (route) => {
   route.legs.forEach(leg => {
     if (leg.steps) {
       leg.steps.forEach(step => {
-        const lat = step.start_location.lat();
-        const lng = step.start_location.lng();
+        const lat = typeof step.start_location.lat === 'function' ? step.start_location.lat() : step.start_location.lat;
+        const lng = typeof step.start_location.lng === 'function' ? step.start_location.lng() : step.start_location.lng;
         
         bounds.north = Math.max(bounds.north, lat);
         bounds.south = Math.min(bounds.south, lat);
