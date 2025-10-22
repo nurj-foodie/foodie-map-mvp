@@ -6,12 +6,12 @@
 .env.production.local
 
 # Sensitive configuration files
-*config.js
 *secret*
 *key*
 *password*
 *credential*
-*admin*
+*admin*config*
+*admin*secret*
 
 # Build files
 build/
