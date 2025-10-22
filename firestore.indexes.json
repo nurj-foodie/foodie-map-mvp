@@ -1,151 +1,11 @@
 {
   "indexes": [
     {
-      "collectionGroup": "eateries",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "halalStatus",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "rating",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "eateries",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "cuisineType",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "rating",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "eateries",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "operatingHours.isOpen",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "rating",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "eateries",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "cuisineCategory",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "rating",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "eateries",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "business.priceLevel",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "rating",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "eateries",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "malaysianCuisine.primary",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "rating",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "eateries",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "location.city",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "rating",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "eateries",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "analytics.popularityScore",
-          "order": "DESCENDING"
-        },
-        {
-          "fieldPath": "rating",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "reviews",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "eateryId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "createdAt",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "reviews",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "userId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "createdAt",
-          "order": "ASCENDING"
-        }
-      ]
-    },
-    {
       "collectionGroup": "checkIns",
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "eateryId",
+          "fieldPath": "userId",
           "order": "ASCENDING"
         },
         {
@@ -155,7 +15,35 @@
       ]
     },
     {
-      "collectionGroup": "favorites",
+      "collectionGroup": "checkIns",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "restaurantId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "timestamp",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "checkIns",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "restaurantId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "timestamp",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "checkIns",
       "queryScope": "COLLECTION",
       "fields": [
         {
@@ -163,83 +51,31 @@
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "addedAt",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "photos",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "eateryId",
+          "fieldPath": "restaurantId",
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "uploadedAt",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "eateries",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "priceLevel",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "rating",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "eateries",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "halalStatus",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "priceLevel",
+          "fieldPath": "timestamp",
           "order": "ASCENDING"
         }
       ]
     },
     {
-      "collectionGroup": "eateries",
+      "collectionGroup": "checkIns",
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "rating",
-          "order": "DESCENDING"
-        },
-        {
-          "fieldPath": "userRatingsTotal",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "socialPosts",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "isActive",
+          "fieldPath": "verified",
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "createdAt",
+          "fieldPath": "timestamp",
           "order": "DESCENDING"
         }
       ]
     },
     {
-      "collectionGroup": "socialPosts",
+      "collectionGroup": "checkIns",
       "queryScope": "COLLECTION",
       "fields": [
         {
@@ -247,59 +83,35 @@
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "isActive",
+          "fieldPath": "verified",
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "createdAt",
+          "fieldPath": "timestamp",
           "order": "DESCENDING"
         }
       ]
     },
     {
-      "collectionGroup": "postComments",
+      "collectionGroup": "checkIns",
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "postId",
+          "fieldPath": "restaurantId",
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "createdAt",
+          "fieldPath": "verified",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "timestamp",
           "order": "DESCENDING"
         }
       ]
     },
     {
-      "collectionGroup": "userFollows",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "followingId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "createdAt",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "userFollows",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "followerId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "createdAt",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "saved_routes",
+      "collectionGroup": "userNotifications",
       "queryScope": "COLLECTION",
       "fields": [
         {
@@ -307,39 +119,124 @@
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "createdAt",
+          "fieldPath": "timestamp",
           "order": "DESCENDING"
         }
       ]
     },
     {
-      "collectionGroup": "route_cache",
+      "collectionGroup": "userNotifications",
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "routeId",
+          "fieldPath": "userId",
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "expiresAt",
+          "fieldPath": "read",
           "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "timestamp",
+          "order": "DESCENDING"
         }
       ]
     },
     {
-      "collectionGroup": "route_index",
+      "collectionGroup": "userStreaks",
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "routeId",
+          "fieldPath": "userId",
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "expiresAt",
+          "fieldPath": "streakType",
           "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "lastUpdated",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "userChallenges",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "challengeType",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "timestamp",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "userLevelUps",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "timestamp",
+          "order": "DESCENDING"
         }
       ]
     }
   ],
-  "fieldOverrides": []
+  "fieldOverrides": [
+    {
+      "collectionGroup": "checkIns",
+      "fieldPath": "timestamp",
+      "indexes": [
+        {
+          "order": "ASCENDING",
+          "queryScope": "COLLECTION"
+        },
+        {
+          "order": "DESCENDING",
+          "queryScope": "COLLECTION"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "checkIns",
+      "fieldPath": "userId",
+      "indexes": [
+        {
+          "order": "ASCENDING",
+          "queryScope": "COLLECTION"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "checkIns",
+      "fieldPath": "restaurantId",
+      "indexes": [
+        {
+          "order": "ASCENDING",
+          "queryScope": "COLLECTION"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "checkIns",
+      "fieldPath": "verified",
+      "indexes": [
+        {
+          "order": "ASCENDING",
+          "queryScope": "COLLECTION"
+        }
+      ]
+    }
+  ]
 }

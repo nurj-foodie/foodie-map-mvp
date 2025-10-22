@@ -1,13 +1,30 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import './App.css';
 import { firestoreSearchService } from './services/firestoreSearchService';
 import { routeIndexService } from './services/routeIndexService';
 import { userActivityService } from './services/userActivityService';
-import { calculateRouteBounds, findMinimumDetour } from './utils/distanceUtils';
-import EaterySubmissionForm from './components/EaterySubmissionForm';
+import { rateLimitService } from './services/rateLimitService';
+import { distanceMatrixService } from './services/distanceMatrixService';
+import { routePrePopulationService } from './services/routePrePopulationService';
+import { analyticsService } from './services/analyticsService';
+import { calculateRouteBounds } from './utils/distanceUtils';
+// import { findMinimumDetour } from './utils/distanceUtils'; // Unused for now
 import { inspectFirestoreData } from './utils/inspectFirestoreData';
+import RestaurantModal from './components/RestaurantModal';
+import BottomNavigation from './components/BottomNavigation';
+import SearchTab from './components/SearchTab';
+import FavoritesTab from './components/FavoritesTab';
+import UserTab from './components/UserTab';
+import AdminDashboard from './components/AdminDashboard';
+import AddRestaurantTab from './components/AddRestaurantTab';
+import RouteInputForm from './components/RouteInputForm';
+import RouteResults from './components/RouteResults';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { FavoritesProvider } from './contexts/FavoritesContext';
+import { isAdminUser, getAdminAccess } from './utils/adminAuth';
 import { collection, addDoc, getDocs, deleteDoc, doc, query, where } from 'firebase/firestore';
 import { db } from './config/firebaseConfig';
+const RouteResultsAny: any = RouteResults;
 
 interface Location {
   name: string;
@@ -15,18 +32,39 @@ interface Location {
   lng: number;
 }
 
-function App() {
+// Main App component that uses auth context
+const AppWithAuth: React.FC = () => {
+  const { user } = useAuth();
   const [startLocation, setStartLocation] = useState<Location | null>(null);
   const [endLocation, setEndLocation] = useState<Location | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [, setError] = useState<string | null>(null);
   const [googleMapsLoaded, setGoogleMapsLoaded] = useState(false);
   const [availableRoutes, setAvailableRoutes] = useState<any[]>([]);
   const [selectedRoute, setSelectedRoute] = useState<any>(null);
   const [allRestaurants, setAllRestaurants] = useState<any[]>([]); // All restaurants for all routes
   const [filteredRestaurants, setFilteredRestaurants] = useState<any[]>([]); // Currently visible restaurants
   const [selectedEateries, setSelectedEateries] = useState<any[]>([]);
-  const [showSubmissionForm, setShowSubmissionForm] = useState(false);
+  const [activeTab, setActiveTab] = useState<'discover' | 'search' | 'add' | 'favorites' | 'user' | 'admin'>('discover');
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [showRouteResults, setShowRouteResults] = useState(false);
+  const [showRestaurantModal, setShowRestaurantModal] = useState(false);
+  const [selectedRestaurant, setSelectedRestaurant] = useState<any>(null);
+  const [hasRequestedGeolocation, setHasRequestedGeolocation] = useState(false);
+  const [startQuery, setStartQuery] = useState<string | null>(null);
+  const [endQuery, setEndQuery] = useState<string | null>(null);
+  const [lastGeocodedStart, setLastGeocodedStart] = useState('');
+  const [lastGeocodedEnd, setLastGeocodedEnd] = useState('');
+  const startDebounceRef = useRef<any>(null);
+  const endDebounceRef = useRef<any>(null);
+
+  const waitForNextFrame = () => new Promise<void>(resolve => {
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(() => resolve());
+    } else {
+      setTimeout(() => resolve(), 0);
+    }
+  });
   const [savedRoutes, setSavedRoutes] = useState<any[]>([]);
   const [showSavedRoutes, setShowSavedRoutes] = useState(false);
   const [routeName, setRouteName] = useState('');
@@ -34,13 +72,22 @@ function App() {
   const [currentUserId, setCurrentUserId] = useState<string>('');
   // const [directionsRenderer, setDirectionsRenderer] = useState<any>(null); // No longer needed with direct polyline approach
   const [routePolylines, setRoutePolylines] = useState<any[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [userLocation, setUserLocation] = useState<Location | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [navigationMode, setNavigationMode] = useState<'start' | 'preview'>('preview');
   const [showNavigationChoice, setShowNavigationChoice] = useState(false);
   const [navigationChoiceData, setNavigationChoiceData] = useState<{
     distance: number;
     startName: string;
   } | null>(null);
+  // const [rateLimitStats, setRateLimitStats] = useState<any>(null); // Unused for now
+  
+  // Autocomplete state for route search inputs
+  const [startSuggestions, setStartSuggestions] = useState<string[]>([]);
+  const [endSuggestions, setEndSuggestions] = useState<string[]>([]);
+  const [showStartSuggestions, setShowStartSuggestions] = useState(false);
+  const [showEndSuggestions, setShowEndSuggestions] = useState(false);
 
   useEffect(() => {
     const checkGoogleMaps = async () => {
@@ -130,11 +177,31 @@ function App() {
     }
   }, [currentUserId]);
 
+  // Update rate limit stats
+  // const updateRateLimitStats = useCallback(() => {
+  //   if (currentUserId) {
+  //     const stats = rateLimitService.getUserStats(currentUserId);
+  //     setRateLimitStats(stats);
+  //   }
+  // }, [currentUserId]); // Unused for now
+
+  // Check admin status when user changes
+  useEffect(() => {
+    if (user && isAdminUser(user) && getAdminAccess()) {
+      setIsAdmin(true);
+    } else {
+      setIsAdmin(false);
+    }
+  }, [user]);
+
   // Load saved routes on component mount
   useEffect(() => {
     const initializeApp = async () => {
       const userId = getOrCreateUserId();
       setCurrentUserId(userId);
+      
+      // Update rate limit stats
+      // updateRateLimitStats(); // Unused for now
       
       // Try to load saved routes
       console.log('🔄 Attempting to load saved routes...');
@@ -146,14 +213,66 @@ function App() {
         console.log('💡 App will work without saved routes feature');
         console.log('🔧 This might be due to Firebase configuration - check console for details');
       }
+      
+      // Trigger pre-population of popular routes (runs in background)
+      console.log('🚀 Starting route pre-population in background...');
+      routePrePopulationService.prePopulateRoutes().catch(error => {
+        console.log('⚠️ Pre-population failed (non-critical):', error);
+      });
     };
     
     initializeApp();
-  }, [loadSavedRoutes]);
+  }, [loadSavedRoutes]); // updateRateLimitStats removed
+
+  // Safe getter for the map element with user-facing error
+  const getMapElementOrAbort = (): HTMLElement | null => {
+    const el = document.getElementById('map');
+    if (!el) {
+      console.error('❌ Map element not found in DOM');
+      setError('Map element not found. Please refresh the page.');
+      setIsLoading(false);
+      return null;
+    }
+    return el as HTMLElement;
+  };
 
   const handleFindRoute = async () => {
     console.log('🚀 handleFindRoute called!', { startLocation, endLocation, isLoading, googleMapsLoaded });
     
+    // Check rate limits
+    if (currentUserId) {
+      const routeLimit = rateLimitService.checkRateLimit(currentUserId, 'route');
+      if (!routeLimit.allowed) {
+        setError(`Rate limit exceeded: ${routeLimit.reason}. Try again after ${routeLimit.resetTime?.toLocaleTimeString() || 'later'}`);
+        return;
+      }
+      
+      const apiLimit = rateLimitService.checkRateLimit(currentUserId, 'apiCall');
+      if (!apiLimit.allowed) {
+        setError(`API rate limit exceeded: ${apiLimit.reason}. Try again after ${apiLimit.resetTime?.toLocaleTimeString() || 'later'}`);
+        return;
+      }
+    }
+    
+    // Trigger geolocation immediately on user action (best chance to show prompt)
+    if (!hasRequestedGeolocation) {
+      setHasRequestedGeolocation(true);
+      try {
+        const userLoc = await getUserLocation();
+        setUserLocation(userLoc);
+      } catch (e) {
+        // Ignore if denied; flow continues
+      }
+    }
+
+    // If user hasn't geocoded yet, try to geocode current text queries before proceeding
+    if (!startLocation && startQuery) {
+      await geocodeLocation(startQuery, 'start');
+    }
+    if (!endLocation && endQuery) {
+      await geocodeLocation(endQuery, 'end');
+    }
+
     if (!startLocation || !endLocation) {
       setError('Please select both start and end locations');
       return;
@@ -168,7 +287,24 @@ function App() {
       const indexedRoutes = await routeIndexService.getIndexedRoute(startLocation, endLocation);
       
       if (indexedRoutes && indexedRoutes.length > 0) {
-        console.log('💰 Route index hit! No API call needed');
+        console.log('💰 Route index hit! No API call needed - SAVING MONEY!');
+        
+        // Track cache hit
+        await analyticsService.trackApiUsage({
+          apiType: 'google_directions',
+          cacheHit: true,
+          userId: currentUserId,
+          startLocation: startLocation.name,
+          endLocation: endLocation.name,
+          responseTime: Date.now() - Date.now()
+        });
+        
+        await analyticsService.trackCachePerformance({
+          cacheType: 'route_index',
+          hit: true,
+          userId: currentUserId,
+          responseTime: Date.now() - Date.now()
+        });
         
         // Reconstruct Google Maps route objects from indexed data
         const reconstructedResponses = indexedRoutes.map(route => 
@@ -181,14 +317,16 @@ function App() {
         setAvailableRoutes(reconstructedRoutes);
         setSelectedRoute(reconstructedRoutes[0]);
         
+        // Ensure results view (with #map) is rendered before accessing the map element
+        setShowRouteResults(true);
+        await waitForNextFrame();
+
         // Create map and display first route
         const { Map } = await window.google.maps.importLibrary("maps");
         // No longer need DirectionsRenderer with direct polyline approach
-        
-        const mapElement = document.getElementById('map');
-        if (!mapElement) {
-          throw new Error('Map element not found');
-        }
+
+        const mapElement = getMapElementOrAbort();
+        if (!mapElement) return;
 
         const map = new Map(mapElement, {
           center: {
@@ -252,24 +390,47 @@ function App() {
         // Find restaurants for indexed routes
         console.log('🔍 Starting restaurant discovery for indexed routes...');
         findRestaurantsForAllRoutes(reconstructedRoutes, map);
+        // One-time location permission prompt after route is ready
+        if (!hasRequestedGeolocation) {
+          try {
+            const userLoc = await getUserLocation();
+            setUserLocation(userLoc);
+          } catch (e) {
+            // Ignore if denied; user can still navigate
+          } finally {
+            setHasRequestedGeolocation(true);
+          }
+        }
+        
+        // Update rate limit stats
+        // updateRateLimitStats(); // Unused for now
+        
         setIsLoading(false);
         return;
       }
 
       // 2. Fetch from Google Directions API (cache miss)
       console.log('🔄 Cache miss - fetching from Google Directions API');
+      console.log('⚠️ WARNING: This will cost money! Consider caching routes to reduce API costs.');
+      console.log('💰 API Call:', {
+        type: 'Google Directions API',
+        cost: '~RM0.005 per request',
+        cacheHit: false,
+        reason: 'New route not in cache',
+        startLocation: startLocation.name,
+        endLocation: endLocation.name
+      });
       
       const { Map } = await window.google.maps.importLibrary("maps");
-        const { DirectionsService } = await window.google.maps.importLibrary("routes");
+      const { DirectionsService } = await window.google.maps.importLibrary("routes");
+
+      // Ensure results view (with #map) is rendered before accessing the map element
+      setShowRouteResults(true);
+      await waitForNextFrame();
 
       // Create map
-      const mapElement = document.getElementById('map');
-      if (!mapElement) {
-        console.error('❌ Map element not found in DOM');
-        setError('Map element not found. Please refresh the page.');
-        setIsLoading(false);
-        return;
-      }
+      const mapElement = getMapElementOrAbort();
+      if (!mapElement) return;
       
       console.log('🗺️ Map element found:', mapElement);
 
@@ -318,6 +479,17 @@ function App() {
           console.log('🔍 Route distances:', result.routes.map((r: any) => r.legs?.[0]?.distance?.text || 'Unknown'));
           console.log('🔍 Route durations:', result.routes.map((r: any) => r.legs?.[0]?.duration?.text || 'Unknown'));
           
+          // Track API usage
+          await analyticsService.trackApiUsage({
+            apiType: 'google_directions',
+            cacheHit: false,
+            userId: currentUserId,
+            startLocation: startLocation.name,
+            endLocation: endLocation.name,
+            responseTime: Date.now() - Date.now(),
+            routesFound: result.routes.length
+          });
+          
           // Check if we got alternative routes
           if (result.routes.length === 1) {
             console.log('⚠️ Only 1 route returned. This might be because:');
@@ -333,7 +505,18 @@ function App() {
           setAvailableRoutes(result.routes);
           
           // Index the routes for future use (don't await - let it run in background)
-          routeIndexService.indexRoute(result.routes, startLocation, endLocation).catch(error => {
+          routeIndexService.indexRoute(result.routes, startLocation, endLocation).then(async () => {
+            console.log('✅ Route cached successfully - future searches will be FREE!');
+            
+            // Track successful indexing
+            await analyticsService.trackCachePerformance({
+              cacheType: 'route_index',
+              hit: false,
+              indexed: true,
+              userId: currentUserId,
+              responseTime: Date.now() - Date.now()
+            });
+          }).catch(error => {
             console.error('❌ Route indexing failed (non-critical):', error);
           });
 
@@ -357,18 +540,283 @@ function App() {
           // Route data is now handled by our polyline system
           console.log('🗺️ Route data processed for polyline rendering:', firstRoute.summary);
           
+          // Render polylines for all routes (using Google Maps geometry library)
+          const { encoding } = await window.google.maps.importLibrary("geometry");
+          
+          const polylines: any[] = [];
+          result.routes.forEach((route: any, index: number) => {
+            console.log(`🔍 Route ${index + 1} structure:`, {
+              hasOverviewPolyline: !!route.overview_polyline,
+              hasEncodedPath: !!(route.overview_polyline?.encoded_path),
+              hasOverviewPath: !!(route.overview_polyline?.overview_path),
+              overviewPolylineKeys: route.overview_polyline ? Object.keys(route.overview_polyline) : []
+            });
+            
+      // Try different possible polyline data structures
+      let encodedPath = null;
+      if (route.overview_polyline?.encoded_path) {
+        encodedPath = route.overview_polyline.encoded_path;
+      } else if (route.overview_polyline?.overview_path) {
+        // If it's already decoded, use it directly
+        encodedPath = route.overview_polyline.overview_path;
+      } else if (route.overview_polyline) {
+        // Check for other possible keys
+        const keys = Object.keys(route.overview_polyline);
+        console.log(`🔍 Available keys in overview_polyline:`, keys);
+        
+        // Handle array-like structure with numeric string keys
+        if (keys.length > 0 && keys.every(key => /^\d+$/.test(key))) {
+          // Convert numeric string keys to array
+          const maxIndex = Math.max(...keys.map(k => parseInt(k)));
+          const pathArray = [];
+          for (let i = 0; i <= maxIndex; i++) {
+            if (route.overview_polyline[i.toString()]) {
+              pathArray.push(route.overview_polyline[i.toString()]);
+            }
+          }
+          encodedPath = pathArray;
+          console.log(`🔍 Converted numeric keys to array with ${pathArray.length} points`);
+        } else if (keys.length > 0) {
+          encodedPath = route.overview_polyline[keys[0]];
+        }
+      }
+            
+            if (encodedPath) {
+              try {
+                let path;
+                if (typeof encodedPath === 'string') {
+                  // It's an encoded string, decode it
+                  path = encoding.decodePath(encodedPath);
+                } else if (Array.isArray(encodedPath)) {
+                  // It's already decoded
+                  path = encodedPath;
+                } else {
+                  console.warn(`⚠️ Unknown polyline format for route ${index + 1}:`, typeof encodedPath);
+                  return;
+                }
+                
+                const polyline = new (window.google.maps as any).Polyline({
+                  path: path,
+                  geodesic: true,
+                  strokeColor: index === 0 ? '#FF6B6B' : '#4ECDC4',
+                  strokeOpacity: 0.8,
+                  strokeWeight: index === 0 ? 4 : 3,
+                  map: map
+                });
+                
+                polylines.push(polyline);
+                console.log(`✅ Created polyline for route ${index + 1} with ${path.length} points`);
+              } catch (error) {
+                console.error(`❌ Error creating polyline for route ${index + 1}:`, error);
+              }
+            } else {
+              console.warn(`⚠️ No polyline data found for route ${index + 1}`);
+            }
+          });
+          
+          // Store all polylines
+          setRoutePolylines(polylines);
+          
+          console.log(`✅ Created ${polylines.length} polylines for all routes`);
+          
+          // Fit map to show the first route
+          if (polylines.length > 0 && firstRoute?.overview_polyline) {
+            try {
+              let decodedPath;
+              if (firstRoute.overview_polyline.encoded_path) {
+                decodedPath = encoding.decodePath(firstRoute.overview_polyline.encoded_path);
+              } else if (firstRoute.overview_polyline.overview_path) {
+                decodedPath = firstRoute.overview_polyline.overview_path;
+              } else {
+                // Try to get the first available key
+                const keys = Object.keys(firstRoute.overview_polyline);
+                if (keys.length > 0) {
+                  // Handle array-like structure with numeric string keys
+                  if (keys.every(key => /^\d+$/.test(key))) {
+                    // Convert numeric string keys to array
+                    const maxIndex = Math.max(...keys.map(k => parseInt(k)));
+                    const pathArray = [];
+                    for (let i = 0; i <= maxIndex; i++) {
+                      if (firstRoute.overview_polyline[i.toString()]) {
+                        pathArray.push(firstRoute.overview_polyline[i.toString()]);
+                      }
+                    }
+                    decodedPath = pathArray;
+                  } else {
+                    const pathData = firstRoute.overview_polyline[keys[0]];
+                    if (typeof pathData === 'string') {
+                      decodedPath = encoding.decodePath(pathData);
+                    } else if (Array.isArray(pathData)) {
+                      decodedPath = pathData;
+                    }
+                  }
+                }
+              }
+              
+              if (decodedPath && Array.isArray(decodedPath)) {
+                const bounds = new (window.google.maps as any).LatLngBounds();
+                decodedPath.forEach((point: any) => bounds.extend(point));
+                map.fitBounds(bounds);
+                console.log('✅ Map bounds fitted to first route');
+                console.log('📍 Route bounds:', {
+                  north: bounds.getNorthEast().lat(),
+                  south: bounds.getSouthWest().lat(),
+                  east: bounds.getNorthEast().lng(),
+                  west: bounds.getSouthWest().lng()
+                });
+              } else {
+                console.warn('⚠️ Could not decode path for map bounds fitting');
+                // Fallback: center on start and end locations
+                if (startLocation && endLocation) {
+                  const bounds = new (window.google.maps as any).LatLngBounds();
+                  bounds.extend(new (window.google.maps as any).LatLng(startLocation.lat, startLocation.lng));
+                  bounds.extend(new (window.google.maps as any).LatLng(endLocation.lat, endLocation.lng));
+                  map.fitBounds(bounds);
+                  console.log('✅ Map bounds fitted to start/end locations as fallback');
+                }
+              }
+            } catch (error) {
+              console.error('❌ Error fitting map bounds:', error);
+            }
+          }
+          
           // Find restaurants for ALL routes at once (more efficient)
           findRestaurantsForAllRoutes(result.routes, map);
+          // One-time location permission prompt after route is ready
+          if (!hasRequestedGeolocation) {
+            try {
+              const userLoc = await getUserLocation();
+              setUserLocation(userLoc);
+            } catch (e) {
+              // Ignore if denied; user can still navigate
+            } finally {
+              setHasRequestedGeolocation(true);
+            }
+          }
         } else {
           console.error('❌ Google Directions API failed:', status);
           setError(`Route calculation failed: ${status}`);
+          
+          // Track API error
+          await analyticsService.trackSystemPerformance({
+            endpoint: 'google_directions_api',
+            success: false,
+            errorType: status,
+            userId: currentUserId,
+            responseTime: Date.now() - Date.now()
+          });
         }
         setIsLoading(false);
       });
 
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
+      
+      // Track system error
+      await analyticsService.trackSystemPerformance({
+        endpoint: 'route_finding',
+        success: false,
+        errorType: err instanceof Error ? err.name : 'Unknown',
+        userId: currentUserId,
+        responseTime: Date.now() - Date.now()
+      });
+      
       setIsLoading(false);
+    }
+  };
+
+  const handleTabChange = (tabId: string) => {
+    setActiveTab(tabId as any);
+  };
+
+  const renderDiscover = () => {
+    if (!showRouteResults) {
+      return (
+        <div className="App">
+          <header className="App-header">
+            <h1>🍽️ Foodie Map - Simple</h1>
+            
+            
+            <RouteInputForm
+              startLocation={startLocation}
+              endLocation={endLocation}
+              startValue={startQuery !== null ? startQuery : (startLocation?.name || '')}
+              endValue={endQuery !== null ? endQuery : (endLocation?.name || '')}
+              isLoading={isLoading}
+              onStartLocationChange={handleStartLocationChange}
+              onEndLocationChange={handleEndLocationChange}
+              onFindRoute={handleFindRoute}
+              // Autocomplete props
+              // @ts-ignore - TypeScript inference issue with RouteInputForm props
+              startSuggestions={startSuggestions}
+              // @ts-ignore - TypeScript inference issue with RouteInputForm props
+              endSuggestions={endSuggestions}
+              showStartSuggestions={showStartSuggestions}
+              showEndSuggestions={showEndSuggestions}
+              onStartSuggestionClick={(suggestion: string) => handleSuggestionClick(suggestion, 'start')}
+              onEndSuggestionClick={(suggestion: string) => handleSuggestionClick(suggestion, 'end')}
+            />
+          </header>
+        </div>
+      );
+    }
+
+    return (
+      <RouteResultsAny
+        startLocation={startLocation}
+        endLocation={endLocation}
+        availableRoutes={availableRoutes}
+        selectedRouteIndex={availableRoutes.findIndex(r => r === selectedRoute)}
+        onRouteSelect={handleRouteSelect}
+        filteredRestaurants={filteredRestaurants}
+        selectedEateries={selectedEateries}
+        onEaterySelect={handleEaterySelect}
+        onViewDetails={(restaurant: any) => { setSelectedRestaurant(restaurant); setShowRestaurantModal(true); }}
+        onBack={() => setShowRouteResults(false)}
+        onStartNavigation={handleNavigateToEateries}
+        onSaveRoute={() => setShowSaveRouteForm(true)}
+        onLoadSavedRoutes={() => setShowSavedRoutes(true)}
+        savedRoutes={savedRoutes}
+        onLoadRoute={handleLoadRoute}
+        onDeleteRoute={handleDeleteRoute}
+        showSaveRouteForm={showSaveRouteForm}
+        showSavedRoutes={showSavedRoutes}
+        routeName={routeName}
+        onRouteNameChange={setRouteName}
+        onShowSaveForm={() => setShowSaveRouteForm(true)}
+        onShowSavedRoutes={() => setShowSavedRoutes(true)}
+        onCloseModals={() => { setShowSaveRouteForm(false); setShowSavedRoutes(false); }}
+        onSaveRouteSubmit={handleSaveRoute}
+        currentUserId={currentUserId}
+        onClearUserData={handleClearUserData}
+        onInspectData={async () => { try { await inspectFirestoreData(); } catch {} }}
+        onGetUserStats={async () => { try { await userActivityService.getUserActivitySummary(currentUserId, '30d'); } catch {} }}
+        onTestMultiRoute={() => {
+          setStartLocation({ name: 'Kuala Lumpur, Malaysia', lat: 3.1390, lng: 101.6869 });
+          setEndLocation({ name: 'Penang, Malaysia', lat: 5.4164, lng: 100.3327 });
+        }}
+        onClearRouteCache={handleClearRouteCache}
+        googleMapsLoaded={googleMapsLoaded}
+      />
+    );
+  };
+
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case 'discover':
+        return renderDiscover();
+      case 'search':
+        return <SearchTab />;
+      case 'add':
+        return <AddRestaurantTab />;
+      case 'favorites':
+        return <FavoritesTab />;
+      case 'user':
+        return <UserTab />;
+      case 'admin':
+        return <AdminDashboard />;
+      default:
+        return renderDiscover();
     }
   };
 
@@ -405,13 +853,80 @@ function App() {
       
       console.log(`🍽️ Found ${allPlaces.length} restaurants in combined area`);
       
-      // Calculate detours for ALL restaurants against ALL routes
-      const restaurantsWithAllDetours = allPlaces.map((place: any) => {
-        const detoursByRoute = routes.map((route, routeIndex) => {
-          const detours = calculateDetours([place], route);
+      // CRITICAL FIX: Calculate detours for ALL restaurants against ALL routes in ONE batch call
+      console.log('💰 Using optimized Distance Matrix service for accurate detours');
+      
+      const restaurantsWithAllDetours = await Promise.all(
+        routes.map(async (route, routeIndex) => {
+          console.log(`🔍 Calculating detours for ${allPlaces.length} restaurants along route ${routeIndex + 1}`);
+          
+          try {
+            // Use the optimized distance matrix service for ALL restaurants at once
+            const restaurantsWithDetours = await distanceMatrixService.calculateRouteDetours(route, allPlaces);
+            console.log(`✅ Detour calculation completed for ${restaurantsWithDetours.length} restaurants`);
+            
+            return {
+              routeIndex,
+              restaurants: restaurantsWithDetours
+            };
+          } catch (error) {
+            console.error(`❌ Distance Matrix service failed for route ${routeIndex + 1}:`, error);
+            
+            // The distanceMatrixService already handles fallback internally
+            // Just return the restaurants without detour calculations
+            console.log('💰 Returning restaurants without detour calculations');
+            
+            return {
+              routeIndex,
+              restaurants: allPlaces.map((place: any) => ({
+                ...place,
+                detourDistanceKm: Infinity,
+                detourDurationMinutes: Infinity,
+                detourDistanceMeters: Infinity,
+                detourDurationSeconds: Infinity
+              }))
+            };
+          }
+        })
+      );
+      
+      // Combine all route results into a single restaurant list
+      const combinedRestaurants = allPlaces.map((place: any, placeIndex: number) => {
+        const detoursByRoute = restaurantsWithAllDetours.map((routeResult: any) => {
+          // Use array index matching as the primary method since the arrays should be in the same order
+          const restaurant = routeResult.restaurants[placeIndex];
+          
+          // Debug: Check restaurant matching
+          if (placeIndex < 3) {
+            console.log(`🔍 Matching restaurant ${placeIndex}:`, {
+              placeId: place.place_id,
+              placeId2: place.id,
+              placeName: place.name || place.eateryName,
+              routeResultRestaurants: routeResult.restaurants.length,
+              matchedRestaurant: restaurant ? {
+                place_id: restaurant.place_id,
+                id: restaurant.id,
+                name: restaurant.name || restaurant.eateryName,
+                detourDistanceKm: restaurant.detourDistanceKm
+              } : null,
+              usingIndexMatching: true
+            });
+          }
+          
+          if (placeIndex < 3) {
+            console.log(`🔍 Match result for restaurant ${placeIndex}:`, {
+              found: !!restaurant,
+              detourDistanceKm: restaurant?.detourDistanceKm,
+              detourDurationMinutes: restaurant?.detourDurationMinutes
+            });
+          }
+          
           return {
-            routeIndex,
-            detour: detours[0] || { detourDistanceKm: Infinity, detourDurationMinutes: Infinity }
+            routeIndex: routeResult.routeIndex,
+            detour: restaurant ? {
+              detourDistanceKm: restaurant.detourDistanceKm || Infinity,
+              detourDurationMinutes: restaurant.detourDurationMinutes || Infinity
+            } : { detourDistanceKm: Infinity, detourDurationMinutes: Infinity }
           };
         });
         
@@ -425,24 +940,34 @@ function App() {
       });
       
       // Filter restaurants that are within range of at least one route
-      const validRestaurants = restaurantsWithAllDetours.filter((restaurant: any) => 
+      // More generous limits: 5km or 30 minutes detour
+      const validRestaurants = combinedRestaurants.filter((restaurant: any) => 
         restaurant.detoursByRoute.some((d: any) => 
-          d.detour.detourDistanceKm <= 2 || d.detour.detourDurationMinutes <= 15
+          d.detour.detourDistanceKm <= 5 || d.detour.detourDurationMinutes <= 30
         )
       );
       
       console.log(`📍 ${validRestaurants.length} restaurants within range of at least one route`);
       
+      // Debug: Show some detour examples
+      if (combinedRestaurants.length > 0) {
+        console.log('🔍 Sample detour calculations:');
+        combinedRestaurants.slice(0, 3).forEach((restaurant: any, index: number) => {
+          console.log(`Restaurant ${index + 1}: ${restaurant.name || restaurant.eateryName}`);
+          restaurant.detoursByRoute.forEach((detour: any, routeIdx: number) => {
+            console.log(`  Route ${routeIdx + 1}: ${detour.detour.detourDistanceKm.toFixed(2)}km, ${detour.detour.detourDurationMinutes.toFixed(1)}min`);
+          });
+        });
+      }
+      
       // Store all restaurants
       setAllRestaurants(validRestaurants);
       
       // Show restaurants for the first route by default
-      filterRestaurantsForRoute(validRestaurants, routes[0], 0);
+      filterRestaurantsForRoute(validRestaurants, routes[0], 0, map);
       
-      // Add markers to map
-      if (map) {
-        addRestaurantMarkers(validRestaurants, map);
-      }
+      // Add markers to map - this will be called after filtering is complete
+      // The markers will be added in the filterRestaurantsForRoute function
       
     } catch (error) {
       console.error('❌ Restaurant search failed:', error);
@@ -452,14 +977,14 @@ function App() {
   };
 
   // NEW: Filter restaurants for a specific route (no API call needed)
-  const filterRestaurantsForRoute = (restaurants: any[], route: any, routeIndex: number) => {
+  const filterRestaurantsForRoute = (restaurants: any[], route: any, routeIndex: number, mapInstance?: any) => {
     console.log(`🔄 Filtering restaurants for Route ${routeIndex + 1}...`);
     
     const filtered = restaurants.filter(restaurant => {
       const routeDetour = restaurant.detoursByRoute[routeIndex];
       return routeDetour && (
-        routeDetour.detour.detourDistanceKm <= 2 || 
-        routeDetour.detour.detourDurationMinutes <= 15
+        routeDetour.detour.detourDistanceKm <= 5 || 
+        routeDetour.detour.detourDurationMinutes <= 30
       );
     }).map(restaurant => ({
       ...restaurant,
@@ -470,61 +995,55 @@ function App() {
     
     console.log(`📍 ${filtered.length} restaurants visible for Route ${routeIndex + 1}`);
     setFilteredRestaurants(filtered);
+    
+    // Add markers to map after filtering
+    if (mapInstance && filtered.length > 0) {
+      console.log(`🗺️ Adding ${filtered.length} restaurant markers to map`);
+      addRestaurantMarkers(filtered, mapInstance);
+    } else if (mapInstance) {
+      console.log('🗺️ No restaurants to display on map');
+    }
   };
 
-  // Calculate detours using Haversine formula (NO Distance Matrix API!)
-  const calculateDetours = (places: any[], route: any) => {
-    console.log('💰 Using Haversine formula - NO Distance Matrix API cost!');
-    console.log('🔍 Route structure:', route);
+
+  // Add restaurant markers to map (AdvancedMarkerElement)
+  const addRestaurantMarkers = async (restaurants: any[], map: any) => {
+    console.log(`🗺️ addRestaurantMarkers called with ${restaurants.length} restaurants`);
+    console.log('🗺️ Map instance:', map);
     
-    // Extract route points from the route
-    const routePoints: Array<{lat: number, lng: number}> = [];
-    if (route.legs && route.legs.length > 0) {
-      route.legs.forEach((leg: any) => {
-        if (leg.steps) {
-          leg.steps.forEach((step: any) => {
-            routePoints.push({
-              lat: typeof step.start_location.lat === 'function' ? step.start_location.lat() : step.start_location.lat,
-              lng: typeof step.start_location.lng === 'function' ? step.start_location.lng() : step.start_location.lng
-            });
-          });
-        }
-      });
+    // Ensure marker library is loaded
+    if (!(window.google.maps as any).marker?.AdvancedMarkerElement) {
+      console.log('🗺️ Loading marker library...');
+      await window.google.maps.importLibrary('marker');
+      console.log('🗺️ Marker library loaded');
     }
-    
-    if (routePoints.length === 0) {
-      console.warn('⚠️ No route points found for detour calculation');
-      return places;
-    }
-    
-    const restaurantsWithDetours = places.map(place => {
-      // Find minimum detour from all route points
-      const minDetour = findMinimumDetour(routePoints, place.location);
-      
-      return {
-        ...place,
-        detourDistanceKm: minDetour.distanceKm,
-        detourDurationMinutes: minDetour.durationMinutes,
-        detourDistanceMeters: minDetour.distanceMeters,
-        detourDurationSeconds: minDetour.durationSeconds
-      };
+
+    // Keep track of the currently open InfoWindow
+    let currentInfoWindow: any = null;
+
+    // Add map click listener to close any open InfoWindow
+    map.addListener('click', () => {
+      if (currentInfoWindow) {
+        currentInfoWindow.close();
+        currentInfoWindow = null;
+      }
     });
-    
-    return restaurantsWithDetours;
-  };
 
-  // Add restaurant markers to map
-  const addRestaurantMarkers = (restaurants: any[], map: any) => {
-    restaurants.forEach((restaurant: any) => {
-      const marker = new google.maps.Marker({
+    restaurants.forEach((restaurant: any, index: number) => {
+      console.log(`🗺️ Creating marker ${index + 1} for:`, restaurant.name || restaurant.displayName);
+      console.log(`🗺️ Restaurant location:`, restaurant.location);
+      
+      const AdvancedMarkerElement = (window.google.maps as any).marker.AdvancedMarkerElement;
+      const marker = new AdvancedMarkerElement({
         position: restaurant.location,
         map: map,
-        title: restaurant.name || restaurant.displayName,
-        icon: {
-          url: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
-          scaledSize: new google.maps.Size(30, 30)
-        }
+        title: restaurant.name || restaurant.displayName
       });
+      
+      console.log(`🗺️ Marker created for ${restaurant.name || restaurant.displayName}`);
+
+      const placeId = restaurant.place_id || restaurant.id;
+      console.log(`🗺️ Creating info window for ${restaurant.name || restaurant.displayName} with place_id: ${placeId}`);
       
       const infoWindow = new google.maps.InfoWindow({
         content: `
@@ -532,18 +1051,27 @@ function App() {
             <h3 style="color: #000000; margin: 0 0 8px 0;">${restaurant.name || restaurant.displayName}</h3>
             <p style="color: #000000; margin: 4px 0;">${restaurant.address || restaurant.formattedAddress || 'Address not available'}</p>
             <p style="color: #000000; margin: 4px 0;">Rating: ${restaurant.rating || 'N/A'}</p>
-            ${restaurant.detourDistanceKm ? `<p style="color: #000000; margin: 4px 0;">Detour: ${restaurant.detourDistanceKm.toFixed(1)} km (${restaurant.detourDurationMinutes.toFixed(0)} min)</p>` : ''}
+            ${restaurant.detourDistanceKm ? `<p style="color: #000000; margin: 4px 0;">Detour: ${restaurant.detourDistanceKm.toFixed(1)} km (${(restaurant.detourDurationMinutes || 0).toFixed(0)} min)</p>` : ''}
             <p style="color: #000000; margin: 4px 0; font-size: 12px;">Source: ${restaurant.source || 'unknown'}</p>
-            <button onclick="navigateToRestaurant('${restaurant.place_id || restaurant.id}')" 
+            <p style="color: #000000; margin: 4px 0; font-size: 10px; opacity: 0.7;">Place ID: ${placeId || 'N/A'}</p>
+            <button onclick="navigateToRestaurant('${placeId}')" 
                     style="background: #CC0001; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin-top: 8px;">
               Navigate Here
             </button>
           </div>
         `
       });
-      
-      marker.addListener('click', () => {
-        infoWindow.open(map, marker);
+
+      // Advanced markers use 'gmp-click'
+      marker.addListener('gmp-click', () => {
+        // Close any currently open InfoWindow
+        if (currentInfoWindow) {
+          currentInfoWindow.close();
+        }
+        
+        // Open the new InfoWindow and track it
+        infoWindow.open({ map, anchor: marker });
+        currentInfoWindow = infoWindow;
       });
     });
   };
@@ -552,16 +1080,7 @@ function App() {
     if (type === 'start') {
       setStartLocation(location);
       
-      // Prompt for location permission after start location is set
-      console.log('📍 Prompting for location permission after start location input...');
-      try {
-        const userLoc = await getUserLocation();
-        setUserLocation(userLoc);
-        console.log('✅ User location obtained after start location input:', userLoc);
-      } catch (error) {
-        console.log('⚠️ Location permission denied or failed:', error);
-        // Don't show error to user, just continue without location
-      }
+      // Do not prompt geolocation on every keystroke; only when route is found or explicitly needed
     } else {
       setEndLocation(location);
     }
@@ -575,7 +1094,9 @@ function App() {
       const { Geocoder } = await window.google.maps.importLibrary("geocoding");
       const geocoder = new Geocoder();
       
-      geocoder.geocode({ address: address + ', Malaysia' }, (results: any, status: any) => {
+      // Allow free typing: only append ", Malaysia" if user didn't type a country hint
+      const query = /malaysia/i.test(address) ? address : `${address}, Malaysia`;
+      geocoder.geocode({ address: query }, (results: any, status: any) => {
         if (status === 'OK' && results[0]) {
           const location = results[0].geometry.location;
           const locationData: Location = {
@@ -597,6 +1118,120 @@ function App() {
     }
   };
 
+  // Generate location suggestions based on Malaysian cities and locations
+  const getLocationSuggestions = (query: string): string[] => {
+    if (!query || query.length < 2) return [];
+
+    const malaysianLocations = [
+      // Major cities
+      'Kuala Lumpur', 'Petaling Jaya', 'Shah Alam', 'Subang Jaya', 'Klang',
+      'Johor Bahru', 'Ipoh', 'Penang', 'Malacca', 'Kuantan', 'Kota Kinabalu',
+      'Kuching', 'Alor Setar', 'Kangar', 'Kuala Terengganu', 'Kota Bharu',
+      'Seremban', 'Melaka', 'Miri', 'Sibu', 'Sandakan', 'Tawau',
+      
+      // States (with major cities)
+      'Selangor', 'Johor', 'Perak', 'Pulau Pinang', 'Melaka', 'Pahang',
+      'Terengganu', 'Kelantan', 'Perlis', 'Kedah', 'Negeri Sembilan',
+      'Sabah', 'Sarawak', 'Labuan',
+      
+      // Popular areas in KL
+      'KLCC', 'Bukit Bintang', 'Chinatown', 'Little India', 'Bangsar',
+      'Mont Kiara', 'Damansara', 'Ampang', 'Cheras', 'Kepong', 'Gombak',
+      
+      // Popular areas in other cities
+      'Georgetown', 'Gurney Drive', 'Batu Ferringhi', 'Jonker Street',
+      'Legoland', 'Desaru', 'Cameron Highlands', 'Genting Highlands',
+      'Langkawi', 'Tioman', 'Redang', 'Perhentian',
+      
+      // Common abbreviations
+      'KL', 'JB', 'PJ', 'KK', 'PG'
+    ];
+
+    const lowerQuery = query.toLowerCase();
+    return malaysianLocations
+      .filter(location => 
+        location.toLowerCase().includes(lowerQuery) ||
+        location.toLowerCase().startsWith(lowerQuery)
+      )
+      .slice(0, 8); // Limit to 8 suggestions
+  };
+
+  // Handle start location input change with autocomplete
+  const handleStartLocationChange = (value: string) => {
+    setStartQuery(value);
+    
+    // If user clears the input, also clear the geocoded location
+    if (!value || value.trim() === '') {
+      setStartLocation(null);
+      setLastGeocodedStart('');
+      setShowStartSuggestions(false);
+      setStartSuggestions([]);
+      return;
+    }
+    
+    // Generate suggestions
+    const suggestions = getLocationSuggestions(value);
+    setStartSuggestions(suggestions);
+    setShowStartSuggestions(suggestions.length > 0 && value.length >= 2);
+    
+    // Clear existing debounce
+    if (startDebounceRef.current) clearTimeout(startDebounceRef.current);
+    
+    // Debounced geocoding
+    startDebounceRef.current = setTimeout(() => {
+      if (value && value.length >= 3 && value !== lastGeocodedStart) {
+        geocodeLocation(value, 'start');
+        setLastGeocodedStart(value);
+      }
+    }, 700);
+  };
+
+  // Handle end location input change with autocomplete
+  const handleEndLocationChange = (value: string) => {
+    setEndQuery(value);
+    
+    // If user clears the input, also clear the geocoded location
+    if (!value || value.trim() === '') {
+      setEndLocation(null);
+      setLastGeocodedEnd('');
+      setShowEndSuggestions(false);
+      setEndSuggestions([]);
+      return;
+    }
+    
+    // Generate suggestions
+    const suggestions = getLocationSuggestions(value);
+    setEndSuggestions(suggestions);
+    setShowEndSuggestions(suggestions.length > 0 && value.length >= 2);
+    
+    // Clear existing debounce
+    if (endDebounceRef.current) clearTimeout(endDebounceRef.current);
+    
+    // Debounced geocoding
+    endDebounceRef.current = setTimeout(() => {
+      if (value && value.length >= 3 && value !== lastGeocodedEnd) {
+        geocodeLocation(value, 'end');
+        setLastGeocodedEnd(value);
+      }
+    }, 700);
+  };
+
+  // Handle suggestion click
+  const handleSuggestionClick = (suggestion: string, type: 'start' | 'end') => {
+    if (type === 'start') {
+      setStartQuery(suggestion);
+      setShowStartSuggestions(false);
+      // Auto-geocode the suggestion
+      geocodeLocation(suggestion, 'start');
+      setLastGeocodedStart(suggestion);
+    } else {
+      setEndQuery(suggestion);
+      setShowEndSuggestions(false);
+      // Auto-geocode the suggestion
+      geocodeLocation(suggestion, 'end');
+      setLastGeocodedEnd(suggestion);
+    }
+  };
 
   const handleRouteSelect = async (routeIndex: number) => {
     const route = availableRoutes[routeIndex];
@@ -618,7 +1253,7 @@ function App() {
       
       // Filter existing restaurants for the selected route (NO API call!)
       if (allRestaurants.length > 0) {
-        filterRestaurantsForRoute(allRestaurants, route, routeIndex);
+        filterRestaurantsForRoute(allRestaurants, route, routeIndex, null);
         setSelectedEateries([]); // Clear selected restaurants when switching routes
       }
       
@@ -999,599 +1634,10 @@ function App() {
   };
 
   return (
-    <div className="App">
-      <header className="App-header">
-        <h1>🍽️ Foodie Map - Simple</h1>
-        
-        <div style={{ margin: '20px 0', width: '100%', maxWidth: '500px' }}>
-                  <div style={{ marginBottom: '10px' }}>
-                    <label>Start Location:</label>
-                    <input
-                      type="text"
-                      placeholder="Enter start city (e.g., Kajang)"
-                      style={{ width: '100%', padding: '8px', marginTop: '5px' }}
-                      onBlur={async (e) => {
-                        if (e.target.value) {
-                          await geocodeLocation(e.target.value, 'start');
-                        }
-                      }}
-                    />
-                  </div>
-                  
-                  <div style={{ marginBottom: '10px' }}>
-                    <label>End Location:</label>
-                    <input
-                      type="text"
-                      placeholder="Enter end city (e.g., Seremban)"
-                      style={{ width: '100%', padding: '8px', marginTop: '5px' }}
-                      onBlur={async (e) => {
-                        if (e.target.value) {
-                          await geocodeLocation(e.target.value, 'end');
-                        }
-                      }}
-                    />
-                  </div>
-          
-                <button
-                  onClick={() => {
-                    console.log('🔘 Button clicked!');
-                    handleFindRoute();
-                  }}
-                  disabled={!startLocation || !endLocation || isLoading || !googleMapsLoaded}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    backgroundColor: '#CC0001',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    fontSize: '16px',
-                    cursor: (isLoading || !googleMapsLoaded) ? 'not-allowed' : 'pointer',
-                    opacity: (isLoading || !googleMapsLoaded) ? 0.6 : 1,
-                    marginBottom: '10px'
-                  }}
-                >
-                  {!googleMapsLoaded ? 'Loading Google Maps...' : isLoading ? 'Finding Route...' : `Find Food Along Route 🍽️ (${startLocation ? '✓' : '✗'} → ${endLocation ? '✓' : '✗'})`}
-                </button>
-        
-        {/* Add New Restaurant Button */}
-        <button
-          onClick={() => setShowSubmissionForm(true)}
-          style={{
-            width: '100%',
-            padding: '12px',
-            backgroundColor: '#4CAF50',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            fontSize: '16px',
-            cursor: 'pointer',
-            marginBottom: '10px'
-          }}
-        >
-          ➕ Add New Restaurant
-        </button>
-
-                {/* Save Route Button */}
-                {startLocation && endLocation && (
-                  <button
-                    onClick={() => setShowSaveRouteForm(true)}
-                    style={{
-                      width: '100%',
-                      padding: '12px',
-                      backgroundColor: '#FF9800',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '4px',
-                      fontSize: '16px',
-                      cursor: 'pointer',
-                      marginBottom: '10px'
-                    }}
-                  >
-                    💾 Save This Route
-                  </button>
-                )}
-
-        {/* View Saved Routes Button */}
-        <button
-          onClick={() => setShowSavedRoutes(true)}
-          style={{
-            width: '100%',
-            padding: '12px',
-            backgroundColor: '#2196F3',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            fontSize: '16px',
-            cursor: 'pointer'
-          }}
-        >
-          📚 My Saved Routes ({savedRoutes.length})
-        </button>
-          
-          {error && (
-            <div style={{ color: 'red', marginTop: '10px' }}>
-              {error}
-            </div>
-          )}
-        </div>
-        
-        <div
-          id="map"
-          style={{
-            width: '100%',
-            height: '400px',
-            border: '2px solid #ccc',
-            borderRadius: '8px',
-            marginTop: '20px'
-          }}
-        />
-        
-                {/* Route Selection */}
-                {availableRoutes.length > 1 && (
-                  <div style={{ marginTop: '20px', width: '100%', maxWidth: '500px' }}>
-                    <div style={{
-                      backgroundColor: '#e3f2fd',
-                      border: '2px solid #2196F3',
-                      borderRadius: '10px',
-                      padding: '15px',
-                      marginBottom: '15px'
-                    }}>
-                      <h3 style={{ 
-                        color: '#1976D2', 
-                        marginBottom: '8px',
-                        fontSize: '18px',
-                        fontWeight: 'bold',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px'
-                      }}>
-                        🛣️ {availableRoutes.length} Routes Found!
-                      </h3>
-                      <p style={{ 
-                        color: '#1976D2', 
-                        fontSize: '14px',
-                        margin: '0 0 8px 0'
-                      }}>
-                        Select different routes to discover unique restaurants along each path:
-                      </p>
-                    </div>
-                    
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                      {availableRoutes.map((route, index) => (
-                        <button
-                          key={index}
-                          onClick={() => handleRouteSelect(index)}
-                          style={{
-                            padding: '15px',
-                            backgroundColor: selectedRoute === route ? '#e8f5e8' : 'white',
-                            color: selectedRoute === route ? '#2E7D32' : '#333',
-                            border: selectedRoute === route ? '3px solid #4CAF50' : '2px solid #e0e0e0',
-                            borderRadius: '10px',
-                            cursor: 'pointer',
-                            textAlign: 'left',
-                            transition: 'all 0.2s ease',
-                            boxShadow: selectedRoute === route ? '0 4px 8px rgba(76, 175, 80, 0.3)' : '0 2px 4px rgba(0,0,0,0.1)'
-                          }}
-                          onMouseOver={(e) => {
-                            if (selectedRoute !== route) {
-                              const target = e.target as HTMLButtonElement;
-                              target.style.backgroundColor = '#f5f5f5';
-                              target.style.borderColor = '#2196F3';
-                            }
-                          }}
-                          onMouseOut={(e) => {
-                            if (selectedRoute !== route) {
-                              const target = e.target as HTMLButtonElement;
-                              target.style.backgroundColor = 'white';
-                              target.style.borderColor = '#e0e0e0';
-                            }
-                          }}
-                        >
-                          <div style={{ 
-                            fontWeight: 'bold', 
-                            marginBottom: '6px',
-                            fontSize: '16px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px'
-                          }}>
-                            {selectedRoute === route ? '✅' : '🛣️'} Route {index + 1}: {route.summary || 'Unknown Route'}
-                          </div>
-                          <div style={{ 
-                            color: '#666', 
-                            fontSize: '13px',
-                            display: 'flex',
-                            gap: '15px',
-                            flexWrap: 'wrap'
-                          }}>
-                            <span>📏 {route.legs?.[0]?.distance?.text || route.legs?.[0]?.distance || 'Unknown'}</span>
-                            <span>⏱️ {route.legs?.[0]?.duration?.text || route.legs?.[0]?.duration || 'Unknown'}</span>
-                          </div>
-                          {route.warnings && route.warnings.length > 0 && (
-                            <div style={{ 
-                              color: '#FF9800', 
-                              fontSize: '12px',
-                              marginTop: '4px',
-                              fontStyle: 'italic'
-                            }}>
-                              ⚠️ {route.warnings[0]}
-                            </div>
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                    
-                    <div style={{ 
-                      marginTop: '15px', 
-                      padding: '12px', 
-                      backgroundColor: '#fff3e0', 
-                      borderRadius: '8px',
-                      fontSize: '13px',
-                      color: '#E65100',
-                      border: '1px solid #FFB74D'
-                    }}>
-                      💡 <strong>Pro Tip:</strong> Each route shows different restaurants along its path. Switch routes to discover new eateries and find the best food stops for your journey!
-                    </div>
-                  </div>
-                )}
-                
-                {/* Single Route Info */}
-                {availableRoutes.length === 1 && (
-                  <div style={{ 
-                    marginTop: '20px', 
-                    padding: '12px', 
-                    backgroundColor: '#f0f8ff', 
-                    borderRadius: '8px',
-                    fontSize: '14px',
-                    color: '#1976D2',
-                    border: '1px solid #BBDEFB',
-                    maxWidth: '500px'
-                  }}>
-                    ℹ️ <strong>Single Route Found:</strong> Google Maps found only one viable route for this journey. This is common for direct highway routes or short distances.
-                  </div>
-                )}
-        
-                {/* Restaurant Selection */}
-                {filteredRestaurants.length > 0 && (
-                  <div style={{ marginTop: '20px', width: '100%', maxWidth: '500px' }}>
-                    <h3 style={{ color: '#CC0001', marginBottom: '10px' }}>
-                      Restaurants Along Route ({selectedEateries.length} selected):
-                    </h3>
-                    <div style={{ 
-                      backgroundColor: '#e8f5e8', 
-                      padding: '8px', 
-                      borderRadius: '4px', 
-                      marginBottom: '10px',
-                      fontSize: '12px',
-                      color: '#2e7d32'
-                    }}>
-                      💡 Showing {filteredRestaurants.length} restaurants along the selected route
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '200px', overflowY: 'auto' }}>
-                      {filteredRestaurants.map((restaurant, index) => {
-                // Create a unique identifier for each restaurant
-                const getUniqueId = (eatery: any) => {
-                  return eatery.place_id || eatery.id || `${eatery.location.lat}_${eatery.location.lng}_${eatery.name}`;
-                };
-                
-                const restaurantUniqueId = getUniqueId(restaurant);
-                const isSelected = selectedEateries.some(eatery => getUniqueId(eatery) === restaurantUniqueId);
-                
-                return (
-                  <div
-                    key={index}
-                    style={{
-                      padding: '10px',
-                      backgroundColor: isSelected ? '#4CAF50' : '#f0f0f0',
-                      color: isSelected ? 'white' : 'black',
-                      border: isSelected ? '2px solid #2E7D32' : '1px solid #ddd',
-                      borderRadius: '4px',
-                      textAlign: 'left'
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <div style={{ flex: 1 }}>
-                        <strong>{restaurant.name || restaurant.displayName}</strong>
-                        <br />
-                                <small>
-                                  {restaurant.address || restaurant.formattedAddress}
-                                  {restaurant.rating && ` | ⭐ ${restaurant.rating}`}
-                                  {restaurant.distanceFromUserKm && ` | 📍 ${restaurant.distanceFromUserKm} from you`}
-                                  {restaurant.detourDistanceKm && ` | 🚗 ${restaurant.detourDistanceKm.toFixed(1)}km (${restaurant.detourDurationMinutes.toFixed(0)}min)`}
-                                  <br />
-                                  <span style={{ color: isSelected ? '#E8F5E8' : '#666', fontSize: '10px' }}>
-                                    Source: {restaurant.source || 'unknown'}
-                                  </span>
-                                </small>
-                      </div>
-                      <button
-                        onClick={() => handleEaterySelect(restaurant)}
-                        style={{
-                          marginLeft: '10px',
-                          padding: '5px 10px',
-                          backgroundColor: isSelected ? '#FF5722' : '#4CAF50',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '4px',
-                          cursor: 'pointer',
-                          fontSize: '12px',
-                          fontWeight: 'bold'
-                        }}
-                      >
-                        {isSelected ? '❌ Remove' : '✅ Add'}
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-        
-                {/* Navigation Section - Always show if route is found */}
-                {startLocation && endLocation && (() => {
-                  console.log('🎯 Navigation section rendered!', { startLocation: startLocation?.name, endLocation: endLocation?.name });
-                  return (
-                  <div style={{ marginTop: '20px', width: '100%', maxWidth: '500px' }}>
-                    {selectedEateries.length > 0 ? (
-                      <div style={{ 
-                        backgroundColor: '#f0f8ff', 
-                        padding: '15px', 
-                        borderRadius: '8px', 
-                        marginBottom: '10px',
-                        border: '2px solid #4CAF50'
-                      }}>
-                        <h4 style={{ margin: '0 0 10px 0', color: '#2E7D32' }}>📍 Your Food Journey Route:</h4>
-                        <div style={{ fontSize: '14px', color: '#666' }}>
-                          <div>🚀 <strong>Start:</strong> {startLocation?.name}</div>
-                          {selectedEateries.map((eatery, index) => (
-                            <div key={index}>
-                              🍽️ <strong>Stop {index + 1}:</strong> {eatery.name || eatery.displayName}
-                              {eatery.detourDistanceKm && (
-                                <span style={{ color: '#888', fontSize: '12px' }}>
-                                  {' '}(+{eatery.detourDistanceKm.toFixed(1)}km)
-                                </span>
-                              )}
-                            </div>
-                          ))}
-                          <div>🏁 <strong>End:</strong> {endLocation?.name}</div>
-                        </div>
-                        <div style={{ marginTop: '10px', fontSize: '12px', color: '#888' }}>
-                          Total stops: {selectedEateries.length} restaurant{selectedEateries.length > 1 ? 's' : ''}
-                        </div>
-                      </div>
-                    ) : (
-                      <div style={{ 
-                        backgroundColor: '#f0f8ff', 
-                        padding: '15px', 
-                        borderRadius: '8px', 
-                        marginBottom: '10px',
-                        border: '2px solid #2196F3'
-                      }}>
-                        <h4 style={{ margin: '0 0 10px 0', color: '#1976D2' }}>🗺️ Direct Route Navigation:</h4>
-                        <div style={{ fontSize: '14px', color: '#666' }}>
-                          <div>🚀 <strong>Start:</strong> {startLocation?.name}</div>
-                          <div>🏁 <strong>End:</strong> {endLocation?.name}</div>
-                        </div>
-                        <div style={{ marginTop: '10px', fontSize: '12px', color: '#888' }}>
-                          No restaurants selected - direct route navigation
-                        </div>
-                      </div>
-                    )}
-                    {/* Location Status Indicator */}
-                    {userLocation && startLocation && (
-                      <div style={{ 
-                        marginBottom: '10px', 
-                        padding: '8px', 
-                        backgroundColor: navigationMode === 'start' ? '#e8f5e8' : '#e3f2fd',
-                        borderRadius: '4px',
-                        fontSize: '12px',
-                        color: '#333'
-                      }}>
-                        {navigationMode === 'start' ? (
-                          <>📍 You're here! Ready to start navigation</>
-                        ) : (
-                          <>📍 You're {calculateHaversineDistance(userLocation, startLocation).toFixed(1)}km from {startLocation.name}</>
-                        )}
-                      </div>
-                    )}
-                    
-                    <button
-                      onClick={handleNavigateToEateries}
-                      style={{
-                        width: '100%',
-                        padding: '15px',
-                        backgroundColor: navigationMode === 'start' ? '#4CAF50' : '#2196F3',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '8px',
-                        fontSize: '18px',
-                        fontWeight: 'bold',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      {navigationMode === 'start' ? (
-                        selectedEateries.length > 0 
-                          ? `🚀 Start Multi-Stop Navigation (${selectedEateries.length} stops)`
-                          : '🚀 Start Direct Navigation'
-                      ) : (
-                        selectedEateries.length > 0 
-                          ? `📋 Preview Multi-Stop Route (${selectedEateries.length} stops)`
-                          : '📋 Preview Direct Route'
-                      )}
-                    </button>
-                  </div>
-                  );
-                })()}
-        
-        <div style={{ marginTop: '20px', fontSize: '14px', color: '#666' }}>
-          <p>✅ Simple working version</p>
-          <p>✅ Route calculation with alternatives</p>
-          <p>✅ Restaurant discovery along route</p>
-          <p>✅ Route selection (if multiple routes)</p>
-          <p>✅ Multi-restaurant selection for food tours</p>
-          <p>✅ Multi-stop navigation with waypoints</p>
-          <p>✅ Save & load custom routes (user-specific)</p>
-          <p>✅ Drive navigation integration</p>
-          <p>✅ User restaurant submission</p>
-          <p style={{ color: googleMapsLoaded ? '#4CAF50' : '#FF9800' }}>
-            {googleMapsLoaded ? '✅ Google Maps loaded' : '⏳ Loading Google Maps...'}
-          </p>
-                  {currentUserId && (
-                    <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                      <p style={{ color: '#2196F3', fontSize: '12px', margin: 0 }}>
-                        👤 User ID: {currentUserId}
-                      </p>
-                      <button
-                        onClick={handleClearUserData}
-                        style={{
-                          padding: '4px 8px',
-                          backgroundColor: '#f44336',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '4px',
-                          fontSize: '10px',
-                          cursor: 'pointer'
-                        }}
-                        title="Clear all saved routes and generate new user ID"
-                      >
-                        🗑️ Clear Data
-                      </button>
-                      <button
-                        onClick={async () => {
-                          try {
-                            console.log('🔍 Running Firestore data inspection...');
-                            await inspectFirestoreData();
-                          } catch (error) {
-                            console.error('❌ Inspection failed:', error);
-                          }
-                        }}
-                        style={{
-                          padding: '4px 8px',
-                          backgroundColor: '#2196F3',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '4px',
-                          fontSize: '10px',
-                          cursor: 'pointer'
-                        }}
-                        title="Inspect all Firestore collections and data"
-                      >
-                        🔍 Inspect Data
-                      </button>
-                      <button
-                        onClick={async () => {
-                          try {
-                            console.log('🎮 Getting user activity and achievements...');
-                            const summary = await userActivityService.getUserActivitySummary(currentUserId, '30d');
-                            const achievements = await userActivityService.getUserAchievements(currentUserId);
-                            const leaderboard = await userActivityService.getLeaderboard('30d', 5);
-                            
-                            console.log('📊 User Activity Summary:', summary);
-                            console.log('🏆 User Achievements:', achievements);
-                            console.log('🏅 Leaderboard:', leaderboard);
-                            
-                            alert(`🎮 Beta Tester Stats:\n\n📊 Total Activities: ${summary?.totalActivities || 0}\n🏆 Total Points: ${summary?.totalPoints || 0}\n🏅 Achievements: ${achievements.length}\n\nCheck console for detailed data!`);
-                          } catch (error) {
-                            console.error('❌ Failed to get user stats:', error);
-                            alert('Failed to get user stats. Check console for details.');
-                          }
-                        }}
-                        style={{
-                          padding: '4px 8px',
-                          backgroundColor: '#9C27B0',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '4px',
-                          fontSize: '10px',
-                          cursor: 'pointer'
-                        }}
-                        title="View user activity, achievements, and leaderboard"
-                      >
-                        🎮 My Stats
-                      </button>
-                      <button
-                        onClick={() => {
-                          // Test with a city pair that's more likely to have multiple routes
-                          setStartLocation({ name: 'Kuala Lumpur, Malaysia', lat: 3.1390, lng: 101.6869 });
-                          setEndLocation({ name: 'Penang, Malaysia', lat: 5.4164, lng: 100.3327 });
-                          console.log('🧪 Testing with KL to Penang route (more likely to have alternatives)');
-                        }}
-                        style={{
-                          padding: '4px 8px',
-                          backgroundColor: '#FF9800',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '4px',
-                          fontSize: '10px',
-                          cursor: 'pointer'
-                        }}
-                        title="Test with KL to Penang (more likely to have multiple routes)"
-                      >
-                        🧪 Test Multi-Route
-                      </button>
-                      <button
-                        onClick={handleClearRouteCache}
-                        style={{
-                          padding: '4px 8px',
-                          backgroundColor: '#FF9800',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '4px',
-                          fontSize: '10px',
-                          cursor: 'pointer'
-                        }}
-                        title="Clear all cached routes (ONE TIME FIX for route structure)"
-                      >
-                        🗑️ Clear Cache (Fix Route Structure)
-                      </button>
-                    </div>
-                  )}
-        </div>
-      </header>
+    <FavoritesProvider>
+      <div className="App">
+      {renderTabContent()}
       
-      {/* Submission Form Modal */}
-      {showSubmissionForm && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-          padding: '20px'
-        }}>
-          <div style={{
-            backgroundColor: 'white',
-            borderRadius: '8px',
-            maxHeight: '90vh',
-            overflowY: 'auto',
-            position: 'relative'
-          }}>
-            <button
-              onClick={() => setShowSubmissionForm(false)}
-              style={{
-                position: 'absolute',
-                top: '10px',
-                right: '10px',
-                background: 'none',
-                border: 'none',
-                fontSize: '24px',
-                cursor: 'pointer',
-                color: '#666'
-              }}
-            >
-              ×
-            </button>
-            <EaterySubmissionForm onClose={() => setShowSubmissionForm(false)} />
-          </div>
-        </div>
-      )}
 
       {/* Save Route Modal */}
       {showSaveRouteForm && (
@@ -1930,15 +1976,87 @@ function App() {
           </div>
         </div>
       )}
-    </div>
-  );
-}
 
-// Global navigation function
-(window as any).navigateToRestaurant = function(placeId: string) {
-  console.log('Navigating to restaurant:', placeId);
-  const url = `https://www.google.com/maps/place/?q=place_id:${placeId}`;
-  window.open(url, '_blank');
+      {/* Restaurant Details Modal */}
+      {showRestaurantModal && selectedRestaurant && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '20px'
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '8px',
+            maxHeight: '90vh',
+            overflowY: 'auto',
+            position: 'relative',
+            width: '100%',
+            maxWidth: '520px'
+          }}>
+            <button
+              onClick={() => setShowRestaurantModal(false)}
+              style={{
+                position: 'absolute',
+                top: '10px',
+                right: '10px',
+                background: 'none',
+                border: 'none',
+                fontSize: '24px',
+                cursor: 'pointer',
+                color: '#666'
+              }}
+            >
+              ×
+            </button>
+            <RestaurantModal isOpen={true} restaurant={selectedRestaurant} onClose={() => setShowRestaurantModal(false)} />
+          </div>
+        </div>
+      )}
+
+        <BottomNavigation activeTab={activeTab} onTabChange={handleTabChange} isAdmin={isAdmin} />
+        </div>
+      </FavoritesProvider>
+  );
+};
+
+// Main App component that provides auth context
+const App: React.FC = () => {
+  return (
+    <AuthProvider>
+      <AppWithAuth />
+    </AuthProvider>
+  );
 };
 
 export default App;
+
+// Global navigation function
+(window as any).navigateToRestaurant = function(placeId: string) {
+  console.log('🗺️ Navigate button clicked!');
+  console.log('📍 Restaurant Place ID:', placeId);
+  
+  if (!placeId) {
+    console.error('❌ No place ID provided for navigation');
+    alert('Sorry, navigation information is not available for this restaurant.');
+    return;
+  }
+  
+  const url = `https://www.google.com/maps/place/?q=place_id:${placeId}`;
+  console.log('🌐 Opening Google Maps URL:', url);
+  
+  try {
+    window.open(url, '_blank');
+    console.log('✅ Navigation opened successfully');
+  } catch (error) {
+    console.error('❌ Failed to open navigation:', error);
+    alert('Failed to open navigation. Please try again.');
+  }
+};

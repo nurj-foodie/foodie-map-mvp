@@ -1,0 +1,370 @@
+.route-results {
+  padding: 20px;
+  min-height: 100vh;
+  background: #f8f9fa;
+}
+
+.results-header {
+  text-align: center;
+  margin-bottom: 30px;
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.results-header h2 {
+  color: #333;
+  margin: 0 0 12px 0;
+  font-size: 24px;
+}
+
+.route-info {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: #666;
+  font-size: 16px;
+}
+
+.route-selection {
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
+}
+
+.route-selection h3 {
+  color: #333;
+  margin: 0 0 16px 0;
+  font-size: 18px;
+}
+
+.route-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.route-option {
+  padding: 16px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  background: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+}
+
+.route-option:hover {
+  border-color: #CC0001;
+  background: #f8f9fa;
+}
+
+.route-option.selected {
+  border-color: #CC0001;
+  background: #fff5f5;
+}
+
+.route-summary {
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 8px;
+}
+
+.route-details {
+  display: flex;
+  gap: 16px;
+  color: #666;
+  font-size: 14px;
+}
+
+.map-container {
+  margin-bottom: 20px;
+}
+
+.restaurant-selection {
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
+}
+
+.restaurant-selection h3 {
+  color: #333;
+  margin: 0 0 16px 0;
+  font-size: 18px;
+}
+
+.restaurant-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.restaurant-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  background: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.restaurant-card:hover {
+  border-color: #CC0001;
+  background: #f8f9fa;
+}
+
+.restaurant-card.selected {
+  border-color: #CC0001;
+  background: #fff5f5;
+}
+
+.restaurant-info {
+  flex: 1;
+}
+
+.restaurant-info h4 {
+  color: #333;
+  margin: 0 0 8px 0;
+  font-size: 16px;
+}
+
+.restaurant-info p {
+  color: #666;
+  margin: 0 0 8px 0;
+  font-size: 14px;
+}
+
+.restaurant-details {
+  display: flex;
+  gap: 12px;
+  color: #666;
+  font-size: 12px;
+  flex-wrap: wrap;
+}
+
+.restaurant-details span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Detour information styling */
+.restaurant-details .detour-info {
+  background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
+  padding: 4px 8px;
+  border-radius: 8px;
+  border: 1px solid #e1bee7;
+  font-weight: 600;
+  color: #5e35b1;
+}
+
+.restaurant-card .restaurant-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.select-btn {
+  padding: 8px 16px;
+  border: 1px solid #CC0001;
+  border-radius: 6px;
+  background: white;
+  color: #CC0001;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.2s ease;
+}
+
+.select-btn:hover {
+  background: #CC0001;
+  color: white;
+}
+
+.select-btn.selected {
+  background: #CC0001;
+  color: white;
+}
+
+.action-buttons {
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
+}
+
+.navigation-btn {
+  width: 100%;
+  padding: 16px;
+  background: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-bottom: 16px;
+  transition: all 0.2s ease;
+}
+
+.navigation-btn:hover {
+  background: #45a049;
+  transform: translateY(-2px);
+}
+
+.start-journey-btn {
+  width: 100%;
+  padding: 18px;
+  background: linear-gradient(135deg, #CC0001, #FF4444);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+  margin-bottom: 16px;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(204, 0, 1, 0.3);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.start-journey-btn:hover {
+  background: linear-gradient(135deg, #B30000, #E63939);
+  transform: translateY(-3px);
+  box-shadow: 0 6px 20px rgba(204, 0, 1, 0.4);
+}
+
+.start-journey-btn:active {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 10px rgba(204, 0, 1, 0.3);
+}
+
+.secondary-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.save-btn, .load-btn {
+  flex: 1;
+  padding: 12px;
+  border: 1px solid #CC0001;
+  border-radius: 6px;
+  background: white;
+  color: #CC0001;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.save-btn:hover, .load-btn:hover {
+  background: #CC0001;
+  color: white;
+}
+
+.status-info {
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
+}
+
+.status-info p {
+  margin: 4px 0;
+  font-size: 14px;
+  color: #666;
+}
+
+.user-actions {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #e0e0e0;
+}
+
+.user-actions p {
+  color: #2196F3;
+  font-size: 12px;
+  margin: 0 0 12px 0;
+}
+
+.user-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.user-buttons button {
+  padding: 4px 8px;
+  border: none;
+  border-radius: 4px;
+  font-size: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.user-buttons button:nth-child(1) { background: #f44336; color: white; }
+.user-buttons button:nth-child(2) { background: #2196F3; color: white; }
+.user-buttons button:nth-child(3) { background: #9C27B0; color: white; }
+.user-buttons button:nth-child(4) { background: #FF9800; color: white; }
+.user-buttons button:nth-child(5) { background: #FF9800; color: white; }
+
+.user-buttons button:hover {
+  opacity: 0.8;
+  transform: translateY(-1px);
+}
+
+/* Mobile optimizations */
+@media (max-width: 480px) {
+  .route-results {
+    padding: 16px;
+  }
+  
+  .results-header h2 {
+    font-size: 20px;
+  }
+  
+  .route-info {
+    font-size: 14px;
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .restaurant-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  
+  .restaurant-actions {
+    width: 100%;
+  }
+  
+  .select-btn {
+    width: 100%;
+  }
+  
+  .secondary-actions {
+    flex-direction: column;
+  }
+  
+  .user-buttons {
+    flex-direction: column;
+  }
+  
+  .user-buttons button {
+    width: 100%;
+  }
+}

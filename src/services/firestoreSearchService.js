@@ -22,14 +22,33 @@ class FirestoreSearchService {
     
     // Step 2: Fallback to Google Places API
     console.log('⚠️ No Firestore results, falling back to Google Places API...');
+    console.log('💰 API Call:', {
+      type: 'Google Places API',
+      cost: '~RM0.017 per request',
+      cacheHit: false,
+      reason: 'No Firestore data for this area',
+      bounds: bounds,
+      filters: filters
+    });
     const googleResults = await this.fallbackToGooglePlaces(bounds, filters);
     
-    // Step 3: Save Google results to Firestore for future use
+    // Step 3: Auto-populate Firestore with Google results for future use
     if (googleResults.length > 0) {
+      console.log(`💾 Auto-populating Firestore with ${googleResults.length} restaurants...`);
       await this.saveToFirestore(googleResults);
+      console.log('✅ Auto-population completed! Future searches will use Firestore data.');
     }
     
     return googleResults;
+  }
+
+  // Generate cache key for API calls
+  getCacheKey(bounds, filters) {
+    const center = {
+      lat: Math.round(((bounds.north + bounds.south) / 2) * 1000) / 1000,
+      lng: Math.round(((bounds.east + bounds.west) / 2) * 1000) / 1000
+    };
+    return `${center.lat},${center.lng}-${filters.foodType || 'all'}`;
   }
 
   // Query Firestore by bounds and filters (simplified to avoid index requirements)
@@ -49,119 +68,252 @@ class FirestoreSearchService {
       snapshot.forEach(doc => {
         const data = doc.data();
         
-        // Filter by bounds in memory
+        // Check if restaurant is within bounds
         if (data.location && 
             data.location.lat >= bounds.south && 
             data.location.lat <= bounds.north &&
             data.location.lng >= bounds.west && 
             data.location.lng <= bounds.east) {
           
-          results.push({
-            id: doc.id,
-            ...data,
-            source: 'firestore'
-          });
+          // Apply filters in memory
+          if (this.matchesFilters(data, filters)) {
+            results.push({
+              id: doc.id,
+              ...data
+            });
+          }
         }
       });
       
       console.log(`📊 Found ${results.length} restaurants in bounds`);
       return results;
+      
     } catch (error) {
       console.error('❌ Firestore query error:', error);
       return [];
     }
   }
 
-  // Fallback to Google Places API (NEW API)
+  // Check if restaurant matches filters
+  matchesFilters(restaurant, filters) {
+    // Food type filter
+    if (filters.foodType && filters.foodType !== 'all') {
+      const types = restaurant.types || [];
+      const cuisineType = restaurant.cuisineType || '';
+      
+      if (!types.some(type => 
+        type.toLowerCase().includes(filters.foodType.toLowerCase())
+      ) && !cuisineType.toLowerCase().includes(filters.foodType.toLowerCase())) {
+        return false;
+      }
+    }
+
+    // Rating filter
+    if (filters.minRating && restaurant.rating < filters.minRating) {
+      return false;
+    }
+
+    // Halal filter
+    if (filters.halalOnly && restaurant.halalStatus !== 'halal') {
+      return false;
+    }
+
+    // Open now filter
+    if (filters.openNow && restaurant.currentOpeningHours) {
+      if (!restaurant.currentOpeningHours.openNow) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  // Fallback to Google Places API (with legacy fallback)
   async fallbackToGooglePlaces(bounds, filters) {
     try {
-      console.log('🔄 Using NEW Google Places API for fallback...');
+      // Check if we've already made an API call for this area recently
+      const cacheKey = this.getCacheKey(bounds, filters);
+      if (this.cache.has(cacheKey)) {
+        console.log('📋 Using cached API results...');
+        console.log('💰 API Call:', {
+          type: 'Google Places API',
+          cost: 'FREE (cached)',
+          cacheHit: true,
+          reason: '5-minute cache hit',
+          cacheKey: cacheKey
+        });
+        return this.cache.get(cacheKey);
+      }
+
+      // Try NEW Google Places API first
+      try {
+        console.log('🔄 Trying NEW Google Places API...');
+        return await this.tryNewPlacesAPI(bounds, filters, cacheKey);
+      } catch (newApiError) {
+        console.log('⚠️ NEW API failed, falling back to LEGACY Places API:', newApiError.message);
+        return await this.tryLegacyPlacesAPI(bounds, filters, cacheKey);
+      }
       
-      // Import the new Places API
-      const { Place } = await google.maps.importLibrary("places");
-      
+    } catch (error) {
+      console.error('❌ All Google Places API methods failed:', error);
+      throw error;
+    }
+  }
+
+  // Try NEW Google Places API
+  async tryNewPlacesAPI(bounds, filters, cacheKey) {
+    const { Place } = await google.maps.importLibrary("places");
+    
+    const request = {
+      textQuery: filters.foodType !== 'all' 
+        ? `${filters.foodType} restaurant` 
+        : 'restaurant',
+      fields: [
+        'id', 'displayName', 'location', 'rating', 'userRatingCount', 
+        'priceLevel', 'types', 'formattedAddress', 'photos', 
+        'regularOpeningHours', 'nationalPhoneNumber',
+        'businessStatus', 'utcOffsetMinutes', 'viewport', 'attributions'
+      ],
+      locationBias: {
+        center: {
+          lat: (bounds.north + bounds.south) / 2,
+          lng: (bounds.east + bounds.west) / 2
+        },
+        radius: 10000
+      },
+      maxResultCount: 30,
+      language: 'en-MY',
+      region: 'MY',
+    };
+    
+    const { places } = await Place.searchByText(request);
+    console.log(`✅ Found ${places.length} restaurants via NEW API`);
+    
+    // Cache the results
+    this.cache.set(cacheKey, places);
+    setTimeout(() => this.cache.delete(cacheKey), this.cacheTimeout);
+    
+    return this.normalizeNewAPIResults(places, bounds, filters);
+  }
+
+  // Try LEGACY Google Places API
+  async tryLegacyPlacesAPI(bounds, filters, cacheKey) {
+    const service = new google.maps.places.PlacesService(document.createElement('div'));
+    
+    return new Promise((resolve, reject) => {
       const request = {
-        textQuery: filters.foodType !== 'all' 
+        query: filters.foodType !== 'all' 
           ? `${filters.foodType} restaurant` 
           : 'restaurant',
-        fields: [
-          'id', 'displayName', 'location', 'rating', 'userRatingCount', 
-          'priceLevel', 'types', 'formattedAddress', 'photos', 
-          'currentOpeningHours', 'formattedPhoneNumber', 'websiteUri',
-          'businessStatus', 'utcOffsetMinutes', 'viewport', 'attributions'
-        ],
-        locationBias: {
-          center: {
-            lat: (bounds.north + bounds.south) / 2,
-            lng: (bounds.east + bounds.west) / 2
-          },
-          radius: 5000 // 5km radius
-        },
-        maxResultCount: 20,
-        language: 'en-MY',
-        region: 'MY',
+        location: new google.maps.LatLng(
+          (bounds.north + bounds.south) / 2,
+          (bounds.east + bounds.west) / 2
+        ),
+        radius: 10000,
+        type: 'restaurant'
       };
-      
-      const { places } = await Place.searchByText(request);
-      
-      console.log(`✅ Found ${places.length} restaurants via NEW API`);
-      
-      // Normalize format with ALL available Google Places data
-      const normalizedResults = places.map(place => ({
-        // Basic Info
-        place_id: place.id,
-        name: place.displayName,
-        address: place.formattedAddress,
-        location: {
-          lat: typeof place.location.lat === 'function' ? place.location.lat() : place.location.lat,
-          lng: typeof place.location.lng === 'function' ? place.location.lng() : place.location.lng
+
+      service.textSearch(request, (results, status) => {
+        if (status === google.maps.places.PlacesServiceStatus.OK) {
+          console.log(`✅ Found ${results.length} restaurants via LEGACY API`);
+          
+          // Cache the results
+          this.cache.set(cacheKey, results);
+          setTimeout(() => this.cache.delete(cacheKey), this.cacheTimeout);
+          
+          const normalizedResults = this.normalizeLegacyAPIResults(results, bounds, filters);
+          resolve(normalizedResults);
+        } else {
+          reject(new Error(`Legacy Places API error: ${status}`));
+        }
+      });
+    });
+  }
+
+  // Normalize NEW API results
+  normalizeNewAPIResults(places, bounds, filters) {
+    return places.map(place => ({
+      place_id: place.id,
+      name: place.displayName,
+      address: place.formattedAddress,
+      location: {
+        lat: typeof place.location.lat === 'function' ? place.location.lat() : place.location.lat,
+        lng: typeof place.location.lng === 'function' ? place.location.lng() : place.location.lng
+      },
+      rating: place.rating || 0,
+      userRatingCount: place.userRatingCount || 0,
+      priceLevel: place.priceLevel || null,
+      types: place.types || [],
+      photos: place.photos ? place.photos.map(photo => ({
+        photo_reference: typeof photo.getUrl === 'function' ? photo.getUrl({ maxWidth: 400 }) : photo.photo_reference || photo
+      })) : [],
+      phone: place.nationalPhoneNumber || '',
+      website: '', // NEW API doesn't provide website in basic fields
+      businessStatus: place.businessStatus || 'OPERATIONAL',
+      currentOpeningHours: place.regularOpeningHours ? {
+        openNow: place.regularOpeningHours.openNow,
+        periods: place.regularOpeningHours.periods || [],
+        weekdayDescriptions: place.regularOpeningHours.weekdayDescriptions || []
+      } : null,
+      utcOffsetMinutes: place.utcOffsetMinutes || 0,
+      viewport: place.viewport ? {
+        northeast: {
+          lat: typeof place.viewport.northeast.lat === 'function' ? place.viewport.northeast.lat() : place.viewport.northeast.lat,
+          lng: typeof place.viewport.northeast.lng === 'function' ? place.viewport.northeast.lng() : place.viewport.northeast.lng
         },
-        
-        // Rich Google Places Data
-        rating: place.rating || 0,
-        userRatingCount: place.userRatingCount || 0,
-        priceLevel: place.priceLevel || null,
-        types: place.types || [],
-        photos: place.photos || [],
-        
-        // Contact & Business Info
-        phone: place.formattedPhoneNumber || '',
-        website: place.websiteUri || '',
-        businessStatus: place.businessStatus || 'OPERATIONAL',
-        
-        // Operating Hours
-        currentOpeningHours: place.currentOpeningHours ? {
-          openNow: place.currentOpeningHours.openNow,
-          periods: place.currentOpeningHours.periods || [],
-          weekdayDescriptions: place.currentOpeningHours.weekdayDescriptions || []
-        } : null,
-        
-        // Location Details
-        utcOffsetMinutes: place.utcOffsetMinutes || 0,
-        viewport: place.viewport ? {
-          northeast: {
-            lat: typeof place.viewport.northeast.lat === 'function' ? place.viewport.northeast.lat() : place.viewport.northeast.lat,
-            lng: typeof place.viewport.northeast.lng === 'function' ? place.viewport.northeast.lng() : place.viewport.northeast.lng
-          },
-          southwest: {
-            lat: typeof place.viewport.southwest.lat === 'function' ? place.viewport.southwest.lat() : place.viewport.southwest.lat,
-            lng: typeof place.viewport.southwest.lng === 'function' ? place.viewport.southwest.lng() : place.viewport.southwest.lng
-          }
-        } : null,
-        
-        // Attribution
-        attributions: place.attributions || [],
-        
-        // System Metadata
-        source: 'google_places_new',
-        lastUpdated: new Date()
-      }));
-      
-      return normalizedResults;
-    } catch (error) {
-      console.error('❌ NEW Google Places API error:', error);
-      return [];
-    }
+        southwest: {
+          lat: typeof place.viewport.southwest.lat === 'function' ? place.viewport.southwest.lat() : place.viewport.southwest.lat,
+          lng: typeof place.viewport.southwest.lng === 'function' ? place.viewport.southwest.lng() : place.viewport.southwest.lng
+        }
+      } : null,
+      source: 'google_places_new_api',
+      fetchedAt: new Date().toISOString(),
+      searchBounds: bounds,
+      searchFilters: filters
+    }));
+  }
+
+  // Normalize LEGACY API results
+  normalizeLegacyAPIResults(results, bounds, filters) {
+    return results.map(place => ({
+      place_id: place.place_id,
+      name: place.name,
+      address: place.formatted_address,
+      location: {
+        lat: place.geometry.location.lat(),
+        lng: place.geometry.location.lng()
+      },
+      rating: place.rating || 0,
+      userRatingCount: place.user_ratings_total || 0,
+      priceLevel: place.price_level || null,
+      types: place.types || [],
+      photos: place.photos ? place.photos.map(photo => ({
+        photo_reference: typeof photo.getUrl === 'function' ? photo.getUrl({ maxWidth: 400 }) : photo.photo_reference || photo
+      })) : [],
+      phone: place.formatted_phone_number || '',
+      website: place.website || '',
+      businessStatus: place.business_status || 'OPERATIONAL',
+      currentOpeningHours: place.opening_hours ? {
+        openNow: place.opening_hours.open_now,
+        periods: place.opening_hours.periods || [],
+        weekdayDescriptions: place.opening_hours.weekday_text || []
+      } : null,
+      utcOffsetMinutes: place.utc_offset || 0,
+      viewport: place.geometry.viewport ? {
+        northeast: {
+          lat: place.geometry.viewport.getNorthEast().lat(),
+          lng: place.geometry.viewport.getNorthEast().lng()
+        },
+        southwest: {
+          lat: place.geometry.viewport.getSouthWest().lat(),
+          lng: place.geometry.viewport.getSouthWest().lng()
+        }
+      } : null,
+      source: 'google_places_legacy_api',
+      fetchedAt: new Date().toISOString(),
+      searchBounds: bounds,
+      searchFilters: filters
+    }));
   }
 
   // Save Google Places results to Firestore
@@ -175,31 +327,18 @@ class FirestoreSearchService {
           limit(1)
         );
         
-        const existing = await getDocs(existingQuery);
+        const existingSnapshot = await getDocs(existingQuery);
         
-        if (existing.empty) {
+        if (existingSnapshot.empty) {
+          // Add new restaurant
           await addDoc(collection(db, 'eateries'), {
             ...restaurant,
-            // System Metadata
-            verified: false,
-            createdBy: 'system',
             createdAt: new Date(),
-            updatedAt: new Date(),
-            source: 'google_places_auto',
-            status: 'active',
-            
-            // Additional Fields for User Experience
-            cuisineType: 'unknown', // Will be filled by user submissions or admin
-            halalStatus: 'unknown', // Will be filled by user submissions or admin
-            description: '', // Will be filled by user submissions
-            tags: [], // Will be populated based on types and user input
-            popularity: 0, // Will be tracked based on user interactions
-            lastVerified: null // For admin verification tracking
+            updatedAt: new Date()
           });
-          console.log(`✅ Saved rich eatery data: ${restaurant.name} (${Object.keys(restaurant).length} fields)`);
+          console.log(`💾 Saved new restaurant: ${restaurant.name}`);
         } else {
-          // Update existing record with new data (if available)
-          console.log(`📝 Eatery already exists: ${restaurant.name}`);
+          console.log(`⏭️ Restaurant already exists: ${restaurant.name}`);
         }
       }
     } catch (error) {
@@ -209,4 +348,3 @@ class FirestoreSearchService {
 }
 
 export const firestoreSearchService = new FirestoreSearchService();
-export default firestoreSearchService;

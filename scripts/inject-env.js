@@ -2,17 +2,35 @@ const fs = require('fs');
 const path = require('path');
 
 // Read environment variables
-require('dotenv').config();
+const envPath = path.join(__dirname, '..', '.env');
+let envVars = {};
 
-// Read the HTML file
-const htmlPath = path.join(__dirname, '../public/index.html');
-let html = fs.readFileSync(htmlPath, 'utf8');
+if (fs.existsSync(envPath)) {
+  const envContent = fs.readFileSync(envPath, 'utf8');
+  envContent.split('\n').forEach(line => {
+    const [key, ...valueParts] = line.split('=');
+    if (key && valueParts.length > 0) {
+      const value = valueParts.join('=').trim();
+      if (!key.startsWith('#')) {
+        envVars[key.trim()] = value;
+      }
+    }
+  });
+}
 
-// Replace placeholder with actual API key
-const apiKey = process.env.REACT_APP_GOOGLE_MAPS_API_KEY || 'YOUR_API_KEY_HERE';
-html = html.replace('YOUR_GOOGLE_MAPS_API_KEY_HERE', apiKey);
-
-// Write back to file
-fs.writeFileSync(htmlPath, html);
-
-console.log('✅ Environment variables injected into HTML');
+// Inject environment variables into index.html
+const indexPath = path.join(__dirname, '..', 'public', 'index.html');
+if (fs.existsSync(indexPath)) {
+  let indexContent = fs.readFileSync(indexPath, 'utf8');
+  
+  // Replace environment variable placeholders
+  Object.keys(envVars).forEach(key => {
+    const placeholder = `%${key}%`;
+    indexContent = indexContent.replace(new RegExp(placeholder, 'g'), envVars[key]);
+  });
+  
+  fs.writeFileSync(indexPath, indexContent);
+  console.log('✅ Environment variables injected into index.html');
+} else {
+  console.error('❌ index.html not found');
+}

@@ -14,7 +14,34 @@ const EaterySubmissionForm = ({ onClose }) => {
     rating: 0,
     phone: '',
     website: '',
-    description: ''
+    description: '',
+    // Enhanced fields to match database structure
+    businessStatus: 'OPERATIONAL',
+    priceLevel: 1,
+    types: ['restaurant', 'food', 'establishment'],
+    operatingHours: {
+      isOpen: true,
+      isOpen24Hours: false,
+      periods: [
+        { day: 'Monday', open: '09:00', close: '22:00', isClosed: false },
+        { day: 'Tuesday', open: '09:00', close: '22:00', isClosed: false },
+        { day: 'Wednesday', open: '09:00', close: '22:00', isClosed: false },
+        { day: 'Thursday', open: '09:00', close: '22:00', isClosed: false },
+        { day: 'Friday', open: '09:00', close: '22:00', isClosed: false },
+        { day: 'Saturday', open: '09:00', close: '22:00', isClosed: false },
+        { day: 'Sunday', open: '09:00', close: '22:00', isClosed: false }
+      ]
+    },
+    accessibility: {
+      wheelchairAccessible: false,
+      parkingAvailable: false,
+      deliveryAvailable: false,
+      takeoutAvailable: true,
+      dineInAvailable: true,
+      outdoorSeating: false,
+      wifiAvailable: false,
+      airConditioned: false
+    }
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchResults, setSearchResults] = useState([]);
@@ -22,6 +49,29 @@ const EaterySubmissionForm = ({ onClose }) => {
   const [isLocating, setIsLocating] = useState(false);
   const [nearbyRestaurants, setNearbyRestaurants] = useState([]);
   const [showNearbyRestaurants, setShowNearbyRestaurants] = useState(false);
+  const [uploadedPhotos, setUploadedPhotos] = useState([]);
+  const [isUploadingPhotos, setIsUploadingPhotos] = useState(false);
+  const [initialReview, setInitialReview] = useState({
+    rating: {
+      foodQuality: 0,
+      valueForMoney: 0,
+      serviceQuality: 0,
+      ambiance: 0
+    },
+    comment: '',
+    visitDate: new Date().toISOString().split('T')[0],
+    visitType: 'dine-in',
+    partySize: 'solo',
+    mealType: 'lunch'
+  });
+  const [showCheckInOption, setShowCheckInOption] = useState(false);
+  const [isVerifyingLocation, setIsVerifyingLocation] = useState(false);
+  const [locationVerification, setLocationVerification] = useState({
+    isVerified: false,
+    distance: null,
+    userLocation: null,
+    verificationMessage: ''
+  });
 
   // Search Google Places for restaurant
   const searchGooglePlaces = async (query) => {
@@ -139,6 +189,171 @@ const EaterySubmissionForm = ({ onClose }) => {
     
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
     return R * c; // Distance in km
+  };
+
+  // Helper functions for operating hours management
+  const updateOperatingHours = (dayIndex, field, value) => {
+    const newPeriods = [...formData.operatingHours.periods];
+    newPeriods[dayIndex] = { ...newPeriods[dayIndex], [field]: value };
+    
+    setFormData({
+      ...formData,
+      operatingHours: {
+        ...formData.operatingHours,
+        periods: newPeriods
+      }
+    });
+  };
+
+  const toggle24Hours = () => {
+    setFormData({
+      ...formData,
+      operatingHours: {
+        ...formData.operatingHours,
+        isOpen24Hours: !formData.operatingHours.isOpen24Hours
+      }
+    });
+  };
+
+  const updateAccessibility = (field, value) => {
+    setFormData({
+      ...formData,
+      accessibility: {
+        ...formData.accessibility,
+        [field]: value
+      }
+    });
+  };
+
+  // Handle photo upload
+  const handlePhotoUpload = async (event) => {
+    const files = Array.from(event.target.files);
+    if (files.length === 0) return;
+
+    setIsUploadingPhotos(true);
+    
+    try {
+      const uploadPromises = files.map(async (file) => {
+        // In a real app, you would upload to Firebase Storage
+        // For now, we'll create a mock URL and store file info
+        const mockUrl = URL.createObjectURL(file);
+        
+        return {
+          id: Date.now() + Math.random(),
+          url: mockUrl,
+          name: file.name,
+          size: file.size,
+          type: file.type,
+          uploadedAt: new Date(),
+          uploadedBy: 'user_submission' // In real app: currentUser.uid
+        };
+      });
+
+      const uploadedFiles = await Promise.all(uploadPromises);
+      setUploadedPhotos(prev => [...prev, ...uploadedFiles]);
+      
+      console.log(`✅ Uploaded ${uploadedFiles.length} photos`);
+    } catch (error) {
+      console.error('❌ Photo upload error:', error);
+      alert('Failed to upload photos: ' + error.message);
+    } finally {
+      setIsUploadingPhotos(false);
+    }
+  };
+
+  // Remove uploaded photo
+  const removePhoto = (photoId) => {
+    setUploadedPhotos(prev => prev.filter(photo => photo.id !== photoId));
+  };
+
+  // Handle initial review submission
+  const handleInitialReview = (field, value) => {
+    setInitialReview(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  // Handle category rating update
+  const handleCategoryRating = (category, value) => {
+    setInitialReview(prev => ({
+      ...prev,
+      rating: {
+        ...prev.rating,
+        [category]: parseInt(value)
+      }
+    }));
+  };
+
+  // Calculate overall rating from categories
+  const calculateOverallRating = (ratings) => {
+    const values = Object.values(ratings).filter(r => r > 0);
+    if (values.length === 0) return 0;
+    return values.reduce((sum, rating) => sum + rating, 0) / values.length;
+  };
+
+  // Verify user location for check-in (100m radius)
+  const verifyLocationForCheckIn = async () => {
+    if (!formData.location || formData.location.lat === 0) {
+      alert('Please set the restaurant location first before verifying check-in.');
+      return;
+    }
+
+    setIsVerifyingLocation(true);
+    
+    try {
+      // Get user's current location
+      const position = await new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 300000 // 5 minutes
+        });
+      });
+
+      const userLocation = {
+        lat: position.coords.latitude,
+        lng: position.coords.longitude
+      };
+
+      // Calculate distance using Haversine formula
+      const distance = calculateHaversineDistance(userLocation, formData.location);
+      const distanceMeters = distance * 1000;
+
+      console.log(`📍 Location verification: ${distanceMeters.toFixed(0)}m from restaurant`);
+
+      if (distanceMeters <= 100) {
+        // Within 100m - verified check-in
+        setLocationVerification({
+          isVerified: true,
+          distance: distanceMeters,
+          userLocation: userLocation,
+          verificationMessage: `✅ Verified! You're ${distanceMeters.toFixed(0)}m from the restaurant.`
+        });
+        setShowCheckInOption(true);
+        console.log('✅ Location verified for check-in');
+      } else {
+        // Too far - not verified
+        setLocationVerification({
+          isVerified: false,
+          distance: distanceMeters,
+          userLocation: userLocation,
+          verificationMessage: `❌ Too far! You're ${distanceMeters.toFixed(0)}m from the restaurant. Must be within 100m for verified check-in.`
+        });
+        setShowCheckInOption(false);
+        console.log('❌ Location not verified - too far from restaurant');
+      }
+    } catch (error) {
+      console.error('❌ Location verification failed:', error);
+      setLocationVerification({
+        isVerified: false,
+        distance: null,
+        userLocation: null,
+        verificationMessage: '❌ Location verification failed. Please ensure location access is enabled.'
+      });
+    } finally {
+      setIsVerifyingLocation(false);
+    }
   };
 
   // Get user's current location
@@ -262,22 +477,67 @@ const EaterySubmissionForm = ({ onClose }) => {
 
       await addDoc(collection(db, 'eateries'), {
         ...cleanFormData,
+        // Enhanced database structure
+        businessStatus: formData.businessStatus,
+        priceLevel: formData.priceLevel,
+        types: formData.types,
+        operatingHours: formData.operatingHours,
+        accessibility: formData.accessibility,
+        // Metadata
         verified: false,
         createdBy: 'user_submission', // In a real app, this would be currentUser.uid
         createdAt: new Date(),
         updatedAt: new Date(),
         status: 'pending_review',
         source: 'user_submission',
-        // Additional fields for better data structure
-        types: ['restaurant', 'food', 'point_of_interest', 'establishment'],
-        operatingHours: {
-          isOpen: true, // Default assumption
-          hours: 'Not specified'
-        }
+        // Analytics
+        totalViews: 0,
+        totalClicks: 0,
+        totalCheckIns: showCheckInOption ? 1 : 0,
+        userCheckIns: showCheckInOption ? 1 : 0,
+        userReviews: calculateOverallRating(initialReview.rating) > 0 ? [{
+          userId: 'user_submission', // In real app: currentUser.uid
+          rating: {
+            overall: calculateOverallRating(initialReview.rating),
+            foodQuality: initialReview.rating.foodQuality,
+            valueForMoney: initialReview.rating.valueForMoney,
+            serviceQuality: initialReview.rating.serviceQuality,
+            ambiance: initialReview.rating.ambiance
+          },
+          comment: initialReview.comment,
+          visitDate: initialReview.visitDate,
+          visitType: initialReview.visitType,
+          partySize: initialReview.partySize,
+          mealType: initialReview.mealType,
+          createdAt: new Date(),
+          verified: locationVerification.isVerified,
+          verificationDistance: locationVerification.distance,
+          helpfulVotes: 0,
+          reactions: { thumbsUp: 0, heart: 0, food: 0, sad: 0 }
+        }] : [],
+        userPhotos: uploadedPhotos
       });
       
       console.log('✅ Restaurant submitted successfully:', formData.name);
-      alert('Restaurant submitted successfully! It will be reviewed by admin.');
+      
+      // Create success message with details
+      let successMessage = `Restaurant "${formData.name}" submitted successfully!`;
+      if (uploadedPhotos.length > 0) {
+        successMessage += `\n📸 ${uploadedPhotos.length} photos uploaded`;
+      }
+      if (calculateOverallRating(initialReview.rating) > 0) {
+        const overallRating = calculateOverallRating(initialReview.rating).toFixed(1);
+        successMessage += `\n⭐ ${overallRating}-star review added (${Object.values(initialReview.rating).filter(r => r > 0).length}/4 categories rated)`;
+        if (locationVerification.isVerified) {
+          successMessage += `\n✅ Verified review (${locationVerification.distance.toFixed(0)}m from restaurant)`;
+        }
+      }
+      if (showCheckInOption) {
+        successMessage += `\n📍 Check-in recorded`;
+      }
+      successMessage += `\n\nIt will be reviewed by admin before going live.`;
+      
+      alert(successMessage);
       
       // Reset form
       setFormData({
@@ -290,7 +550,57 @@ const EaterySubmissionForm = ({ onClose }) => {
         rating: 0,
         phone: '',
         website: '',
-        description: ''
+        description: '',
+        // Reset enhanced fields
+        businessStatus: 'OPERATIONAL',
+        priceLevel: 1,
+        types: ['restaurant', 'food', 'establishment'],
+        operatingHours: {
+          isOpen: true,
+          isOpen24Hours: false,
+          periods: [
+            { day: 'Monday', open: '09:00', close: '22:00', isClosed: false },
+            { day: 'Tuesday', open: '09:00', close: '22:00', isClosed: false },
+            { day: 'Wednesday', open: '09:00', close: '22:00', isClosed: false },
+            { day: 'Thursday', open: '09:00', close: '22:00', isClosed: false },
+            { day: 'Friday', open: '09:00', close: '22:00', isClosed: false },
+            { day: 'Saturday', open: '09:00', close: '22:00', isClosed: false },
+            { day: 'Sunday', open: '09:00', close: '22:00', isClosed: false }
+          ]
+        },
+        accessibility: {
+          wheelchairAccessible: false,
+          parkingAvailable: false,
+          deliveryAvailable: false,
+          takeoutAvailable: true,
+          dineInAvailable: true,
+          outdoorSeating: false,
+          wifiAvailable: false,
+          airConditioned: false
+        }
+      });
+      
+      // Reset additional features
+      setUploadedPhotos([]);
+      setInitialReview({
+        rating: {
+          foodQuality: 0,
+          valueForMoney: 0,
+          serviceQuality: 0,
+          ambiance: 0
+        },
+        comment: '',
+        visitDate: new Date().toISOString().split('T')[0],
+        visitType: 'dine-in',
+        partySize: 'solo',
+        mealType: 'lunch'
+      });
+      setShowCheckInOption(false);
+      setLocationVerification({
+        isVerified: false,
+        distance: null,
+        userLocation: null,
+        verificationMessage: ''
       });
       
       onClose();
@@ -629,6 +939,626 @@ const EaterySubmissionForm = ({ onClose }) => {
               resize: 'vertical'
             }}
           />
+        </div>
+
+        {/* Enhanced Fields Section */}
+        <div style={{ 
+          marginBottom: '20px', 
+          padding: '15px', 
+          backgroundColor: '#f8f9fa', 
+          borderRadius: '8px',
+          border: '1px solid #e9ecef'
+        }}>
+          <h3 style={{ color: '#CC0001', marginBottom: '15px', fontSize: '16px' }}>
+            🏪 Business Information
+          </h3>
+
+          {/* Business Status */}
+          <div style={{ marginBottom: '15px' }}>
+            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+              Business Status
+            </label>
+            <select
+              value={formData.businessStatus}
+              onChange={(e) => setFormData({...formData, businessStatus: e.target.value})}
+              style={{
+                width: '100%',
+                padding: '10px',
+                border: '1px solid #ccc',
+                borderRadius: '4px',
+                fontSize: '14px'
+              }}
+            >
+              <option value="OPERATIONAL">🟢 Operational</option>
+              <option value="CLOSED_TEMPORARILY">🟡 Closed Temporarily</option>
+              <option value="CLOSED_PERMANENTLY">🔴 Closed Permanently</option>
+            </select>
+          </div>
+
+          {/* Price Level */}
+          <div style={{ marginBottom: '15px' }}>
+            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+              Price Level
+            </label>
+            <select
+              value={formData.priceLevel}
+              onChange={(e) => setFormData({...formData, priceLevel: parseInt(e.target.value)})}
+              style={{
+                width: '100%',
+                padding: '10px',
+                border: '1px solid #ccc',
+                borderRadius: '4px',
+                fontSize: '14px'
+              }}
+            >
+              <option value={1}>💰 $ (Budget-friendly)</option>
+              <option value={2}>💰💰 $$ (Moderate)</option>
+              <option value={3}>💰💰💰 $$$ (Expensive)</option>
+              <option value={4}>💰💰💰💰 $$$$ (Very Expensive)</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Operating Hours Section */}
+        <div style={{ 
+          marginBottom: '20px', 
+          padding: '15px', 
+          backgroundColor: '#f0f8ff', 
+          borderRadius: '8px',
+          border: '1px solid #2196F3'
+        }}>
+          <h3 style={{ color: '#CC0001', marginBottom: '15px', fontSize: '16px' }}>
+            🕒 Operating Hours
+          </h3>
+
+          {/* 24 Hours Toggle */}
+          <div style={{ marginBottom: '15px' }}>
+            <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={formData.operatingHours.isOpen24Hours}
+                onChange={toggle24Hours}
+                style={{ marginRight: '8px' }}
+              />
+              <span style={{ fontWeight: 'bold' }}>🕐 Open 24 Hours</span>
+            </label>
+          </div>
+
+          {/* Day-by-day Schedule */}
+          {!formData.operatingHours.isOpen24Hours && (
+            <div>
+              {formData.operatingHours.periods.map((period, index) => (
+                <div key={index} style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  marginBottom: '10px',
+                  gap: '10px'
+                }}>
+                  <div style={{ 
+                    width: '80px', 
+                    fontWeight: 'bold', 
+                    fontSize: '14px' 
+                  }}>
+                    {period.day}
+                  </div>
+                  
+                  <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={period.isClosed}
+                      onChange={(e) => updateOperatingHours(index, 'isClosed', e.target.checked)}
+                      style={{ marginRight: '5px' }}
+                    />
+                    <span style={{ fontSize: '12px' }}>Closed</span>
+                  </label>
+
+                  {!period.isClosed && (
+                    <>
+                      <input
+                        type="time"
+                        value={period.open}
+                        onChange={(e) => updateOperatingHours(index, 'open', e.target.value)}
+                        style={{
+                          padding: '5px',
+                          border: '1px solid #ccc',
+                          borderRadius: '4px',
+                          fontSize: '12px'
+                        }}
+                      />
+                      <span style={{ fontSize: '12px' }}>to</span>
+                      <input
+                        type="time"
+                        value={period.close}
+                        onChange={(e) => updateOperatingHours(index, 'close', e.target.value)}
+                        style={{
+                          padding: '5px',
+                          border: '1px solid #ccc',
+                          borderRadius: '4px',
+                          fontSize: '12px'
+                        }}
+                      />
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Accessibility & Features Section */}
+        <div style={{ 
+          marginBottom: '20px', 
+          padding: '15px', 
+          backgroundColor: '#f0fff0', 
+          borderRadius: '8px',
+          border: '1px solid #4CAF50'
+        }}>
+          <h3 style={{ color: '#CC0001', marginBottom: '15px', fontSize: '16px' }}>
+            ♿ Accessibility & Features
+          </h3>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+            {Object.entries(formData.accessibility).map(([key, value]) => (
+              <label key={key} style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                cursor: 'pointer',
+                fontSize: '14px'
+              }}>
+                <input
+                  type="checkbox"
+                  checked={value}
+                  onChange={(e) => updateAccessibility(key, e.target.checked)}
+                  style={{ marginRight: '8px' }}
+                />
+                <span>
+                  {key === 'wheelchairAccessible' && '♿ Wheelchair Accessible'}
+                  {key === 'parkingAvailable' && '🅿️ Parking Available'}
+                  {key === 'deliveryAvailable' && '🚚 Delivery Available'}
+                  {key === 'takeoutAvailable' && '🥡 Takeout Available'}
+                  {key === 'dineInAvailable' && '🍽️ Dine-in Available'}
+                  {key === 'outdoorSeating' && '🌳 Outdoor Seating'}
+                  {key === 'wifiAvailable' && '📶 WiFi Available'}
+                  {key === 'airConditioned' && '❄️ Air Conditioned'}
+                </span>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {/* Photo Upload Section */}
+        <div style={{ 
+          marginBottom: '20px', 
+          padding: '15px', 
+          backgroundColor: '#fff3e0', 
+          borderRadius: '8px',
+          border: '1px solid #ff9800'
+        }}>
+          <h3 style={{ color: '#CC0001', marginBottom: '15px', fontSize: '16px' }}>
+            📸 Upload Photos
+          </h3>
+
+          <div style={{ marginBottom: '15px' }}>
+            <input
+              type="file"
+              multiple
+              accept="image/*"
+              onChange={handlePhotoUpload}
+              disabled={isUploadingPhotos}
+              style={{
+                width: '100%',
+                padding: '10px',
+                border: '1px solid #ccc',
+                borderRadius: '4px',
+                fontSize: '14px'
+              }}
+            />
+            {isUploadingPhotos && (
+              <div style={{ marginTop: '5px', fontSize: '12px', color: '#666' }}>
+                📤 Uploading photos...
+              </div>
+            )}
+          </div>
+
+          {/* Display uploaded photos */}
+          {uploadedPhotos.length > 0 && (
+            <div style={{ 
+              display: 'grid', 
+              gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', 
+              gap: '10px',
+              marginTop: '10px'
+            }}>
+              {uploadedPhotos.map((photo) => (
+                <div key={photo.id} style={{ position: 'relative' }}>
+                  <img
+                    src={photo.url}
+                    alt={photo.name}
+                    style={{
+                      width: '100%',
+                      height: '80px',
+                      objectFit: 'cover',
+                      borderRadius: '4px',
+                      border: '1px solid #ddd'
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removePhoto(photo.id)}
+                    style={{
+                      position: 'absolute',
+                      top: '2px',
+                      right: '2px',
+                      background: 'rgba(255, 0, 0, 0.8)',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '50%',
+                      width: '20px',
+                      height: '20px',
+                      fontSize: '12px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Enhanced Review Section */}
+        <div style={{ 
+          marginBottom: '20px', 
+          padding: '15px', 
+          backgroundColor: '#f3e5f5', 
+          borderRadius: '8px',
+          border: '1px solid #9c27b0'
+        }}>
+          <h3 style={{ color: '#CC0001', marginBottom: '15px', fontSize: '16px' }}>
+            ⭐ Enhanced Review System
+          </h3>
+
+          {/* Category Ratings */}
+          <div style={{ marginBottom: '20px' }}>
+            <h4 style={{ marginBottom: '10px', fontSize: '14px', fontWeight: 'bold' }}>
+              Rate by Category (1-5 stars each):
+            </h4>
+            
+            {/* Food Quality */}
+            <div style={{ marginBottom: '10px' }}>
+              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+                🍽️ Food Quality
+              </label>
+              <select
+                value={initialReview.rating.foodQuality}
+                onChange={(e) => handleCategoryRating('foodQuality', e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '8px',
+                  border: '1px solid #ccc',
+                  borderRadius: '4px',
+                  fontSize: '14px'
+                }}
+              >
+                <option value={0}>Select rating (optional)</option>
+                <option value={1}>⭐ (1) Poor</option>
+                <option value={2}>⭐⭐ (2) Fair</option>
+                <option value={3}>⭐⭐⭐ (3) Good</option>
+                <option value={4}>⭐⭐⭐⭐ (4) Very Good</option>
+                <option value={5}>⭐⭐⭐⭐⭐ (5) Excellent</option>
+              </select>
+            </div>
+
+            {/* Value for Money */}
+            <div style={{ marginBottom: '10px' }}>
+              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+                💰 Value for Money
+              </label>
+              <select
+                value={initialReview.rating.valueForMoney}
+                onChange={(e) => handleCategoryRating('valueForMoney', e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '8px',
+                  border: '1px solid #ccc',
+                  borderRadius: '4px',
+                  fontSize: '14px'
+                }}
+              >
+                <option value={0}>Select rating (optional)</option>
+                <option value={1}>⭐ (1) Poor</option>
+                <option value={2}>⭐⭐ (2) Fair</option>
+                <option value={3}>⭐⭐⭐ (3) Good</option>
+                <option value={4}>⭐⭐⭐⭐ (4) Very Good</option>
+                <option value={5}>⭐⭐⭐⭐⭐ (5) Excellent</option>
+              </select>
+            </div>
+
+            {/* Service Quality */}
+            <div style={{ marginBottom: '10px' }}>
+              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+                🏪 Service Quality
+              </label>
+              <select
+                value={initialReview.rating.serviceQuality}
+                onChange={(e) => handleCategoryRating('serviceQuality', e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '8px',
+                  border: '1px solid #ccc',
+                  borderRadius: '4px',
+                  fontSize: '14px'
+                }}
+              >
+                <option value={0}>Select rating (optional)</option>
+                <option value={1}>⭐ (1) Poor</option>
+                <option value={2}>⭐⭐ (2) Fair</option>
+                <option value={3}>⭐⭐⭐ (3) Good</option>
+                <option value={4}>⭐⭐⭐⭐ (4) Very Good</option>
+                <option value={5}>⭐⭐⭐⭐⭐ (5) Excellent</option>
+              </select>
+            </div>
+
+            {/* Ambiance */}
+            <div style={{ marginBottom: '15px' }}>
+              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+                🌍 Ambiance/Environment
+              </label>
+              <select
+                value={initialReview.rating.ambiance}
+                onChange={(e) => handleCategoryRating('ambiance', e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '8px',
+                  border: '1px solid #ccc',
+                  borderRadius: '4px',
+                  fontSize: '14px'
+                }}
+              >
+                <option value={0}>Select rating (optional)</option>
+                <option value={1}>⭐ (1) Poor</option>
+                <option value={2}>⭐⭐ (2) Fair</option>
+                <option value={3}>⭐⭐⭐ (3) Good</option>
+                <option value={4}>⭐⭐⭐⭐ (4) Very Good</option>
+                <option value={5}>⭐⭐⭐⭐⭐ (5) Excellent</option>
+              </select>
+            </div>
+
+            {/* Overall Rating Display */}
+            {calculateOverallRating(initialReview.rating) > 0 && (
+              <div style={{ 
+                padding: '10px', 
+                backgroundColor: '#e8f5e8', 
+                borderRadius: '4px',
+                marginBottom: '15px'
+              }}>
+                <strong>Overall Rating: {calculateOverallRating(initialReview.rating).toFixed(1)}/5.0</strong>
+                <div style={{ fontSize: '12px', color: '#666' }}>
+                  Based on {Object.values(initialReview.rating).filter(r => r > 0).length} category ratings
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Visit Details */}
+          <div style={{ marginBottom: '15px' }}>
+            <h4 style={{ marginBottom: '10px', fontSize: '14px', fontWeight: 'bold' }}>
+              Visit Details:
+            </h4>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '12px' }}>
+                  Visit Type
+                </label>
+                <select
+                  value={initialReview.visitType}
+                  onChange={(e) => handleInitialReview('visitType', e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    border: '1px solid #ccc',
+                    borderRadius: '4px',
+                    fontSize: '12px'
+                  }}
+                >
+                  <option value="dine-in">🍽️ Dine-in</option>
+                  <option value="takeaway">🥡 Takeaway</option>
+                  <option value="delivery">🚚 Delivery</option>
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '12px' }}>
+                  Party Size
+                </label>
+                <select
+                  value={initialReview.partySize}
+                  onChange={(e) => handleInitialReview('partySize', e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    border: '1px solid #ccc',
+                    borderRadius: '4px',
+                    fontSize: '12px'
+                  }}
+                >
+                  <option value="solo">👤 Solo</option>
+                  <option value="couple">👫 Couple</option>
+                  <option value="family">👨‍👩‍👧‍👦 Family</option>
+                  <option value="group">👥 Group</option>
+                </select>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '12px' }}>
+                  Meal Type
+                </label>
+                <select
+                  value={initialReview.mealType}
+                  onChange={(e) => handleInitialReview('mealType', e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    border: '1px solid #ccc',
+                    borderRadius: '4px',
+                    fontSize: '12px'
+                  }}
+                >
+                  <option value="breakfast">🌅 Breakfast</option>
+                  <option value="lunch">☀️ Lunch</option>
+                  <option value="dinner">🌙 Dinner</option>
+                  <option value="snack">🍿 Snack</option>
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '12px' }}>
+                  Visit Date
+                </label>
+                <input
+                  type="date"
+                  value={initialReview.visitDate}
+                  onChange={(e) => handleInitialReview('visitDate', e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    border: '1px solid #ccc',
+                    borderRadius: '4px',
+                    fontSize: '12px'
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Review Comment */}
+          <div style={{ marginBottom: '15px' }}>
+            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+              Review Comment
+            </label>
+            <textarea
+              value={initialReview.comment}
+              onChange={(e) => handleInitialReview('comment', e.target.value)}
+              placeholder="Share your detailed experience (optional)"
+              rows="3"
+              style={{
+                width: '100%',
+                padding: '10px',
+                border: '1px solid #ccc',
+                borderRadius: '4px',
+                fontSize: '14px',
+                resize: 'vertical'
+              }}
+            />
+          </div>
+        </div>
+
+        {/* Enhanced Check-in Option with Location Verification */}
+        <div style={{ 
+          marginBottom: '20px', 
+          padding: '15px', 
+          backgroundColor: '#e8f5e8', 
+          borderRadius: '8px',
+          border: '1px solid #4caf50'
+        }}>
+          <h3 style={{ color: '#CC0001', marginBottom: '15px', fontSize: '16px' }}>
+            📍 Verified Check-in System
+          </h3>
+
+          {/* Location Verification Button */}
+          <div style={{ marginBottom: '15px' }}>
+            <button
+              type="button"
+              onClick={verifyLocationForCheckIn}
+              disabled={isVerifyingLocation || !formData.location || formData.location.lat === 0}
+              style={{
+                width: '100%',
+                padding: '12px',
+                backgroundColor: isVerifyingLocation ? '#ccc' : '#4caf50',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                fontSize: '14px',
+                fontWeight: 'bold',
+                cursor: isVerifyingLocation ? 'not-allowed' : 'pointer',
+                marginBottom: '10px'
+              }}
+            >
+              {isVerifyingLocation ? '📍 Verifying Location...' : '📍 Verify Location for Check-in'}
+            </button>
+            
+            {!formData.location || formData.location.lat === 0 ? (
+              <div style={{ fontSize: '12px', color: '#666', textAlign: 'center' }}>
+                ⚠️ Please set restaurant location first
+              </div>
+            ) : null}
+          </div>
+
+          {/* Verification Status */}
+          {locationVerification.verificationMessage && (
+            <div style={{ 
+              marginBottom: '15px', 
+              padding: '10px', 
+              backgroundColor: locationVerification.isVerified ? '#f0f8f0' : '#fff3e0', 
+              borderRadius: '4px',
+              fontSize: '14px',
+              color: locationVerification.isVerified ? '#2e7d32' : '#f57c00',
+              border: `1px solid ${locationVerification.isVerified ? '#4caf50' : '#ff9800'}`
+            }}>
+              {locationVerification.verificationMessage}
+            </div>
+          )}
+
+          {/* Check-in Option */}
+          <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={showCheckInOption}
+              onChange={(e) => setShowCheckInOption(e.target.checked)}
+              disabled={!locationVerification.isVerified}
+              style={{ marginRight: '8px' }}
+            />
+            <span style={{ 
+              fontWeight: 'bold',
+              color: locationVerification.isVerified ? '#2e7d32' : '#999'
+            }}>
+              ✅ I want to check-in to this restaurant now
+              {!locationVerification.isVerified && ' (Location verification required)'}
+            </span>
+          </label>
+          
+          {showCheckInOption && locationVerification.isVerified && (
+            <div style={{ 
+              marginTop: '10px', 
+              padding: '10px', 
+              backgroundColor: '#f0f8f0', 
+              borderRadius: '4px',
+              fontSize: '14px',
+              color: '#2e7d32'
+            }}>
+              🎉 Great! You'll be automatically checked-in when you submit this restaurant.
+              <br />
+              <strong>Verified at {locationVerification.distance.toFixed(0)}m from restaurant</strong>
+              <br />
+              This will help other users discover your favorite spots!
+            </div>
+          )}
+
+          {/* Future Check-in Feature Info */}
+          <div style={{ 
+            marginTop: '15px', 
+            padding: '10px', 
+            backgroundColor: '#f5f5f5', 
+            borderRadius: '4px',
+            fontSize: '12px',
+            color: '#666'
+          }}>
+            💡 <strong>Future Feature:</strong> Users will be able to check-in to existing restaurants 
+            using this same location verification system (100m radius).
+          </div>
         </div>
 
         {/* Submit Button */}

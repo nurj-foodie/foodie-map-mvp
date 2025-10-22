@@ -7,13 +7,28 @@ class RouteIndexService {
     this.cacheTimeout = 5 * 60 * 1000; // 5 minutes
   }
 
-  // Generate unique route ID from coordinates
+  // Generate unique route ID from coordinates (improved precision for better caching)
   generateRouteId(start, end) {
-    const sLat = start.lat.toFixed(4);
-    const sLng = start.lng.toFixed(4);
-    const eLat = end.lat.toFixed(4);
-    const eLng = end.lng.toFixed(4);
-    return `route_${sLat}_${sLng}_${eLat}_${eLng}`;
+    // Use 3 decimal places (110m precision) instead of 4 (11m precision)
+    // This reduces cache misses from minor coordinate differences
+    const sLat = start.lat.toFixed(3);
+    const sLng = start.lng.toFixed(3);
+    const eLat = end.lat.toFixed(3);
+    const eLng = end.lng.toFixed(3);
+    
+    // Also normalize coordinates to reduce precision-based misses
+    const normalizeCoord = (coord) => Math.round(coord * 1000) / 1000;
+    
+    const normalizedStart = {
+      lat: normalizeCoord(start.lat),
+      lng: normalizeCoord(start.lng)
+    };
+    const normalizedEnd = {
+      lat: normalizeCoord(end.lat),
+      lng: normalizeCoord(end.lng)
+    };
+    
+    return `route_${normalizedStart.lat}_${normalizedStart.lng}_${normalizedEnd.lat}_${normalizedEnd.lng}`;
   }
 
   // Extract complete route data for Firestore indexing (stores full Google Directions API response)
@@ -369,6 +384,83 @@ class RouteIndexService {
     } catch (error) {
       console.error('❌ Error getting popular routes:', error);
       return [];
+    }
+  }
+
+  // Get saved routes for a specific user
+  async getSavedRoutes(userId) {
+    try {
+      console.log('🔍 Loading saved routes for user:', userId);
+      
+      const q = query(
+        collection(db, 'saved_routes'),
+        where('userId', '==', userId),
+        orderBy('createdAt', 'desc')
+      );
+      
+      const snapshot = await getDocs(q);
+      const routes = [];
+      
+      snapshot.forEach(doc => {
+        routes.push({
+          id: doc.id,
+          ...doc.data()
+        });
+      });
+      
+      console.log(`📚 Loaded ${routes.length} saved routes for user: ${userId}`);
+      return routes;
+    } catch (error) {
+      console.error('❌ Error loading saved routes:', error);
+      return [];
+    }
+  }
+
+  // Save a route for a specific user
+  async saveRoute(routeData) {
+    try {
+      const docRef = await addDoc(collection(db, 'saved_routes'), {
+        ...routeData,
+        createdAt: new Date()
+      });
+      
+      console.log('✅ Route saved with ID:', docRef.id);
+      return docRef.id;
+    } catch (error) {
+      console.error('❌ Error saving route:', error);
+      throw error;
+    }
+  }
+
+  // Delete a saved route
+  async deleteRoute(routeId) {
+    try {
+      const { deleteDoc, doc } = await import('firebase/firestore');
+      await deleteDoc(doc(db, 'saved_routes', routeId));
+      console.log('✅ Route deleted:', routeId);
+    } catch (error) {
+      console.error('❌ Error deleting route:', error);
+      throw error;
+    }
+  }
+
+  // Clear route cache
+  async clearRouteCache() {
+    try {
+      const { deleteDoc, doc, getDocs, collection } = await import('firebase/firestore');
+      
+      const snapshot = await getDocs(collection(db, 'route_cache'));
+      const deletePromises = [];
+      
+      snapshot.forEach(doc => {
+        deletePromises.push(deleteDoc(doc.ref));
+      });
+      
+      await Promise.all(deletePromises);
+      console.log('✅ Route cache cleared');
+    } catch (error) {
+      console.error('❌ Error clearing route cache:', error);
+      throw error;
     }
   }
 }
