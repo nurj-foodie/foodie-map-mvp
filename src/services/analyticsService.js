@@ -462,9 +462,10 @@ class AnalyticsService {
         },
         byDay: this.generateMockDailyData(daysDiff),
         byUser: {
-          'nurj.get@gmail.com': { cost: 8.20, requests: 35 },
-          'nurj.ariffin@gmail.com': { cost: 3.15, requests: 28 },
-          'nurj.media@gmail.com': { cost: 1.10, requests: 17 }
+          // Mock user data - replace with environment variables in production
+          'user1@example.com': { cost: 8.20, requests: 35 },
+          'user2@example.com': { cost: 3.15, requests: 28 },
+          'user3@example.com': { cost: 1.10, requests: 17 }
         },
         cacheHitRate: 78.5,
         totalRequests: 80,
@@ -532,7 +533,7 @@ class AnalyticsService {
         {
           type: 'api_usage',
           apiType: 'google_directions',
-          userId: 'nurj.get@gmail.com',
+          userId: 'user1@example.com', // Mock data - replace with environment variables in production
           estimatedCost: 0.05,
           responseTime: 1200,
           cacheHit: false,
@@ -541,7 +542,7 @@ class AnalyticsService {
         {
           type: 'api_usage',
           apiType: 'google_places',
-          userId: 'nurj.ariffin@gmail.com',
+          userId: 'user2@example.com', // Mock data - replace with environment variables in production
           estimatedCost: 0.032,
           responseTime: 850,
           cacheHit: true,
@@ -550,7 +551,7 @@ class AnalyticsService {
         {
           type: 'user_behavior',
           action: 'route_planning',
-          userId: 'nurj.media@gmail.com',
+          userId: 'user3@example.com', // Mock data - replace with environment variables in production
           sessionDuration: 15.5,
           timestamp: new Date(Date.now() - 30 * 60 * 1000) // 30 minutes ago
         },

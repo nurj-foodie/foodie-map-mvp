@@ -187,7 +187,7 @@ const AppWithAuth: React.FC = () => {
 
   // Check admin status when user changes
   useEffect(() => {
-    if (user && isAdminUser(user) && getAdminAccess()) {
+    if (user && isAdminUser(user) && getAdminAccess(user)) {
       setIsAdmin(true);
     } else {
       setIsAdmin(false);

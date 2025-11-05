@@ -4,14 +4,17 @@
 .env.development.local
 .env.test.local
 .env.production.local
+.env.backup
+.env.backup.*
+*.env.backup
 
 # Sensitive configuration files
-*config.js
+# Note: config.js files are OK to commit IF they use process.env (not hardcoded secrets)
+# *config.js - REMOVED: Too broad, would ignore firebaseConfig.js which should be committed
 *secret*
-*key*
 *password*
 *credential*
-*admin*
+# *admin* - REMOVED: Too broad, would ignore adminAuth.js which should be committed
 
 # Build files
 build/

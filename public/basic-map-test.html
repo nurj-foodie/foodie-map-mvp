@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Basic Google Map Test</title>
+    <style>
+        #map {
+            height: 100vh; /* Full viewport height */
+            width: 100vw;  /* Full viewport width */
+            margin: 0;
+            padding: 0;
+        }
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+
+    <script>
+        let map;
+
+        function initMap() {
+            console.log("initMap called for basic map (NO Map ID)...");
+            map = new google.maps.Map(document.getElementById('map'), {
+                center: {lat: -34.397, lng: 150.644},
+                zoom: 8
+                // NO mapId parameter here
+            });
+            console.log("Basic Map object created (NO Map ID):", map);
+
+            new google.maps.Marker({
+                position: {lat: -34.397, lng: 150.644},
+                map: map,
+                title: "Test Marker"
+            });
+            console.log("Test marker added to basic map.");
+        }
+    </script>
+    <script async defer
+      src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY_HERE&callback=initMap">
+      <!-- NO &map_ids=... parameter here -->
+    </script>
+</body>
+</html>
+
+
+
