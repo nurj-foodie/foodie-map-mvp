@@ -88,6 +88,43 @@
   margin-bottom: 20px;
 }
 
+.place-type-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+  background: white;
+  padding: 12px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  flex-wrap: wrap;
+}
+
+.tab-btn {
+  flex: 1;
+  min-width: 120px;
+  padding: 10px 16px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  background: white;
+  color: #666;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  text-align: center;
+}
+
+.tab-btn:hover {
+  border-color: #CC0001;
+  background: #f8f9fa;
+}
+
+.tab-btn.active {
+  border-color: #CC0001;
+  background: #CC0001;
+  color: white;
+}
+
 .restaurant-selection {
   background: white;
   padding: 20px;
@@ -340,6 +377,16 @@
     font-size: 14px;
     flex-direction: column;
     gap: 8px;
+  }
+  
+  .place-type-tabs {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .tab-btn {
+    width: 100%;
+    min-width: auto;
   }
   
   .restaurant-card {

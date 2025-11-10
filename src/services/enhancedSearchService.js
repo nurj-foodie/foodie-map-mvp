@@ -96,33 +96,173 @@ class EnhancedSearchService {
     console.log('🔍 Enhanced search started:', { searchQuery, filters, userLocation });
 
     try {
-      let searchBounds;
-      let searchCenter;
-
-      // Determine search center
-      if (searchQuery && this.isLocationQuery(searchQuery)) {
-        // Try to geocode the location query first
-        console.log('🔍 Detected location query:', searchQuery);
+      // Parse compound query to extract multiple keywords
+      let parsedQuery = null;
+      let locationFromQuery = null;
+      let foodFromQuery = null;
+      let cuisineFromQuery = null;
+      let mealTypeFromQuery = null;
+      
+      if (searchQuery) {
         try {
-          searchCenter = await this.geocodeLocation(searchQuery);
-          if (searchCenter) {
-            console.log('📍 Geocoded location:', searchCenter);
-            searchBounds = this.createSearchBounds(searchCenter, filters.distance || 25);
-          } else {
-            throw new Error('Geocoding failed');
+          const { searchKeywordService } = await import('./searchKeywordService');
+          parsedQuery = searchKeywordService.parseCompoundQuery(searchQuery);
+          locationFromQuery = parsedQuery.location;
+          foodFromQuery = parsedQuery.food;
+          cuisineFromQuery = parsedQuery.cuisine;
+          mealTypeFromQuery = parsedQuery.mealType;
+          
+          if (parsedQuery.location || parsedQuery.food || parsedQuery.cuisine || parsedQuery.mealType) {
+            console.log('🔍 Parsed compound query:', {
+              original: parsedQuery.original,
+              location: parsedQuery.location,
+              food: parsedQuery.food,
+              cuisine: parsedQuery.cuisine,
+              mealType: parsedQuery.mealType,
+              remaining: parsedQuery.remaining
+            });
           }
         } catch (error) {
-          console.log('⚠️ Geocoding failed, using predefined locations:', error.message);
-          // Fallback to predefined city coordinates
-          searchCenter = this.getPredefinedLocation(searchQuery);
-          if (searchCenter) {
-            searchBounds = this.createSearchBounds(searchCenter, filters.distance || 25);
+          console.warn('⚠️ Error parsing compound query:', error);
+        }
+      }
+
+      let searchBounds;
+      let searchCenter;
+      let isLocationQuery = false;
+
+      // Determine search center
+      // NEW STRATEGY: Try geocoding FIRST (like Discover tab), then parse for food/cuisine
+      // Priority: Geocoded location > Parsed location > Predefined location > User location > Default
+      if (searchQuery) {
+        const queryLower = searchQuery.toLowerCase().trim();
+        const isVeryShort = queryLower.length < 3;
+        const isCuisineType = this.isCuisineType(queryLower);
+        const isFoodPrefix = this.isFoodPrefix(queryLower);
+        
+        // STEP 1: Try geocoding FIRST (like Discover tab)
+        // Skip geocoding for known cuisine types, food prefixes, and very short queries (optimization)
+        if (!isVeryShort && !isCuisineType && !isFoodPrefix) {
+          console.log(`🔍 Attempting to geocode query FIRST: "${searchQuery}"`);
+          try {
+            const geocoded = await this.geocodeLocation(searchQuery);
+            if (geocoded && geocoded.address.toLowerCase() !== 'malaysia') {
+              // Validate that geocoded location is in Malaysia (not Singapore or other countries)
+              const addressLower = geocoded.address.toLowerCase();
+              const isInMalaysia = addressLower.includes('malaysia') && 
+                                   !addressLower.includes('singapore') &&
+                                   !addressLower.includes('indonesia') &&
+                                   !addressLower.includes('thailand');
+              
+              if (isInMalaysia) {
+                // ✅ Success! It's a location query in Malaysia
+                console.log('✅ Geocoding SUCCESS - treating as location query:', geocoded);
+                searchCenter = geocoded;
+                searchBounds = this.createSearchBounds(searchCenter, filters.distance || 25);
+                isLocationQuery = true;
+                
+                // Learn coordinates for future use (non-blocking)
+                try {
+                  const { keywordLearningService } = await import('./keywordLearningService');
+                  await keywordLearningService.learnLocationCoordinates(
+                    queryLower,
+                    geocoded.lat,
+                    geocoded.lng
+                  ).catch(err => {
+                    console.log('⚠️ Could not learn location coordinates (non-critical):', err.message);
+                  });
+                } catch (importError) {
+                  // Silently fail - learning is optional
+                }
+              } else {
+                console.log(`⚠️ Geocoding returned location outside Malaysia: "${geocoded.address}" - ignoring, will try parsing`);
+              }
+            } else if (geocoded && geocoded.address.toLowerCase() === 'malaysia') {
+              console.log('⚠️ Geocoding returned "Malaysia" (too broad) - ignoring, will try parsing');
+            } else {
+              console.log('⚠️ Geocoding returned null/undefined - not a location, will try parsing');
+            }
+          } catch (error) {
+            // ✅ Not a location - continue with parsing for food/cuisine
+            console.log('⚠️ Geocoding failed - not a location, will try parsing:', error.message);
+          }
+        } else {
+          const skipReason = isVeryShort ? 'too short' : isCuisineType ? 'cuisine type' : 'food prefix';
+          console.log(`⏭️ Skipping geocoding for "${searchQuery}" (${skipReason})`);
+        }
+        
+        // STEP 2: Parse query for food/cuisine/meal type (if geocoding didn't succeed)
+        // This happens regardless, but we use it differently based on geocoding result
+        if (!isLocationQuery && parsedQuery) {
+          // If we parsed a location from compound query, use it
+          if (locationFromQuery) {
+            console.log(`📍 Found location in parsed query: "${locationFromQuery}"`);
+            // Try predefined location first (faster)
+            const predefined = await this.getPredefinedLocation(locationFromQuery);
+            if (predefined) {
+              searchCenter = predefined;
+              searchBounds = this.createSearchBounds(searchCenter, filters.distance || 25);
+              isLocationQuery = true;
+              console.log(`✅ Using predefined location from parsed query: "${locationFromQuery}" →`, predefined);
+            } else {
+              console.log(`⚠️ No predefined location found for: "${locationFromQuery}", will geocode`);
+              // Try geocoding the extracted location
+              try {
+                const geocoded = await this.geocodeLocation(locationFromQuery);
+                if (geocoded && geocoded.address.toLowerCase() !== 'malaysia') {
+                  searchCenter = geocoded;
+                  searchBounds = this.createSearchBounds(searchCenter, filters.distance || 25);
+                  isLocationQuery = true;
+                  console.log('✅ Using geocoded location from parsed query:', geocoded);
+                  
+                  // Learn coordinates
+                  try {
+                    const { keywordLearningService } = await import('./keywordLearningService');
+                    await keywordLearningService.learnLocationCoordinates(
+                      locationFromQuery.toLowerCase().trim(),
+                      geocoded.lat,
+                      geocoded.lng
+                    ).catch(() => {});
+                  } catch (importError) {
+                    // Silently fail
+                  }
+                }
+              } catch (error) {
+                console.warn('⚠️ Could not geocode parsed location:', error);
+              }
+            }
           } else {
-            // If no predefined location, use Malaysia center with larger bounds
-            searchCenter = { lat: 4.2105, lng: 101.9758 };
-            searchBounds = this.createSearchBounds(searchCenter, 100); // Large search area
+            // No location in parsed query, try predefined locations as fallback
+            const isKnownLocation = this.isLocationQuery(searchQuery);
+            if (isKnownLocation && !searchCenter) {
+              console.log('🔍 Detected known location query:', searchQuery);
+              searchCenter = await this.getPredefinedLocation(searchQuery);
+              if (searchCenter) {
+                searchBounds = this.createSearchBounds(searchCenter, filters.distance || 25);
+                isLocationQuery = true;
+                console.log('✅ Using predefined location');
+              }
+            }
           }
         }
+        
+        // If still no location, use default (will be handled below)
+        if (!searchBounds) {
+          console.log('⚠️ Could not determine location, using default Malaysia center');
+        }
+      }
+      
+      // Update filters if cuisine or meal type found in query
+      if (cuisineFromQuery && filters.cuisineType === 'all') {
+        // Capitalize first letter
+        const capitalizedCuisine = cuisineFromQuery.charAt(0).toUpperCase() + cuisineFromQuery.slice(1);
+        filters = { ...filters, cuisineType: capitalizedCuisine };
+        console.log(`🍽️ Auto-detected cuisine from query: ${capitalizedCuisine}`);
+      }
+      
+      // Use determined location or fallback to user location or default
+      if (searchBounds && searchCenter) {
+        // Already set above
       } else if (userLocation) {
         searchCenter = userLocation;
         searchBounds = this.createSearchBounds(userLocation, filters.distance || 10);
@@ -144,16 +284,263 @@ class EnhancedSearchService {
         openNow: filters.openNow || false
       });
 
-      // Apply text-based filtering if search query is provided
-      let filteredResults = results;
-      if (searchQuery && !this.isLocationQuery(searchQuery)) {
-        console.log('🔍 Applying text-based filtering for query:', searchQuery);
-        filteredResults = this.filterByTextQuery(results, searchQuery);
-        console.log(`📊 Text filtering: ${results.length} → ${filteredResults.length} results`);
+      // Check if this is a location query (geocoded successfully AND not a cuisine/food item)
+      // Don't treat cuisine queries or empty queries with userLocation as location queries
+      // Update isLocationQuery flag if we have a search center and it's not a food/cuisine query
+      if (searchCenter && !cuisineFromQuery && !foodFromQuery && !mealTypeFromQuery && 
+          (searchQuery && searchQuery.trim().length > 0 || locationFromQuery)) {
+        isLocationQuery = true;
+      }
+      
+      // If it's a location query and Firestore has very few results (< 5), 
+      // it's likely incomplete - fallback to Google Places for better coverage
+      if (isLocationQuery && results.length > 0 && results.length < 5) {
+        console.log(`⚠️ Location query "${searchQuery}" has only ${results.length} result(s) in Firestore`);
+        console.log('💡 This seems incomplete for a location - falling back to Google Places for better coverage');
       }
 
-      // Apply additional filters
-      filteredResults = this.applyFilters(filteredResults, filters);
+      // Apply text-based filtering if search query is provided
+      let filteredResults = results;
+      let shouldFallbackToGoogle = false;
+      
+      // Determine what to filter by:
+      // - If compound query has food item, filter by food item
+      // - If compound query has location, don't filter (location already correct)
+      // - Otherwise, use full query for text filtering
+      const textFilterQuery = foodFromQuery || (parsedQuery && parsedQuery.remaining) || searchQuery;
+      const isFoodItem = foodFromQuery || (searchQuery && this.isCuisineType(searchQuery));
+      const isLocationOnly = locationFromQuery && !foodFromQuery && !cuisineFromQuery;
+      
+      if (textFilterQuery && !isLocationOnly) {
+        console.log('🔍 Applying text-based filtering for query:', textFilterQuery);
+        const beforeFilter = results.length;
+        filteredResults = this.filterByTextQuery(results, textFilterQuery);
+        console.log(`📊 Text filtering: ${beforeFilter} → ${filteredResults.length} results`);
+        
+        // If text filtering removed all results, check if it's a food item or location
+        if (filteredResults.length === 0 && beforeFilter > 0) {
+          // Don't geocode if it's a known food item/cuisine type
+          if (isFoodItem) {
+            console.log(`🍽️ Query "${searchQuery}" is a food item - will search for restaurants serving this`);
+            shouldFallbackToGoogle = true;
+            
+            // Priority: Parsed location > User location > Broad search
+            if (locationFromQuery) {
+              // Use the parsed location from compound query
+              const predefined = await this.getPredefinedLocation(locationFromQuery);
+              if (predefined) {
+                searchCenter = predefined;
+                searchBounds = this.createSearchBounds(predefined, filters.distance || 25);
+                console.log(`📍 Using parsed location "${locationFromQuery}" for food item search`);
+              } else {
+                // Try geocoding the parsed location
+                try {
+                  const geocoded = await this.geocodeLocation(locationFromQuery);
+                  if (geocoded && geocoded.address.toLowerCase() !== 'malaysia') {
+                    searchCenter = geocoded;
+                    searchBounds = this.createSearchBounds(geocoded, filters.distance || 25);
+                    console.log(`📍 Using geocoded location "${locationFromQuery}" for food item search`);
+                  } else {
+                    // Fallback to user location or broad search
+                    if (userLocation) {
+                      searchCenter = userLocation;
+                      searchBounds = this.createSearchBounds(userLocation, filters.distance || 25);
+                      console.log('📍 Using user location for food item search');
+                    } else {
+                      searchCenter = { lat: 4.2105, lng: 101.9758 };
+                      searchBounds = this.createSearchBounds(searchCenter, 100);
+                      console.log('🌍 Searching broadly for food item (no location)');
+                    }
+                  }
+                } catch (error) {
+                  console.warn('⚠️ Could not geocode parsed location, using fallback:', error);
+                  if (userLocation) {
+                    searchCenter = userLocation;
+                    searchBounds = this.createSearchBounds(userLocation, filters.distance || 25);
+                  } else {
+                    searchCenter = { lat: 4.2105, lng: 101.9758 };
+                    searchBounds = this.createSearchBounds(searchCenter, 100);
+                  }
+                }
+              }
+            } else if (userLocation) {
+              // No parsed location, use user location if available
+              searchCenter = userLocation;
+              searchBounds = this.createSearchBounds(userLocation, filters.distance || 25);
+              console.log('📍 Using user location for food item search');
+            } else {
+              // No location at all - search broadly
+              searchCenter = { lat: 4.2105, lng: 101.9758 };
+              searchBounds = this.createSearchBounds(searchCenter, 100); // 100km radius
+              console.log('🌍 Searching broadly for food item (no location)');
+            }
+          } else {
+            // Not a food item - might be a location, try geocoding
+            console.log('⚠️ Text filtering removed all results, checking if query is a location...');
+            try {
+              const geocoded = await this.geocodeLocation(searchQuery);
+              if (geocoded && geocoded.address.toLowerCase() !== 'malaysia') {
+                console.log('📍 Query geocoded successfully - treating as location query');
+                console.log('🔄 Forcing Google Places fallback for location:', searchQuery);
+                shouldFallbackToGoogle = true;
+                // Update search bounds to use geocoded location
+                searchBounds = this.createSearchBounds(geocoded, filters.distance || 25);
+                searchCenter = geocoded;
+              } else {
+                console.log('⚠️ Geocoding returned "Malaysia" or failed - treating as food item search');
+                shouldFallbackToGoogle = true;
+                // Use user location or broad search
+                if (userLocation) {
+                  searchCenter = userLocation;
+                  searchBounds = this.createSearchBounds(userLocation, filters.distance || 25);
+                } else {
+                  searchCenter = { lat: 4.2105, lng: 101.9758 };
+                  searchBounds = this.createSearchBounds(searchCenter, 100);
+                }
+              }
+            } catch (error) {
+              console.log('⚠️ Query does not geocode - treating as food item search');
+              shouldFallbackToGoogle = true;
+              // Use user location or broad search
+              if (userLocation) {
+                searchCenter = userLocation;
+                searchBounds = this.createSearchBounds(userLocation, filters.distance || 25);
+              } else {
+                searchCenter = { lat: 4.2105, lng: 101.9758 };
+                searchBounds = this.createSearchBounds(searchCenter, 100);
+              }
+            }
+          }
+        }
+      }
+      
+      // If we should fallback to Google Places (location query with no matching results)
+      // This happens when:
+      // 1. Firestore has results but text filtering removes them all AND query geocodes successfully (or is food item)
+      // 2. It's a recognized location query with no results
+      // 3. It's a location query (geocoded) with very few results (< 5) - likely incomplete data
+      // Note: Don't treat food items or cuisines as location queries
+      const shouldFallbackForIncompleteData = isLocationQuery && !isFoodItem && !cuisineFromQuery && results.length > 0 && results.length < 5;
+      const isLocationQueryCheck = this.isLocationQuery(searchQuery) && !isFoodItem && !cuisineFromQuery;
+      
+      if (shouldFallbackToGoogle || (isLocationQueryCheck && filteredResults.length === 0) || shouldFallbackForIncompleteData) {
+        if (isFoodItem) {
+          console.log(`🍽️ Food item search "${searchQuery}" - searching Google Places for restaurants serving this...`);
+          console.log('💡 This will find restaurants that serve or mention this food item');
+        } else if (shouldFallbackForIncompleteData) {
+          console.log(`🔄 Location query "${searchQuery}" has incomplete data (${results.length} result(s)), forcing Google Places fallback...`);
+          console.log('💡 This ensures we get complete restaurant coverage for this location');
+        } else {
+          console.log('🔄 Location query with no matching results, forcing Google Places fallback...');
+          console.log('💡 This ensures we get restaurants from the correct location');
+        }
+        
+        // Use the best available bounds (geocoded > predefined > original)
+        let locationBounds = searchBounds;
+        if (searchCenter) {
+          // Already have geocoded center, use it
+          locationBounds = this.createSearchBounds(searchCenter, filters.distance || 25);
+          console.log('📍 Using geocoded location bounds:', searchCenter);
+        } else if (this.isLocationQuery(searchQuery)) {
+          // Try to geocode if not already done
+          try {
+            const geocoded = await this.geocodeLocation(searchQuery);
+            if (geocoded) {
+              locationBounds = this.createSearchBounds(geocoded, filters.distance || 25);
+              searchCenter = geocoded;
+              console.log('📍 Geocoded location for better bounds:', geocoded);
+            }
+          } catch (error) {
+            console.log('⚠️ Geocoding failed, using original bounds');
+          }
+        }
+        
+        // Build custom text query for Google Places if we have compound query
+        // Example: "roti canai petaling jaya" → "roti canai restaurant petaling jaya"
+        let customTextQuery = null;
+        if (foodFromQuery && locationFromQuery) {
+          customTextQuery = `${foodFromQuery} restaurant ${locationFromQuery}`;
+          console.log(`🍽️ Using compound query for Google Places: "${customTextQuery}"`);
+        } else if (foodFromQuery) {
+          customTextQuery = `${foodFromQuery} restaurant`;
+          console.log(`🍽️ Using food query for Google Places: "${customTextQuery}"`);
+        } else if (mealTypeFromQuery && locationFromQuery) {
+          customTextQuery = `${mealTypeFromQuery} restaurant ${locationFromQuery}`;
+          console.log(`🍽️ Using meal type + location query: "${customTextQuery}"`);
+        } else if (cuisineFromQuery && locationFromQuery) {
+          customTextQuery = `${cuisineFromQuery} restaurant ${locationFromQuery}`;
+          console.log(`🌍 Using cuisine + location query: "${customTextQuery}"`);
+        }
+        
+        // Force Google Places search (bypass Firestore to get fresh data for the correct location)
+        const googleResults = await firestoreSearchService.searchRestaurants(
+          locationBounds, 
+          {
+            foodType: filters.cuisineType !== 'all' ? filters.cuisineType : 'all',
+            minRating: filters.minRating || 0,
+            halalOnly: filters.halalStatus === 'halal',
+            openNow: filters.openNow || false
+          }, 
+          true, // forceGooglePlaces = true to bypass Firestore
+          customTextQuery // Pass custom text query for compound searches
+        );
+        
+        // For compound queries, apply smart filtering:
+        // - If we have food item + location: filter by food item only (location already correct)
+        // - If we have cuisine + location: filter by cuisine only (location already correct)
+        // - If we have meal type + location: filter by meal type only (location already correct)
+        // - If location only: don't filter (location already correct)
+        // - If food only: filter by food item
+        const isLocationOnly = locationFromQuery && !foodFromQuery && !cuisineFromQuery && !mealTypeFromQuery;
+        const isCompoundQuery = (foodFromQuery && locationFromQuery) || (cuisineFromQuery && locationFromQuery) || (mealTypeFromQuery && locationFromQuery);
+        
+        if (isLocationOnly) {
+          // Location only - don't filter, results are already from correct location
+          filteredResults = googleResults;
+          console.log(`✅ Returning all ${googleResults.length} results for location: ${locationFromQuery}`);
+        } else if (isCompoundQuery && googleResults.length > 0) {
+          // Compound query - filter by food/cuisine/meal type (location already correct)
+          const filterBy = foodFromQuery || cuisineFromQuery || mealTypeFromQuery || searchQuery;
+          const beforeTextFilter = googleResults.length;
+          filteredResults = this.filterByTextQuery(googleResults, filterBy);
+          console.log(`🔍 Filtering compound query results by "${filterBy}": ${beforeTextFilter} → ${filteredResults.length}`);
+        } else if (foodFromQuery && googleResults.length > 0) {
+          // Food item only - filter by food item
+          const beforeTextFilter = googleResults.length;
+          filteredResults = this.filterByTextQuery(googleResults, foodFromQuery);
+          console.log(`🍽️ Text filtering food item results: ${beforeTextFilter} → ${filteredResults.length}`);
+        } else if (searchQuery && googleResults.length > 0) {
+          // Fallback: filter by full query
+          const beforeTextFilter = googleResults.length;
+          filteredResults = this.filterByTextQuery(googleResults, searchQuery);
+          console.log(`📊 Text filtering Google results: ${beforeTextFilter} → ${filteredResults.length}`);
+        } else {
+          filteredResults = googleResults;
+        }
+        
+        if (isFoodItem) {
+          console.log(`✅ Google Places search returned ${filteredResults.length} results for food item: ${searchQuery}`);
+        } else if (isCompoundQuery) {
+          console.log(`✅ Google Places search returned ${filteredResults.length} results for compound query: ${searchQuery}`);
+        } else {
+          console.log(`✅ Google Places fallback returned ${filteredResults.length} results for location: ${searchQuery}`);
+        }
+      }
+
+      // Apply additional filters (but don't apply cuisine filter if query is a cuisine name)
+      // This prevents double-filtering when user searches for "Cafe" or "Malay"
+      const filtersToApply = { ...filters };
+      if (searchQuery && !this.isLocationQuery(searchQuery)) {
+        // If search query matches a cuisine type, don't filter by cuisine again
+        const cuisineTypes = ['malay', 'chinese', 'indian', 'western', 'japanese', 'korean', 'thai', 'italian', 'fast food', 'cafe'];
+        const queryLower = searchQuery.toLowerCase().trim();
+        if (cuisineTypes.some(cuisine => queryLower.includes(cuisine))) {
+          filtersToApply.cuisineType = 'all'; // Don't filter by cuisine, text filtering already did it
+        }
+      }
+      
+      filteredResults = this.applyFilters(filteredResults, filtersToApply);
+      console.log(`📊 After applyFilters: ${filteredResults.length} results`);
 
       // Calculate distances if user location is available
       if (searchCenter) {
@@ -185,6 +572,7 @@ class EnhancedSearchService {
       'cheras', 'ampang', 'kepong', 'selayang', 'gombak', 'klang',
       'malacca', 'melaka', 'penang', 'georgetown', 'johor bahru', 'jb',
       'ipoh', 'kuching', 'kota kinabalu', 'kk', 'alor setar', 'kangar',
+      'langkawi', 'pulau langkawi', 'tioman', 'redang', 'pangkor', 'perhentian',
       'kedah', 'perak', 'selangor', 'johor', 'pahang', 'terengganu',
       'kelantan', 'perlis', 'sabah', 'sarawak', 'labuan',
       'near', 'around', 'close to', 'nearby'
@@ -194,9 +582,73 @@ class EnhancedSearchService {
     return locationKeywords.some(keyword => lowerQuery.includes(keyword));
   }
 
+  // Check if query starts with a food prefix (nasi, mee, roti, etc.)
+  // This prevents geocoding food-related partial queries like "nasi " or "mee "
+  isFoodPrefix(query) {
+    const foodPrefixes = [
+      'nasi', 'mee', 'roti', 'sup', 'ayam', 'ikan', 'bubur', 'laksa',
+      'char', 'curry', 'teh', 'kopi', 'milo', 'horlicks', 'biryani',
+      'tandoori', 'dim', 'sushi', 'ramen', 'tom', 'pad', 'pho', 'banh',
+      'wonton', 'hokkien', 'bak', 'chicken', 'udang', 'ketam', 'sotong'
+    ];
+    
+    const lowerQuery = query.toLowerCase().trim();
+    // Check if query starts with a food prefix (but allow full words like "nasi lemak")
+    // Only skip if it's just the prefix alone or with trailing space (≤ 6 chars)
+    if (lowerQuery.length <= 6) { // Short queries like "nasi ", "mee ", "roti"
+      return foodPrefixes.some(prefix => lowerQuery.startsWith(prefix));
+    }
+    
+    return false;
+  }
+
+  // Check if query is a cuisine type or food item (not a location)
+  isCuisineType(query) {
+    const cuisineTypes = [
+      'malay', 'chinese', 'indian', 'western', 'japanese', 'korean',
+      'thai', 'italian', 'fast food', 'cafe', 'kopi', 'restaurant',
+      'food', 'cuisine', 'halal', 'non-halal', 'pork-free'
+    ];
+    
+    // Common Malaysian food items
+    const foodItems = [
+      'nasi lemak', 'nasi goreng', 'nasi kerabu', 'nasi dagang',
+      'karipap', 'curry puff', 'roti canai', 'roti', 'murtabak',
+      'char kway teow', 'laksa', 'mee goreng', 'mee rebus',
+      'satay', 'rendang', 'ayam goreng', 'ikan bakar',
+      'teh tarik', 'kopi o', 'kopi ais', 'milo', 'horlicks'
+    ];
+
+    const lowerQuery = query.toLowerCase().trim();
+    
+    // Check if it's a cuisine type
+    if (cuisineTypes.some(cuisine => lowerQuery === cuisine || lowerQuery.includes(cuisine))) {
+      return true;
+    }
+    
+    // Check if it's a food item
+    if (foodItems.some(food => lowerQuery.includes(food))) {
+      return true;
+    }
+    
+    return false;
+  }
+
   // Get predefined location coordinates for major Malaysian cities
-  getPredefinedLocation(query) {
+  async getPredefinedLocation(query) {
     const lowerQuery = query.toLowerCase();
+    
+    // First check learned locations with coordinates (from brain)
+    try {
+      const { keywordLearningService } = await import('./keywordLearningService');
+      const learnedCoords = await keywordLearningService.getLearnedLocationCoordinates(lowerQuery);
+      if (learnedCoords) {
+        console.log(`📍 Using learned location coordinates: "${lowerQuery}" →`, learnedCoords);
+        return learnedCoords;
+      }
+    } catch (error) {
+      // Silently fail - fallback to hardcoded locations
+    }
     
     const predefinedLocations = {
       'kuala lumpur': { lat: 3.1390, lng: 101.6869 },
@@ -211,6 +663,9 @@ class EnhancedSearchService {
       'selayang': { lat: 3.2333, lng: 101.6500 },
       'gombak': { lat: 3.2167, lng: 101.6500 },
       'klang': { lat: 3.0333, lng: 101.4500 },
+      'kluang': { lat: 2.0333, lng: 103.3167 }, // Added Kluang
+      'yong peng': { lat: 2.0167, lng: 103.0667 },
+      'simpang renggam': { lat: 1.8333, lng: 103.3167 },
       'malacca': { lat: 2.1896, lng: 102.2501 },
       'melaka': { lat: 2.1896, lng: 102.2501 },
       'penang': { lat: 5.4164, lng: 100.3327 },
@@ -223,6 +678,8 @@ class EnhancedSearchService {
       'kk': { lat: 5.9804, lng: 116.0735 },
       'alor setar': { lat: 6.1214, lng: 100.3681 },
       'kangar': { lat: 6.4414, lng: 100.1986 },
+      'langkawi': { lat: 6.3500, lng: 99.8000 },
+      'pulau langkawi': { lat: 6.3500, lng: 99.8000 },
       'kedah': { lat: 6.1214, lng: 100.3681 }, // Alor Setar as Kedah center
       'perak': { lat: 4.5841, lng: 101.0829 }, // Ipoh as Perak center
       'selangor': { lat: 3.1073, lng: 101.6085 }, // PJ as Selangor center
@@ -236,9 +693,22 @@ class EnhancedSearchService {
       'labuan': { lat: 5.2831, lng: 115.2308 }
     };
 
-    // Find matching location
-    for (const [key, coords] of Object.entries(predefinedLocations)) {
-      if (lowerQuery.includes(key)) {
+    // Find matching location - check longest matches first to avoid partial matches
+    // Sort by length (longest first) so "kluang" matches before "kl"
+    const sortedLocations = Object.entries(predefinedLocations).sort((a, b) => b[0].length - a[0].length);
+    
+    for (const [key, coords] of sortedLocations) {
+      // Use word boundary or exact match to avoid partial matches
+      // Check if query equals key OR query contains key as whole word
+      if (lowerQuery === key || lowerQuery.includes(key)) {
+        // Additional check: if key is short (like "kl"), make sure it's not part of a longer word
+        if (key.length <= 2) {
+          // For short keys, check if it's a whole word match
+          const regex = new RegExp(`\\b${key}\\b`, 'i');
+          if (!regex.test(lowerQuery)) {
+            continue; // Skip if it's part of a longer word
+          }
+        }
         console.log('📍 Using predefined location:', key, coords);
         return coords;
       }
@@ -247,29 +717,57 @@ class EnhancedSearchService {
     return null;
   }
 
-  // Filter results by text query
+  // Filter results by text query (case-insensitive, partial matching)
   filterByTextQuery(results, searchQuery) {
     const query = searchQuery.toLowerCase().trim();
-    const queryWords = query.split(/\s+/);
+    
+    // If query is empty, return all results
+    if (!query) {
+      return results;
+    }
+    
+    // Split query into words, but also keep the full query for partial matching
+    const queryWords = query.split(/\s+/).filter(word => word.length > 0);
     
     return results.filter(restaurant => {
+      // Build searchable text from all restaurant fields
       const searchableText = [
         restaurant.name || '',
+        restaurant.displayName || '',
         restaurant.address || '',
+        restaurant.formattedAddress || '',
         restaurant.cuisineType || '',
         restaurant.types ? restaurant.types.join(' ') : '',
         restaurant.vicinity || ''
       ].join(' ').toLowerCase();
       
-      // Check if all query words are found in the searchable text
-      return queryWords.every(word => searchableText.includes(word));
+      // Strategy 1: Check if full query matches anywhere (for partial matches like "mc" → "mcdonald's")
+      if (searchableText.includes(query)) {
+        return true;
+      }
+      
+      // Strategy 2: Check if all query words are found (for multi-word queries like "nasi lemak")
+      if (queryWords.length > 0) {
+        return queryWords.every(word => {
+          // Each word must be at least 2 characters to avoid matching single letters
+          if (word.length < 2) {
+            return true; // Skip single character words
+          }
+          return searchableText.includes(word);
+        });
+      }
+      
+      return false;
     });
   }
 
   // Geocode location using Google Geocoding API
   async geocodeLocation(address) {
     try {
+      console.log(`🗺️ Geocoding request for: "${address}"`);
+      
       if (!window.google?.maps?.importLibrary) {
+        console.error('❌ Google Maps API not loaded yet');
         throw new Error('Google Maps not loaded');
       }
 
@@ -278,22 +776,46 @@ class EnhancedSearchService {
 
       return new Promise((resolve, reject) => {
         const query = /malaysia/i.test(address) ? address : `${address}, Malaysia`;
+        console.log(`🗺️ Geocoding query: "${query}"`);
         
-        geocoder.geocode({ address: query }, (results, status) => {
+        geocoder.geocode({ address: query }, async (results, status) => {
+          console.log(`🗺️ Geocoding response status: ${status}`);
+          
           if (status === 'OK' && results[0]) {
             const location = results[0].geometry.location;
-            resolve({
+            const result = {
               lat: location.lat(),
               lng: location.lng(),
               address: results[0].formatted_address
-            });
+            };
+            console.log(`✅ Geocoding SUCCESS:`, result);
+            
+            // Learn coordinates for future use (non-blocking)
+            try {
+              const { keywordLearningService } = await import('./keywordLearningService');
+              await keywordLearningService.learnLocationCoordinates(
+                address.toLowerCase().trim(),
+                result.lat,
+                result.lng
+              ).catch(err => {
+                console.log('⚠️ Could not learn location coordinates (non-critical):', err.message);
+              });
+            } catch (importError) {
+              // Silently fail - learning is optional
+            }
+            
+            resolve(result);
           } else {
-            reject(new Error(`Geocoding failed: ${status}`));
+            const errorMsg = `Geocoding failed: ${status}`;
+            console.error(`❌ ${errorMsg}`);
+            console.error(`❌ Results:`, results);
+            reject(new Error(errorMsg));
           }
         });
       });
     } catch (error) {
-      console.error('Geocoding error:', error);
+      console.error('❌ Geocoding error:', error);
+      console.error('❌ Error stack:', error.stack);
       throw error;
     }
   }
@@ -371,7 +893,11 @@ class EnhancedSearchService {
         return results.sort((a, b) => (a.distanceFromUser || 0) - (b.distanceFromUser || 0));
       
       case 'newest':
-        return results.sort((a, b) => new Date(b.lastUpdated || 0) - new Date(a.lastUpdated || 0));
+        return results.sort((a, b) => {
+          const dateA = a.lastUpdated || a.createdAt || a.dateAdded || 0;
+          const dateB = b.lastUpdated || b.createdAt || b.dateAdded || 0;
+          return new Date(dateB) - new Date(dateA);
+        });
       
       case 'mostReviews':
         return results.sort((a, b) => (b.userRatingCount || 0) - (a.userRatingCount || 0));

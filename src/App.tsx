@@ -1,12 +1,15 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import './App.css';
 import { firestoreSearchService } from './services/firestoreSearchService';
+import { placeSearchService } from './services/placeSearchService';
 import { routeIndexService } from './services/routeIndexService';
 import { userActivityService } from './services/userActivityService';
 import { rateLimitService } from './services/rateLimitService';
 import { distanceMatrixService } from './services/distanceMatrixService';
 import { routePrePopulationService } from './services/routePrePopulationService';
 import { analyticsService } from './services/analyticsService';
+import { locationIndexService } from './services/locationIndexService';
+import { keywordLearningService } from './services/keywordLearningService';
 import { calculateRouteBounds } from './utils/distanceUtils';
 // import { findMinimumDetour } from './utils/distanceUtils'; // Unused for now
 import { inspectFirestoreData } from './utils/inspectFirestoreData';
@@ -43,7 +46,14 @@ const AppWithAuth: React.FC = () => {
   const [availableRoutes, setAvailableRoutes] = useState<any[]>([]);
   const [selectedRoute, setSelectedRoute] = useState<any>(null);
   const [allRestaurants, setAllRestaurants] = useState<any[]>([]); // All restaurants for all routes
+  const [allRNRStops, setAllRNRStops] = useState<any[]>([]); // All R&R stops for all routes
+  const [allPetrolStations, setAllPetrolStations] = useState<any[]>([]); // All petrol stations for all routes
   const [filteredRestaurants, setFilteredRestaurants] = useState<any[]>([]); // Currently visible restaurants
+  const [filteredRNRStops, setFilteredRNRStops] = useState<any[]>([]); // Currently visible R&R stops
+  const [filteredPetrolStations, setFilteredPetrolStations] = useState<any[]>([]); // Currently visible petrol stations
+  const [selectedPlaceType, setSelectedPlaceType] = useState<'all' | 'restaurant' | 'rnr' | 'petrol_station'>('all'); // Filter by place type
+  const [restaurantMarkers, setRestaurantMarkers] = useState<any[]>([]); // Track all markers for removal
+  const [currentMapInstance, setCurrentMapInstance] = useState<any>(null); // Store map instance for route switching
   const [selectedEateries, setSelectedEateries] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<'discover' | 'search' | 'add' | 'favorites' | 'user' | 'admin'>('discover');
   const [isAdmin, setIsAdmin] = useState(false);
@@ -203,6 +213,20 @@ const AppWithAuth: React.FC = () => {
       // Update rate limit stats
       // updateRateLimitStats(); // Unused for now
       
+      // Initialize keyword learning system (the "brain")
+      // Run in background to avoid blocking app startup
+      // The brain will start learning 2 seconds after app loads
+      setTimeout(async () => {
+        try {
+          console.log('🧠 Starting keyword learning system (brain)...');
+          await keywordLearningService.initialize();
+          console.log('✅ Keyword learning system (brain) is now active!');
+        } catch (error) {
+          console.warn('⚠️ Could not initialize keyword learning system:', error);
+          console.log('💡 App will work without automatic keyword learning');
+        }
+      }, 2000);
+      
       // Try to load saved routes
       console.log('🔄 Attempting to load saved routes...');
       try {
@@ -213,26 +237,55 @@ const AppWithAuth: React.FC = () => {
         console.log('💡 App will work without saved routes feature');
         console.log('🔧 This might be due to Firebase configuration - check console for details');
       }
-      
-      // Trigger pre-population of popular routes (runs in background)
-      console.log('🚀 Starting route pre-population in background...');
-      routePrePopulationService.prePopulateRoutes().catch(error => {
-        console.log('⚠️ Pre-population failed (non-critical):', error);
-      });
     };
     
     initializeApp();
   }, [loadSavedRoutes]); // updateRateLimitStats removed
 
-  // Safe getter for the map element with user-facing error
-  const getMapElementOrAbort = (): HTMLElement | null => {
-    const el = document.getElementById('map');
+  // Trigger pre-population ONLY after Google Maps is loaded
+  useEffect(() => {
+    if (googleMapsLoaded) {
+      console.log('🚀 Google Maps loaded - starting route pre-population in background...');
+      routePrePopulationService.prePopulateRoutes().catch(error => {
+        console.log('⚠️ Pre-population failed (non-critical):', error);
+      });
+    } else {
+      console.log('⏳ Waiting for Google Maps before pre-population...');
+    }
+  }, [googleMapsLoaded]); // Only run when googleMapsLoaded changes to true
+
+  // Wait for element to appear in DOM with retry mechanism
+  const waitForElement = async (elementId: string, maxRetries = 10, delay = 100): Promise<HTMLElement | null> => {
+    for (let i = 0; i < maxRetries; i++) {
+      const el = document.getElementById(elementId);
+      if (el) {
+        return el as HTMLElement;
+      }
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+    return null;
+  };
+
+  // Safe getter for the map element with user-facing error and retry
+  const getMapElementOrAbort = async (): Promise<HTMLElement | null> => {
+    // Try immediate lookup first
+    let el = document.getElementById('map');
+    if (el) {
+      return el as HTMLElement;
+    }
+
+    // If not found, wait for it to appear (React might still be rendering)
+    console.log('⏳ Map element not found immediately, waiting for DOM to render...');
+    el = await waitForElement('map', 20, 50); // Try 20 times with 50ms delay = 1 second max
+    
     if (!el) {
-      console.error('❌ Map element not found in DOM');
+      console.error('❌ Map element not found in DOM after waiting');
       setError('Map element not found. Please refresh the page.');
       setIsLoading(false);
       return null;
     }
+    
+    console.log('✅ Map element found after waiting');
     return el as HTMLElement;
   };
 
@@ -325,7 +378,7 @@ const AppWithAuth: React.FC = () => {
         const { Map } = await window.google.maps.importLibrary("maps");
         // No longer need DirectionsRenderer with direct polyline approach
 
-        const mapElement = getMapElementOrAbort();
+        const mapElement = await getMapElementOrAbort();
         if (!mapElement) return;
 
         const map = new Map(mapElement, {
@@ -337,6 +390,8 @@ const AppWithAuth: React.FC = () => {
           mapId: process.env.REACT_APP_GOOGLE_MAPS_MAP_ID || 'DEMO_MAP_ID'
         });
         
+        // Store map instance for route switching
+        setCurrentMapInstance(map);
         console.log('🗺️ Map created for cached route');
         
         // No longer need DirectionsRenderer with direct polyline approach
@@ -357,19 +412,43 @@ const AppWithAuth: React.FC = () => {
         const polylines: any[] = [];
         
         reconstructedRoutes.forEach((route, index) => {
+          // Handle polyline - check for corrupted format (string converted to object with numeric keys)
+          let encodedPath = null;
+          
           if (route?.overview_polyline?.encoded_path) {
-            const decodedPath = encoding.decodePath(route.overview_polyline.encoded_path);
-            
-            const polyline = new Polyline({
-              path: decodedPath,
-              strokeColor: '#4285F4',
-              strokeOpacity: index === 0 ? 0.8 : 0, // Show first route, hide others
-              strokeWeight: 4,
-              geodesic: true,
-              map: map
-            });
-            
-            polylines.push(polyline);
+            // Normal format: { encoded_path: "..." }
+            encodedPath = route.overview_polyline.encoded_path;
+          } else if (route?.overview_polyline) {
+            // Check if it's corrupted (string converted to object with numeric keys)
+            const keys = Object.keys(route.overview_polyline);
+            if (keys.length > 0 && keys.every(key => /^\d+$/.test(key))) {
+              const firstValue = route.overview_polyline[keys[0]];
+              // If values are single characters, it's a corrupted encoded string
+              if (typeof firstValue === 'string' && firstValue.length === 1) {
+                // Reconstruct the encoded string from numeric keys
+                encodedPath = Object.values(route.overview_polyline).join('');
+                console.log('✅ Reconstructed encoded polyline from corrupted numeric keys (cached route)');
+              }
+            }
+          }
+          
+          if (encodedPath && typeof encodedPath === 'string') {
+            try {
+              const decodedPath = encoding.decodePath(encodedPath);
+              
+              const polyline = new Polyline({
+                path: decodedPath,
+                strokeColor: '#4285F4',
+                strokeOpacity: index === 0 ? 0.8 : 0, // Show first route, hide others
+                strokeWeight: 4,
+                geodesic: true,
+                map: map
+              });
+              
+              polylines.push(polyline);
+            } catch (error) {
+              console.error(`❌ Error decoding polyline for cached route ${index + 1}:`, error);
+            }
           }
         });
         
@@ -379,12 +458,32 @@ const AppWithAuth: React.FC = () => {
         console.log(`✅ Created ${polylines.length} polylines for all routes`);
         
         // Fit map to show the first route using global Google Maps API
-        if (polylines.length > 0 && firstRoute?.overview_polyline?.encoded_path) {
-          const decodedPath = encoding.decodePath(firstRoute.overview_polyline.encoded_path);
-          const bounds = new (window.google.maps as any).LatLngBounds();
-          decodedPath.forEach((point: any) => bounds.extend(point));
-          map.fitBounds(bounds);
-          console.log('✅ Map bounds fitted to first route');
+        if (polylines.length > 0 && firstRoute?.overview_polyline) {
+          try {
+            let encodedPath = null;
+            if (firstRoute.overview_polyline.encoded_path) {
+              encodedPath = firstRoute.overview_polyline.encoded_path;
+            } else {
+              // Handle corrupted format
+              const keys = Object.keys(firstRoute.overview_polyline);
+              if (keys.length > 0 && keys.every(key => /^\d+$/.test(key))) {
+                const firstValue = firstRoute.overview_polyline[keys[0]];
+                if (typeof firstValue === 'string' && firstValue.length === 1) {
+                  encodedPath = Object.values(firstRoute.overview_polyline).join('');
+                }
+              }
+            }
+            
+            if (encodedPath && typeof encodedPath === 'string') {
+              const decodedPath = encoding.decodePath(encodedPath);
+              const bounds = new (window.google.maps as any).LatLngBounds();
+              decodedPath.forEach((point: any) => bounds.extend(point));
+              map.fitBounds(bounds);
+              console.log('✅ Map bounds fitted to first route');
+            }
+          } catch (error) {
+            console.error('❌ Error fitting bounds for cached route:', error);
+          }
         }
         
         // Find restaurants for indexed routes
@@ -428,8 +527,8 @@ const AppWithAuth: React.FC = () => {
       setShowRouteResults(true);
       await waitForNextFrame();
 
-      // Create map
-      const mapElement = getMapElementOrAbort();
+      // Create map - wait for element to appear in DOM
+      const mapElement = await getMapElementOrAbort();
       if (!mapElement) return;
       
       console.log('🗺️ Map element found:', mapElement);
@@ -442,6 +541,9 @@ const AppWithAuth: React.FC = () => {
         zoom: 12,
         mapId: process.env.REACT_APP_GOOGLE_MAPS_MAP_ID || 'DEMO_MAP_ID'
       });
+      
+      // Store map instance for route switching
+      setCurrentMapInstance(map);
       
       console.log('🗺️ Map created for new route:', {
         center: { lat: (startLocation.lat + endLocation.lat) / 2, lng: (startLocation.lng + endLocation.lng) / 2 },
@@ -543,6 +645,25 @@ const AppWithAuth: React.FC = () => {
           // Render polylines for all routes (using Google Maps geometry library)
           const { encoding } = await window.google.maps.importLibrary("geometry");
           
+          // Helper function to validate LatLng coordinates
+          const isValidLatLng = (point: any): boolean => {
+            if (!point || typeof point !== 'object') return false;
+            const lat = typeof point.lat === 'function' ? point.lat() : point.lat;
+            const lng = typeof point.lng === 'function' ? point.lng() : point.lng;
+            return typeof lat === 'number' && typeof lng === 'number' && 
+                   !isNaN(lat) && !isNaN(lng) && 
+                   isFinite(lat) && isFinite(lng) &&
+                   lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+          };
+          
+          // Helper function to normalize LatLng to {lat, lng}
+          const normalizeLatLng = (point: any): {lat: number, lng: number} | null => {
+            if (!isValidLatLng(point)) return null;
+            const lat = typeof point.lat === 'function' ? point.lat() : point.lat;
+            const lng = typeof point.lng === 'function' ? point.lng() : point.lng;
+            return { lat, lng };
+          };
+          
           const polylines: any[] = [];
           result.routes.forEach((route: any, index: number) => {
             console.log(`🔍 Route ${index + 1} structure:`, {
@@ -566,16 +687,36 @@ const AppWithAuth: React.FC = () => {
         
         // Handle array-like structure with numeric string keys
         if (keys.length > 0 && keys.every(key => /^\d+$/.test(key))) {
-          // Convert numeric string keys to array
-          const maxIndex = Math.max(...keys.map(k => parseInt(k)));
-          const pathArray = [];
-          for (let i = 0; i <= maxIndex; i++) {
-            if (route.overview_polyline[i.toString()]) {
-              pathArray.push(route.overview_polyline[i.toString()]);
+          const firstValue = route.overview_polyline[keys[0]];
+          
+          // Check if values are single characters (corrupted encoded string)
+          if (typeof firstValue === 'string' && firstValue.length === 1) {
+            // Reconstruct the encoded string from numeric keys
+            encodedPath = Object.values(route.overview_polyline).join('');
+            console.log('✅ Reconstructed encoded polyline from corrupted numeric keys (fresh route)');
+          } else {
+            // Original logic: numeric keys with LatLng objects
+            const maxIndex = Math.max(...keys.map(k => parseInt(k)));
+            const pathArray = [];
+            for (let i = 0; i <= maxIndex; i++) {
+              const point = route.overview_polyline[i.toString()];
+              if (point) {
+                // Validate the point before adding
+                const normalized = normalizeLatLng(point);
+                if (normalized) {
+                  pathArray.push(normalized);
+                } else {
+                  console.warn(`⚠️ Invalid coordinate at index ${i}:`, point);
+                }
+              }
+            }
+            if (pathArray.length > 0) {
+              encodedPath = pathArray;
+              console.log(`🔍 Converted numeric keys to array with ${pathArray.length} valid points`);
+            } else {
+              console.warn('⚠️ No valid coordinates found in numeric keys structure');
             }
           }
-          encodedPath = pathArray;
-          console.log(`🔍 Converted numeric keys to array with ${pathArray.length} points`);
         } else if (keys.length > 0) {
           encodedPath = route.overview_polyline[keys[0]];
         }
@@ -587,25 +728,32 @@ const AppWithAuth: React.FC = () => {
                 if (typeof encodedPath === 'string') {
                   // It's an encoded string, decode it
                   path = encoding.decodePath(encodedPath);
+                  // Validate all decoded points
+                  path = path.filter((point: any) => isValidLatLng(point)).map((point: any) => normalizeLatLng(point)).filter((p: any) => p !== null);
                 } else if (Array.isArray(encodedPath)) {
-                  // It's already decoded
-                  path = encodedPath;
+                  // It's already decoded - validate all points
+                  path = encodedPath.map((point: any) => normalizeLatLng(point)).filter((p: any) => p !== null);
                 } else {
                   console.warn(`⚠️ Unknown polyline format for route ${index + 1}:`, typeof encodedPath);
                   return;
                 }
                 
-                const polyline = new (window.google.maps as any).Polyline({
-                  path: path,
-                  geodesic: true,
-                  strokeColor: index === 0 ? '#FF6B6B' : '#4ECDC4',
-                  strokeOpacity: 0.8,
-                  strokeWeight: index === 0 ? 4 : 3,
-                  map: map
-                });
-                
-                polylines.push(polyline);
-                console.log(`✅ Created polyline for route ${index + 1} with ${path.length} points`);
+                // Only create polyline if we have valid points
+                if (path.length > 0) {
+                  const polyline = new (window.google.maps as any).Polyline({
+                    path: path,
+                    geodesic: true,
+                    strokeColor: index === 0 ? '#FF6B6B' : '#4ECDC4',
+                    strokeOpacity: 0.8,
+                    strokeWeight: index === 0 ? 4 : 3,
+                    map: map
+                  });
+                  
+                  polylines.push(polyline);
+                  console.log(`✅ Created polyline for route ${index + 1} with ${path.length} valid points`);
+                } else {
+                  console.warn(`⚠️ No valid coordinates found for route ${index + 1} polyline`);
+                }
               } catch (error) {
                 console.error(`❌ Error creating polyline for route ${index + 1}:`, error);
               }
@@ -633,37 +781,67 @@ const AppWithAuth: React.FC = () => {
                 if (keys.length > 0) {
                   // Handle array-like structure with numeric string keys
                   if (keys.every(key => /^\d+$/.test(key))) {
-                    // Convert numeric string keys to array
+                    // Convert numeric string keys to array, but validate each point
                     const maxIndex = Math.max(...keys.map(k => parseInt(k)));
                     const pathArray = [];
                     for (let i = 0; i <= maxIndex; i++) {
-                      if (firstRoute.overview_polyline[i.toString()]) {
-                        pathArray.push(firstRoute.overview_polyline[i.toString()]);
+                      const point = firstRoute.overview_polyline[i.toString()];
+                      if (point) {
+                        const normalized = normalizeLatLng(point);
+                        if (normalized) {
+                          pathArray.push(normalized);
+                        }
                       }
                     }
-                    decodedPath = pathArray;
+                    if (pathArray.length > 0) {
+                      decodedPath = pathArray;
+                    }
                   } else {
                     const pathData = firstRoute.overview_polyline[keys[0]];
                     if (typeof pathData === 'string') {
                       decodedPath = encoding.decodePath(pathData);
+                      // Validate decoded path
+                      if (Array.isArray(decodedPath)) {
+                        decodedPath = decodedPath.map((point: any) => normalizeLatLng(point)).filter((p: any) => p !== null);
+                      }
                     } else if (Array.isArray(pathData)) {
-                      decodedPath = pathData;
+                      // Validate array path
+                      decodedPath = pathData.map((point: any) => normalizeLatLng(point)).filter((p: any) => p !== null);
                     }
                   }
                 }
               }
               
               if (decodedPath && Array.isArray(decodedPath)) {
-                const bounds = new (window.google.maps as any).LatLngBounds();
-                decodedPath.forEach((point: any) => bounds.extend(point));
-                map.fitBounds(bounds);
-                console.log('✅ Map bounds fitted to first route');
-                console.log('📍 Route bounds:', {
-                  north: bounds.getNorthEast().lat(),
-                  south: bounds.getSouthWest().lat(),
-                  east: bounds.getNorthEast().lng(),
-                  west: bounds.getSouthWest().lng()
-                });
+                // Validate all points before extending bounds
+                const validPoints = decodedPath.map((point: any) => normalizeLatLng(point)).filter((p: any) => p !== null);
+                
+                if (validPoints.length > 0) {
+                  const bounds = new (window.google.maps as any).LatLngBounds();
+                  validPoints.forEach((point: any) => {
+                    if (point && isValidLatLng(point)) {
+                      bounds.extend(point);
+                    }
+                  });
+                  map.fitBounds(bounds);
+                  console.log('✅ Map bounds fitted to first route');
+                  console.log('📍 Route bounds:', {
+                    north: bounds.getNorthEast().lat(),
+                    south: bounds.getSouthWest().lat(),
+                    east: bounds.getNorthEast().lng(),
+                    west: bounds.getSouthWest().lng()
+                  });
+                } else {
+                  console.warn('⚠️ No valid coordinates for map bounds fitting');
+                  // Fallback: center on start and end locations
+                  if (startLocation && endLocation) {
+                    const bounds = new (window.google.maps as any).LatLngBounds();
+                    bounds.extend(new (window.google.maps as any).LatLng(startLocation.lat, startLocation.lng));
+                    bounds.extend(new (window.google.maps as any).LatLng(endLocation.lat, endLocation.lng));
+                    map.fitBounds(bounds);
+                    console.log('✅ Map bounds fitted to start/end locations as fallback');
+                  }
+                }
               } else {
                 console.warn('⚠️ Could not decode path for map bounds fitting');
                 // Fallback: center on start and end locations
@@ -769,6 +947,8 @@ const AppWithAuth: React.FC = () => {
         selectedRouteIndex={availableRoutes.findIndex(r => r === selectedRoute)}
         onRouteSelect={handleRouteSelect}
         filteredRestaurants={filteredRestaurants}
+        filteredRNRStops={filteredRNRStops}
+        filteredPetrolStations={filteredPetrolStations}
         selectedEateries={selectedEateries}
         onEaterySelect={handleEaterySelect}
         onViewDetails={(restaurant: any) => { setSelectedRestaurant(restaurant); setShowRestaurantModal(true); }}
@@ -810,7 +990,13 @@ const AppWithAuth: React.FC = () => {
       case 'add':
         return <AddRestaurantTab />;
       case 'favorites':
-        return <FavoritesTab />;
+        return (
+          <FavoritesTab 
+            savedRoutes={savedRoutes}
+            onLoadRoute={handleLoadRoute}
+            onDeleteRoute={handleDeleteRoute}
+          />
+        );
       case 'user':
         return <UserTab />;
       case 'admin':
@@ -820,9 +1006,9 @@ const AppWithAuth: React.FC = () => {
     }
   };
 
-  // NEW: Fetch restaurants for ALL routes at once (more efficient)
-  const findRestaurantsForAllRoutes = async (routes: any[], map: any) => {
-    console.log('🔍 Fetching restaurants for ALL routes at once...');
+  // NEW: Fetch ALL places (restaurants, R&R, petrol) for ALL routes at once (more efficient)
+  const findPlacesForAllRoutes = async (routes: any[], map: any) => {
+    console.log('🔍 Fetching ALL places (restaurants, R&R, petrol) for ALL routes at once...');
     
     try {
       // Calculate combined bounds for all routes
@@ -843,172 +1029,269 @@ const AppWithAuth: React.FC = () => {
       
       console.log('📍 Combined bounds for all routes:', combinedBounds);
       
-      // Fetch ALL restaurants in the combined area
-      const allPlaces = await firestoreSearchService.searchRestaurants(combinedBounds, {
-        foodType: 'all',
-        minRating: 0,
-        halalOnly: false,
-        openNow: false
-      });
+      // Fetch ALL place types in parallel
+      const [allRestaurantsData, allRNRStopsData, allPetrolStationsData] = await Promise.all([
+        firestoreSearchService.searchRestaurants(combinedBounds, {
+          foodType: 'all',
+          minRating: 0,
+          halalOnly: false,
+          openNow: false
+        }),
+        placeSearchService.searchRNRStops(combinedBounds, {}),
+        placeSearchService.searchPetrolStations(combinedBounds, {})
+      ]);
       
-      console.log(`🍽️ Found ${allPlaces.length} restaurants in combined area`);
+      console.log(`🍽️ Found ${allRestaurantsData.length} restaurants in combined area`);
+      console.log(`🛣️ Found ${allRNRStopsData.length} R&R stops in combined area`);
+      console.log(`⛽ Found ${allPetrolStationsData.length} petrol stations in combined area`);
       
-      // CRITICAL FIX: Calculate detours for ALL restaurants against ALL routes in ONE batch call
-      console.log('💰 Using optimized Distance Matrix service for accurate detours');
+      // CRITICAL FIX: Calculate detours for ALL places against ALL routes in parallel
+      console.log('💰 Using Haversine formula first (FREE), Distance Matrix as fallback if needed');
       
-      const restaurantsWithAllDetours = await Promise.all(
-        routes.map(async (route, routeIndex) => {
-          console.log(`🔍 Calculating detours for ${allPlaces.length} restaurants along route ${routeIndex + 1}`);
-          
-          try {
-            // Use the optimized distance matrix service for ALL restaurants at once
-            const restaurantsWithDetours = await distanceMatrixService.calculateRouteDetours(route, allPlaces);
-            console.log(`✅ Detour calculation completed for ${restaurantsWithDetours.length} restaurants`);
-            
+      const [restaurantsWithAllDetours, rnrStopsWithAllDetours, petrolStationsWithAllDetours] = await Promise.all([
+        // Calculate detours for restaurants (5km/30min threshold)
+        Promise.all(
+          routes.map(async (route, routeIndex) => {
+            console.log(`🔍 Calculating detours for ${allRestaurantsData.length} restaurants along route ${routeIndex + 1}`);
+            try {
+              const restaurantsWithDetours = await distanceMatrixService.calculateRouteDetours(route, allRestaurantsData, 'restaurant');
+              console.log(`✅ Detour calculation completed for ${restaurantsWithDetours.length} restaurants`);
+              return { routeIndex, places: restaurantsWithDetours };
+            } catch (error) {
+              console.error(`❌ Detour calculation failed for restaurants route ${routeIndex + 1}:`, error);
+              return {
+                routeIndex,
+                places: allRestaurantsData.map((place: any) => ({
+                  ...place,
+                  detourDistanceKm: Infinity,
+                  detourDurationMinutes: Infinity
+                }))
+              };
+            }
+          })
+        ),
+        // Calculate detours for R&R stops (5km/30min threshold)
+        Promise.all(
+          routes.map(async (route, routeIndex) => {
+            console.log(`🔍 Calculating detours for ${allRNRStopsData.length} R&R stops along route ${routeIndex + 1}`);
+            try {
+              const rnrStopsWithDetours = await distanceMatrixService.calculateRouteDetours(route, allRNRStopsData, 'rnr');
+              console.log(`✅ Detour calculation completed for ${rnrStopsWithDetours.length} R&R stops`);
+              return { routeIndex, places: rnrStopsWithDetours };
+            } catch (error) {
+              console.error(`❌ Detour calculation failed for R&R stops route ${routeIndex + 1}:`, error);
+              return {
+                routeIndex,
+                places: allRNRStopsData.map((place: any) => ({
+                  ...place,
+                  detourDistanceKm: Infinity,
+                  detourDurationMinutes: Infinity
+                }))
+              };
+            }
+          })
+        ),
+        // Calculate detours for petrol stations (5km/15min threshold)
+        Promise.all(
+          routes.map(async (route, routeIndex) => {
+            console.log(`🔍 Calculating detours for ${allPetrolStationsData.length} petrol stations along route ${routeIndex + 1}`);
+            try {
+              const petrolStationsWithDetours = await distanceMatrixService.calculateRouteDetours(route, allPetrolStationsData, 'petrol_station');
+              console.log(`✅ Detour calculation completed for ${petrolStationsWithDetours.length} petrol stations`);
+              return { routeIndex, places: petrolStationsWithDetours };
+            } catch (error) {
+              console.error(`❌ Detour calculation failed for petrol stations route ${routeIndex + 1}:`, error);
+              return {
+                routeIndex,
+                places: allPetrolStationsData.map((place: any) => ({
+                  ...place,
+                  detourDistanceKm: Infinity,
+                  detourDurationMinutes: Infinity
+                }))
+              };
+            }
+          })
+        )
+      ]);
+      
+      // Helper function to combine places with detours by route
+      const combinePlacesWithDetours = (places: any[], detoursByRoute: any[], placeType: string) => {
+        return places.map((place: any, placeIndex: number) => {
+          const detours = detoursByRoute.map((routeResult: any) => {
+            const placeWithDetour = routeResult.places[placeIndex];
             return {
-              routeIndex,
-              restaurants: restaurantsWithDetours
+              routeIndex: routeResult.routeIndex,
+              detour: placeWithDetour ? {
+                detourDistanceKm: placeWithDetour.detourDistanceKm || Infinity,
+                detourDurationMinutes: placeWithDetour.detourDurationMinutes || Infinity
+              } : { detourDistanceKm: Infinity, detourDurationMinutes: Infinity }
             };
-          } catch (error) {
-            console.error(`❌ Distance Matrix service failed for route ${routeIndex + 1}:`, error);
-            
-            // The distanceMatrixService already handles fallback internally
-            // Just return the restaurants without detour calculations
-            console.log('💰 Returning restaurants without detour calculations');
-            
-            return {
-              routeIndex,
-              restaurants: allPlaces.map((place: any) => ({
-                ...place,
-                detourDistanceKm: Infinity,
-                detourDurationMinutes: Infinity,
-                detourDistanceMeters: Infinity,
-                detourDurationSeconds: Infinity
-              }))
-            };
-          }
-        })
-      );
-      
-      // Combine all route results into a single restaurant list
-      const combinedRestaurants = allPlaces.map((place: any, placeIndex: number) => {
-        const detoursByRoute = restaurantsWithAllDetours.map((routeResult: any) => {
-          // Use array index matching as the primary method since the arrays should be in the same order
-          const restaurant = routeResult.restaurants[placeIndex];
-          
-          // Debug: Check restaurant matching
-          if (placeIndex < 3) {
-            console.log(`🔍 Matching restaurant ${placeIndex}:`, {
-              placeId: place.place_id,
-              placeId2: place.id,
-              placeName: place.name || place.eateryName,
-              routeResultRestaurants: routeResult.restaurants.length,
-              matchedRestaurant: restaurant ? {
-                place_id: restaurant.place_id,
-                id: restaurant.id,
-                name: restaurant.name || restaurant.eateryName,
-                detourDistanceKm: restaurant.detourDistanceKm
-              } : null,
-              usingIndexMatching: true
-            });
-          }
-          
-          if (placeIndex < 3) {
-            console.log(`🔍 Match result for restaurant ${placeIndex}:`, {
-              found: !!restaurant,
-              detourDistanceKm: restaurant?.detourDistanceKm,
-              detourDurationMinutes: restaurant?.detourDurationMinutes
-            });
-          }
+          });
           
           return {
-            routeIndex: routeResult.routeIndex,
-            detour: restaurant ? {
-              detourDistanceKm: restaurant.detourDistanceKm || Infinity,
-              detourDurationMinutes: restaurant.detourDurationMinutes || Infinity
-            } : { detourDistanceKm: Infinity, detourDurationMinutes: Infinity }
+            ...place,
+            placeType, // Add type identifier
+            detoursByRoute: detours,
+            detourDistanceKm: detours[0]?.detour?.detourDistanceKm || Infinity,
+            detourDurationMinutes: detours[0]?.detour?.detourDurationMinutes || Infinity
           };
         });
-        
-        return {
-          ...place,
-          detoursByRoute,
-          // Default to first route's detour for display
-          detourDistanceKm: detoursByRoute[0]?.detour?.detourDistanceKm || Infinity,
-          detourDurationMinutes: detoursByRoute[0]?.detour?.detourDurationMinutes || Infinity
-        };
-      });
+      };
       
-      // Filter restaurants that are within range of at least one route
-      // More generous limits: 5km or 30 minutes detour
-      const validRestaurants = combinedRestaurants.filter((restaurant: any) => 
-        restaurant.detoursByRoute.some((d: any) => 
-          d.detour.detourDistanceKm <= 5 || d.detour.detourDurationMinutes <= 30
-        )
-      );
+      // Combine all place types with their detours
+      const combinedRestaurants = combinePlacesWithDetours(allRestaurantsData, restaurantsWithAllDetours, 'restaurant');
+      const combinedRNRStops = combinePlacesWithDetours(allRNRStopsData, rnrStopsWithAllDetours, 'rnr');
+      const combinedPetrolStations = combinePlacesWithDetours(allPetrolStationsData, petrolStationsWithAllDetours, 'petrol_station');
       
-      console.log(`📍 ${validRestaurants.length} restaurants within range of at least one route`);
-      
-      // Debug: Show some detour examples
-      if (combinedRestaurants.length > 0) {
-        console.log('🔍 Sample detour calculations:');
-        combinedRestaurants.slice(0, 3).forEach((restaurant: any, index: number) => {
-          console.log(`Restaurant ${index + 1}: ${restaurant.name || restaurant.eateryName}`);
-          restaurant.detoursByRoute.forEach((detour: any, routeIdx: number) => {
-            console.log(`  Route ${routeIdx + 1}: ${detour.detour.detourDistanceKm.toFixed(2)}km, ${detour.detour.detourDurationMinutes.toFixed(1)}min`);
-          });
+      // Filter places that are within QUICK DETOUR range
+      // Restaurants & R&R: 5km/30min, Petrol: 5km/15min
+      const filterPlacesByThreshold = (places: any[], threshold: { distance: number, duration: number }) => {
+        return places.filter((place: any) => {
+          // Safety check: filter out places with clearly invalid distances (>100km)
+          const hasValidDistance = place.detoursByRoute.some((d: any) => 
+            d.detour.detourDistanceKm <= 100 && 
+            d.detour.detourDistanceKm !== Infinity &&
+            !isNaN(d.detour.detourDistanceKm)
+          );
+          
+          if (!hasValidDistance) return false;
+          
+          // Main filter: within threshold
+          return place.detoursByRoute.some((d: any) => 
+            (d.detour.detourDistanceKm <= threshold.distance && d.detour.detourDistanceKm <= 100) || 
+            (d.detour.detourDurationMinutes <= threshold.duration && d.detour.detourDurationMinutes <= 180)
+          );
         });
+      };
+      
+      const validRestaurants = filterPlacesByThreshold(combinedRestaurants, { distance: 5, duration: 30 });
+      const validRNRStops = filterPlacesByThreshold(combinedRNRStops, { distance: 5, duration: 30 });
+      const validPetrolStations = filterPlacesByThreshold(combinedPetrolStations, { distance: 5, duration: 15 });
+      
+      console.log(`📍 ${validRestaurants.length} restaurants within range`);
+      console.log(`📍 ${validRNRStops.length} R&R stops within range`);
+      console.log(`📍 ${validPetrolStations.length} petrol stations within range`);
+      
+      // Store all places (from ALL routes)
+      setAllRestaurants(validRestaurants);
+      setAllRNRStops(validRNRStops);
+      setAllPetrolStations(validPetrolStations);
+      
+      // INITIAL DISPLAY: Show ALL places from ALL routes (prioritize restaurants)
+      console.log('📊 Initial display: Showing ALL places from ALL routes (restaurants prioritized)');
+      setFilteredRestaurants(validRestaurants);
+      setFilteredRNRStops(validRNRStops);
+      setFilteredPetrolStations(validPetrolStations);
+      
+      // Add ALL markers to map initially (from all routes)
+      if (map) {
+        const allPlacesToShow = [...validRestaurants, ...validRNRStops, ...validPetrolStations];
+        if (allPlacesToShow.length > 0) {
+          console.log(`🗺️ Adding ${allPlacesToShow.length} place markers from ALL routes (${validRestaurants.length} restaurants, ${validRNRStops.length} R&R, ${validPetrolStations.length} petrol)`);
+          addPlaceMarkers(allPlacesToShow, map);
+        }
       }
       
-      // Store all restaurants
-      setAllRestaurants(validRestaurants);
-      
-      // Show restaurants for the first route by default
-      filterRestaurantsForRoute(validRestaurants, routes[0], 0, map);
-      
-      // Add markers to map - this will be called after filtering is complete
-      // The markers will be added in the filterRestaurantsForRoute function
+      // Cache places in route_index for future use (if start/end locations are available)
+      if (startLocation && endLocation) {
+        try {
+          await (routeIndexService.indexRoute as any)(routes, 
+            { name: startLocation.name, lat: startLocation.lat, lng: startLocation.lng },
+            { name: endLocation.name, lat: endLocation.lat, lng: endLocation.lng },
+            {
+              restaurants: validRestaurants,
+              rnr_stops: validRNRStops,
+              petrol_stations: validPetrolStations
+            }
+          );
+          console.log('✅ Cached all places in route_index');
+        } catch (cacheError) {
+          console.warn('⚠️ Failed to cache places:', cacheError);
+        }
+      }
       
     } catch (error) {
-      console.error('❌ Restaurant search failed:', error);
+      console.error('❌ Place search failed:', error);
       setAllRestaurants([]);
+      setAllRNRStops([]);
+      setAllPetrolStations([]);
       setFilteredRestaurants([]);
+      setFilteredRNRStops([]);
+      setFilteredPetrolStations([]);
     }
   };
+  
+  // Legacy function name for backward compatibility
+  const findRestaurantsForAllRoutes = findPlacesForAllRoutes;
 
-  // NEW: Filter restaurants for a specific route (no API call needed)
+  // Clear all place markers from map (restaurants, R&R, petrol)
+  const clearPlaceMarkers = () => {
+    console.log(`🗑️ Clearing ${restaurantMarkers.length} existing markers from map`);
+    restaurantMarkers.forEach(marker => {
+      if (marker.map) {
+        marker.map = null; // Remove marker from map
+      }
+    });
+    setRestaurantMarkers([]); // Clear marker array
+  };
+  
+  // Legacy function name for backward compatibility
+  const clearRestaurantMarkers = clearPlaceMarkers;
+
+  // Filter places for a specific route (applies to all routes including alternatives)
+  // Concept: Quick detour from route only - not map exploration
+  // When user selects a route: Show only places within threshold of THAT route (hide others)
+  const filterPlacesForRoute = (route: any, routeIndex: number, mapInstance?: any) => {
+    console.log(`🔄 Filtering places for Route ${routeIndex + 1} (quick detour only)...`);
+    
+    // Filter each place type with appropriate thresholds
+    const filterPlaces = (places: any[], threshold: { distance: number, duration: number }) => {
+      return places.filter(place => {
+        const routeDetour = place.detoursByRoute[routeIndex];
+        if (!routeDetour) return false;
+        return routeDetour.detour.detourDistanceKm <= threshold.distance || 
+               routeDetour.detour.detourDurationMinutes <= threshold.duration;
+      }).map(place => ({
+        ...place,
+        detourDistanceKm: place.detoursByRoute[routeIndex].detour.detourDistanceKm,
+        detourDurationMinutes: place.detoursByRoute[routeIndex].detour.detourDurationMinutes
+      }));
+    };
+    
+    const filteredRestaurants = filterPlaces(allRestaurants, { distance: 5, duration: 30 });
+    const filteredRNR = filterPlaces(allRNRStops, { distance: 5, duration: 30 });
+    const filteredPetrol = filterPlaces(allPetrolStations, { distance: 5, duration: 15 });
+    
+    console.log(`📍 ${filteredRestaurants.length} restaurants, ${filteredRNR.length} R&R, ${filteredPetrol.length} petrol visible for Route ${routeIndex + 1}`);
+    
+    setFilteredRestaurants(filteredRestaurants);
+    setFilteredRNRStops(filteredRNR);
+    setFilteredPetrolStations(filteredPetrol);
+    
+    // CRITICAL: Clear existing markers, then add only markers for selected route
+    if (mapInstance) {
+      clearPlaceMarkers();
+      
+      const allFilteredPlaces = [...filteredRestaurants, ...filteredRNR, ...filteredPetrol];
+      if (allFilteredPlaces.length > 0) {
+        console.log(`🗺️ Adding ${allFilteredPlaces.length} place markers for Route ${routeIndex + 1}`);
+        addPlaceMarkers(allFilteredPlaces, mapInstance);
+      } else {
+        console.log(`🗺️ No places within range for Route ${routeIndex + 1}`);
+      }
+    }
+  };
+  
+  // Legacy function for backward compatibility
   const filterRestaurantsForRoute = (restaurants: any[], route: any, routeIndex: number, mapInstance?: any) => {
-    console.log(`🔄 Filtering restaurants for Route ${routeIndex + 1}...`);
-    
-    const filtered = restaurants.filter(restaurant => {
-      const routeDetour = restaurant.detoursByRoute[routeIndex];
-      return routeDetour && (
-        routeDetour.detour.detourDistanceKm <= 5 || 
-        routeDetour.detour.detourDurationMinutes <= 30
-      );
-    }).map(restaurant => ({
-      ...restaurant,
-      // Update display detour info for the selected route
-      detourDistanceKm: restaurant.detoursByRoute[routeIndex].detour.detourDistanceKm,
-      detourDurationMinutes: restaurant.detoursByRoute[routeIndex].detour.detourDurationMinutes
-    }));
-    
-    console.log(`📍 ${filtered.length} restaurants visible for Route ${routeIndex + 1}`);
-    setFilteredRestaurants(filtered);
-    
-    // Add markers to map after filtering
-    if (mapInstance && filtered.length > 0) {
-      console.log(`🗺️ Adding ${filtered.length} restaurant markers to map`);
-      addRestaurantMarkers(filtered, mapInstance);
-    } else if (mapInstance) {
-      console.log('🗺️ No restaurants to display on map');
-    }
+    // Just call the new unified function
+    filterPlacesForRoute(route, routeIndex, mapInstance);
   };
 
 
-  // Add restaurant markers to map (AdvancedMarkerElement)
-  const addRestaurantMarkers = async (restaurants: any[], map: any) => {
-    console.log(`🗺️ addRestaurantMarkers called with ${restaurants.length} restaurants`);
+  // Add place markers to map (supports restaurants, R&R, petrol with emoji icons)
+  const addPlaceMarkers = async (places: any[], map: any) => {
+    console.log(`🗺️ addPlaceMarkers called with ${places.length} places`);
     console.log('🗺️ Map instance:', map);
     
     // Ensure marker library is loaded
@@ -1021,40 +1304,80 @@ const AppWithAuth: React.FC = () => {
     // Keep track of the currently open InfoWindow
     let currentInfoWindow: any = null;
 
-    // Add map click listener to close any open InfoWindow
-    map.addListener('click', () => {
-      if (currentInfoWindow) {
-        currentInfoWindow.close();
-        currentInfoWindow = null;
-      }
-    });
+    // Add map click listener to close any open InfoWindow (only add once)
+    if (!map.hasPlaceClickListener) {
+      map.addListener('click', () => {
+        if (currentInfoWindow) {
+          currentInfoWindow.close();
+          currentInfoWindow = null;
+        }
+      });
+      map.hasPlaceClickListener = true;
+    }
 
-    restaurants.forEach((restaurant: any, index: number) => {
-      console.log(`🗺️ Creating marker ${index + 1} for:`, restaurant.name || restaurant.displayName);
-      console.log(`🗺️ Restaurant location:`, restaurant.location);
+    const newMarkers: any[] = [];
+
+    places.forEach((place: any, index: number) => {
+      const placeType = place.placeType || place.type || 'restaurant';
+      const placeName = place.name || place.displayName || place.eateryName || 'Unknown';
+      const emoji = placeType === 'restaurant' ? '🍽️' : placeType === 'rnr' ? '🛣️' : '⛽';
+      
+      console.log(`🗺️ Creating marker ${index + 1} for: ${emoji} ${placeName}`);
+      console.log(`🗺️ Place location:`, place.location);
       
       const AdvancedMarkerElement = (window.google.maps as any).marker.AdvancedMarkerElement;
+      
+      // Create emoji pin element with colored background for visibility
+      const pinElement = document.createElement('div');
+      pinElement.style.fontSize = '24px';
+      pinElement.style.textAlign = 'center';
+      pinElement.style.width = '32px';
+      pinElement.style.height = '32px';
+      pinElement.style.display = 'flex';
+      pinElement.style.alignItems = 'center';
+      pinElement.style.justifyContent = 'center';
+      pinElement.style.borderRadius = '50%';
+      
+      // Add colored background based on type for better visibility
+      if (placeType === 'restaurant') {
+        pinElement.style.background = '#FF6B6B'; // Red background for restaurants
+        pinElement.style.border = '2px solid #fff';
+        pinElement.style.boxShadow = '0 2px 4px rgba(0,0,0,0.3)';
+      } else if (placeType === 'rnr') {
+        pinElement.style.background = '#4ECDC4'; // Teal background for R&R
+        pinElement.style.border = '2px solid #fff';
+        pinElement.style.boxShadow = '0 2px 4px rgba(0,0,0,0.3)';
+      } else {
+        pinElement.style.background = '#FFD93D'; // Yellow background for petrol
+        pinElement.style.border = '2px solid #fff';
+        pinElement.style.boxShadow = '0 2px 4px rgba(0,0,0,0.3)';
+      }
+      
+      pinElement.textContent = emoji;
+      
       const marker = new AdvancedMarkerElement({
-        position: restaurant.location,
+        position: place.location,
         map: map,
-        title: restaurant.name || restaurant.displayName
+        title: placeName,
+        content: pinElement
       });
       
-      console.log(`🗺️ Marker created for ${restaurant.name || restaurant.displayName}`);
+      console.log(`🗺️ Marker created for ${placeName}`);
 
-      const placeId = restaurant.place_id || restaurant.id;
-      console.log(`🗺️ Creating info window for ${restaurant.name || restaurant.displayName} with place_id: ${placeId}`);
+      const placeId = place.place_id || place.id;
+      const brand = place.brand ? ` (${place.brand})` : '';
+      const typeLabel = placeType === 'restaurant' ? 'Restaurant' : placeType === 'rnr' ? 'R&R Stop' : 'Petrol Station';
       
       const infoWindow = new google.maps.InfoWindow({
         content: `
           <div style="padding: 10px; color: #000000;">
-            <h3 style="color: #000000; margin: 0 0 8px 0;">${restaurant.name || restaurant.displayName}</h3>
-            <p style="color: #000000; margin: 4px 0;">${restaurant.address || restaurant.formattedAddress || 'Address not available'}</p>
-            <p style="color: #000000; margin: 4px 0;">Rating: ${restaurant.rating || 'N/A'}</p>
-            ${restaurant.detourDistanceKm ? `<p style="color: #000000; margin: 4px 0;">Detour: ${restaurant.detourDistanceKm.toFixed(1)} km (${(restaurant.detourDurationMinutes || 0).toFixed(0)} min)</p>` : ''}
-            <p style="color: #000000; margin: 4px 0; font-size: 12px;">Source: ${restaurant.source || 'unknown'}</p>
-            <p style="color: #000000; margin: 4px 0; font-size: 10px; opacity: 0.7;">Place ID: ${placeId || 'N/A'}</p>
-            <button onclick="navigateToRestaurant('${placeId}')" 
+            <h3 style="color: #000000; margin: 0 0 8px 0;">${emoji} ${placeName}${brand}</h3>
+            <p style="color: #666; margin: 4px 0; font-size: 12px;">${typeLabel}</p>
+            <p style="color: #000000; margin: 4px 0;">${place.address || place.formattedAddress || 'Address not available'}</p>
+            ${place.rating ? `<p style="color: #000000; margin: 4px 0;">Rating: ${place.rating}${place.userRatingCount ? ` (${place.userRatingCount} reviews)` : ''}</p>` : ''}
+            ${place.detourDistanceKm ? `<p style="color: #000000; margin: 4px 0;">Detour: ${place.detourDistanceKm.toFixed(1)} km (${(place.detourDurationMinutes || 0).toFixed(0)} min)</p>` : ''}
+            <p style="color: #000000; margin: 4px 0; font-size: 12px;">Source: ${place.source || 'unknown'}</p>
+            <button onclick="navigateToPlace('${placeId}')" 
                     style="background: #CC0001; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin-top: 8px;">
               Navigate Here
             </button>
@@ -1064,16 +1387,28 @@ const AppWithAuth: React.FC = () => {
 
       // Advanced markers use 'gmp-click'
       marker.addListener('gmp-click', () => {
-        // Close any currently open InfoWindow
         if (currentInfoWindow) {
           currentInfoWindow.close();
         }
-        
-        // Open the new InfoWindow and track it
         infoWindow.open({ map, anchor: marker });
         currentInfoWindow = infoWindow;
       });
+
+      newMarkers.push(marker);
     });
+
+    setRestaurantMarkers(newMarkers);
+    console.log(`✅ Tracked ${newMarkers.length} place markers for removal`);
+  };
+
+  // Legacy function for backward compatibility
+  const addRestaurantMarkers = async (restaurants: any[], map: any) => {
+    // Add placeType to restaurants if not present
+    const restaurantsWithType = restaurants.map((r: any) => ({
+      ...r,
+      placeType: r.placeType || 'restaurant'
+    }));
+    return addPlaceMarkers(restaurantsWithType, map);
   };
 
   const handleLocationSelect = async (type: 'start' | 'end', location: Location) => {
@@ -1096,7 +1431,7 @@ const AppWithAuth: React.FC = () => {
       
       // Allow free typing: only append ", Malaysia" if user didn't type a country hint
       const query = /malaysia/i.test(address) ? address : `${address}, Malaysia`;
-      geocoder.geocode({ address: query }, (results: any, status: any) => {
+      geocoder.geocode({ address: query }, async (results: any, status: any) => {
         if (status === 'OK' && results[0]) {
           const location = results[0].geometry.location;
           const locationData: Location = {
@@ -1104,6 +1439,12 @@ const AppWithAuth: React.FC = () => {
             lat: location.lat(),
             lng: location.lng()
           };
+          
+          // Index the location in Firestore for future autocomplete
+          await locationIndexService.indexLocation(locationData.name, {
+            lat: locationData.lat,
+            lng: locationData.lng
+          });
           
           handleLocationSelect(type, locationData);
           console.log(`✅ Geocoded ${type} location:`, locationData.name);
@@ -1118,42 +1459,82 @@ const AppWithAuth: React.FC = () => {
     }
   };
 
-  // Generate location suggestions based on Malaysian cities and locations
-  const getLocationSuggestions = (query: string): string[] => {
+  // Generate location suggestions: Firestore first, then hardcoded fallback
+  const getLocationSuggestions = async (query: string): Promise<string[]> => {
     if (!query || query.length < 2) return [];
 
-    const malaysianLocations = [
-      // Major cities
-      'Kuala Lumpur', 'Petaling Jaya', 'Shah Alam', 'Subang Jaya', 'Klang',
-      'Johor Bahru', 'Ipoh', 'Penang', 'Malacca', 'Kuantan', 'Kota Kinabalu',
-      'Kuching', 'Alor Setar', 'Kangar', 'Kuala Terengganu', 'Kota Bharu',
-      'Seremban', 'Melaka', 'Miri', 'Sibu', 'Sandakan', 'Tawau',
+    try {
+      // First, try Firestore location index
+      const firestoreSuggestions = await locationIndexService.getLocationSuggestions(query, 8);
       
-      // States (with major cities)
-      'Selangor', 'Johor', 'Perak', 'Pulau Pinang', 'Melaka', 'Pahang',
-      'Terengganu', 'Kelantan', 'Perlis', 'Kedah', 'Negeri Sembilan',
-      'Sabah', 'Sarawak', 'Labuan',
-      
-      // Popular areas in KL
-      'KLCC', 'Bukit Bintang', 'Chinatown', 'Little India', 'Bangsar',
-      'Mont Kiara', 'Damansara', 'Ampang', 'Cheras', 'Kepong', 'Gombak',
-      
-      // Popular areas in other cities
-      'Georgetown', 'Gurney Drive', 'Batu Ferringhi', 'Jonker Street',
-      'Legoland', 'Desaru', 'Cameron Highlands', 'Genting Highlands',
-      'Langkawi', 'Tioman', 'Redang', 'Perhentian',
-      
-      // Common abbreviations
-      'KL', 'JB', 'PJ', 'KK', 'PG'
-    ];
+      if (firestoreSuggestions.length >= 8) {
+        // We have enough results from Firestore
+        return firestoreSuggestions;
+      }
 
-    const lowerQuery = query.toLowerCase();
-    return malaysianLocations
-      .filter(location => 
-        location.toLowerCase().includes(lowerQuery) ||
-        location.toLowerCase().startsWith(lowerQuery)
-      )
-      .slice(0, 8); // Limit to 8 suggestions
+      // Fallback to hardcoded list for common locations
+      const malaysianLocations = [
+        // Major cities
+        'Kuala Lumpur', 'Petaling Jaya', 'Shah Alam', 'Subang Jaya', 'Klang',
+        'Johor Bahru', 'Ipoh', 'Penang', 'Malacca', 'Kuantan', 'Kota Kinabalu',
+        'Kuching', 'Alor Setar', 'Kangar', 'Kuala Terengganu', 'Kota Bharu',
+        'Seremban', 'Melaka', 'Miri', 'Sibu', 'Sandakan', 'Tawau',
+        
+        // States (with major cities)
+        'Selangor', 'Johor', 'Perak', 'Pulau Pinang', 'Melaka', 'Pahang',
+        'Terengganu', 'Kelantan', 'Perlis', 'Kedah', 'Negeri Sembilan',
+        'Sabah', 'Sarawak', 'Labuan',
+        
+        // Popular areas in KL
+        'KLCC', 'Bukit Bintang', 'Chinatown', 'Little India', 'Bangsar',
+        'Mont Kiara', 'Damansara', 'Ampang', 'Cheras', 'Kepong', 'Gombak',
+        
+        // Popular areas in other cities
+        'Georgetown', 'Gurney Drive', 'Batu Ferringhi', 'Jonker Street',
+        'Legoland', 'Desaru', 'Cameron Highlands', 'Genting Highlands',
+        'Langkawi', 'Tioman', 'Redang', 'Perhentian',
+        
+        // Common abbreviations
+        'KL', 'JB', 'PJ', 'KK', 'PG',
+        
+        // Additional locations (from user feedback)
+        'Dungun', 'Pasir Puteh', 'Dungun District', 'Pasir Puteh District'
+      ];
+
+      const lowerQuery = query.toLowerCase();
+      const hardcodedMatches = malaysianLocations
+        .filter(location => 
+          location.toLowerCase().includes(lowerQuery) ||
+          location.toLowerCase().startsWith(lowerQuery)
+        )
+        .slice(0, 8 - firestoreSuggestions.length); // Fill remaining slots
+
+      // Combine Firestore and hardcoded results, removing duplicates
+      const combined = [...firestoreSuggestions];
+      hardcodedMatches.forEach(loc => {
+        if (!combined.includes(loc)) {
+          combined.push(loc);
+        }
+      });
+
+      return combined.slice(0, 8); // Limit to 8 total
+    } catch (error) {
+      console.warn('⚠️ Error getting location suggestions:', error);
+      // Fallback to hardcoded list only
+      const malaysianLocations = [
+        'Kuala Lumpur', 'Petaling Jaya', 'Shah Alam', 'Subang Jaya', 'Klang',
+        'Johor Bahru', 'Ipoh', 'Penang', 'Malacca', 'Kuantan', 'Kota Kinabalu',
+        'Kuching', 'Alor Setar', 'Kangar', 'Kuala Terengganu', 'Kota Bharu',
+        'Dungun', 'Pasir Puteh'
+      ];
+      const lowerQuery = query.toLowerCase();
+      return malaysianLocations
+        .filter(location => 
+          location.toLowerCase().includes(lowerQuery) ||
+          location.toLowerCase().startsWith(lowerQuery)
+        )
+        .slice(0, 8);
+    }
   };
 
   // Handle start location input change with autocomplete
@@ -1169,10 +1550,11 @@ const AppWithAuth: React.FC = () => {
       return;
     }
     
-    // Generate suggestions
-    const suggestions = getLocationSuggestions(value);
-    setStartSuggestions(suggestions);
-    setShowStartSuggestions(suggestions.length > 0 && value.length >= 2);
+    // Generate suggestions (async)
+    getLocationSuggestions(value).then(suggestions => {
+      setStartSuggestions(suggestions);
+      setShowStartSuggestions(suggestions.length > 0 && value.length >= 2);
+    });
     
     // Clear existing debounce
     if (startDebounceRef.current) clearTimeout(startDebounceRef.current);
@@ -1199,10 +1581,11 @@ const AppWithAuth: React.FC = () => {
       return;
     }
     
-    // Generate suggestions
-    const suggestions = getLocationSuggestions(value);
-    setEndSuggestions(suggestions);
-    setShowEndSuggestions(suggestions.length > 0 && value.length >= 2);
+    // Generate suggestions (async)
+    getLocationSuggestions(value).then(suggestions => {
+      setEndSuggestions(suggestions);
+      setShowEndSuggestions(suggestions.length > 0 && value.length >= 2);
+    });
     
     // Clear existing debounce
     if (endDebounceRef.current) clearTimeout(endDebounceRef.current);
@@ -1252,9 +1635,12 @@ const AppWithAuth: React.FC = () => {
       console.log(`✅ Route ${routeIndex + 1} polyline shown, others hidden`);
       
       // Filter existing restaurants for the selected route (NO API call!)
-      if (allRestaurants.length > 0) {
-        filterRestaurantsForRoute(allRestaurants, route, routeIndex, null);
+      // Clear markers from non-selected routes, show only markers for selected route
+      if (allRestaurants.length > 0 && currentMapInstance) {
+        filterRestaurantsForRoute(allRestaurants, route, routeIndex, currentMapInstance);
         setSelectedEateries([]); // Clear selected restaurants when switching routes
+      } else if (allRestaurants.length > 0) {
+        console.warn('⚠️ Map instance not available for route switching');
       }
       
       console.log(`🔄 Switched to Route ${routeIndex + 1} - Filtered restaurants (no API call)`);
@@ -1575,6 +1961,9 @@ const AppWithAuth: React.FC = () => {
     setAllRestaurants([]);
     setFilteredRestaurants([]);
     setRoutePolylines([]);
+    
+    // Switch to Discover tab to show the loaded route
+    setActiveTab('discover');
     
     // Close the saved routes modal
     setShowSavedRoutes(false);

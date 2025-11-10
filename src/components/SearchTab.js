@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useFavorites } from '../contexts/FavoritesContext';
 import { enhancedSearchService } from '../services/enhancedSearchService';
+import { searchAnalyticsService } from '../services/searchAnalyticsService';
+import { searchKeywordService } from '../services/searchKeywordService';
 import FavoriteButton from './FavoriteButton';
 import RestaurantModal from './RestaurantModal';
 import './SearchTab.css';
@@ -11,18 +13,33 @@ const SearchTab = () => {
   const { isFavorite } = useFavorites();
   
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
+  const [searchResults, setSearchResults] = useState([]); // For Search tab
+  const [browseResults, setBrowseResults] = useState({
+    location: [],      // Near Me / All Areas results
+    popular: [],       // Popular restaurants
+    trending: [],      // Trending restaurants
+    category: []       // Category search results
+  });
   const [isSearching, setIsSearching] = useState(false);
+  const [loadingStates, setLoadingStates] = useState({
+    location: false,
+    popular: false,
+    trending: false,
+    category: false
+  });
   const [userLocation, setUserLocation] = useState(null);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
   const [showRestaurantModal, setShowRestaurantModal] = useState(false);
   const [selectedRestaurant, setSelectedRestaurant] = useState(null);
-  const [activeTab, setActiveTab] = useState('search'); // 'search', 'nearby', 'popular', 'trending', 'categories'
+  const [activeTab, setActiveTab] = useState('search'); // 'search' or 'browse'
   const [searchHistory, setSearchHistory] = useState([]);
   const [showSearchHistory, setShowSearchHistory] = useState(false);
   const [showMapView, setShowMapView] = useState(false);
   const [savedSearches, setSavedSearches] = useState([]);
+  // Filters visibility: collapsed on mobile by default, always visible on desktop
+  const [showFilters, setShowFilters] = useState(window.innerWidth > 768); // Desktop: true, Mobile: false
+  const [browseLocation, setBrowseLocation] = useState('all'); // 'all' or 'nearMe' for Browse tab
   const [searchAnalytics, setSearchAnalytics] = useState({
     totalSearches: 0,
     popularQueries: [],
@@ -36,6 +53,7 @@ const SearchTab = () => {
     distance: 10,
     priceRange: 'all',
     openNow: false,
+    nearMe: false, // NEW: Near Me as filter
     sortBy: 'rating'
   });
 
@@ -52,6 +70,17 @@ const SearchTab = () => {
     { id: 'fast-food', name: 'Fast Food', icon: '🍔', color: '#BB8FCE' },
     { id: 'cafe', name: 'Cafe', icon: '☕', color: '#85C1E9' }
   ];
+
+  // Handle window resize to update filter visibility
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth > 768) {
+        setShowFilters(true); // Always show on desktop
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Load user location and search history on component mount
   useEffect(() => {
@@ -164,15 +193,27 @@ const SearchTab = () => {
     }
   };
 
-  // Handle search input change
-  const handleSearchInputChange = (e) => {
+  // Handle search input change with intelligent suggestions
+  const handleSearchInputChange = async (e) => {
     const query = e.target.value;
     setSearchQuery(query);
     
     if (query.length >= 2) {
-      const newSuggestions = enhancedSearchService.getSearchSuggestions(query);
-      setSuggestions(newSuggestions);
-      setShowSuggestions(true);
+      // Use intelligent keyword service for better suggestions
+      try {
+        const { searchKeywordService } = await import('../services/searchKeywordService');
+        const intelligentSuggestions = await searchKeywordService.getIntelligentSuggestions(query, 8);
+        // Convert to simple string array for backward compatibility
+        const suggestionStrings = intelligentSuggestions.map(s => s.text);
+        setSuggestions(suggestionStrings);
+        setShowSuggestions(true);
+      } catch (error) {
+        console.warn('⚠️ Error loading intelligent suggestions, using fallback:', error);
+        // Fallback to basic suggestions
+        const newSuggestions = enhancedSearchService.getSearchSuggestions(query);
+        setSuggestions(newSuggestions);
+        setShowSuggestions(true);
+      }
     } else {
       setShowSuggestions(false);
     }
@@ -180,7 +221,7 @@ const SearchTab = () => {
 
   // Handle search
   const handleSearch = async () => {
-    if (!searchQuery.trim() && filters.cuisineType === 'all' && filters.minRating === 0) {
+    if (!searchQuery.trim() && filters.cuisineType === 'all' && filters.minRating === 0 && !filters.nearMe) {
       return;
     }
 
@@ -189,57 +230,87 @@ const SearchTab = () => {
       saveToSearchHistory(searchQuery.trim());
     }
 
-    // Track search analytics
+    // Track search analytics (local only)
     trackSearchAnalytics(searchQuery, filters);
 
     setIsSearching(true);
     try {
+      // Use userLocation if Near Me filter is enabled
+      const locationToUse = filters.nearMe ? userLocation : null;
+      const searchFilters = filters.nearMe 
+        ? { ...filters, distance: 5 } 
+        : filters;
+      
+      // Parse query for analytics
+      const parsedQuery = searchKeywordService.parseCompoundQuery(searchQuery);
+      
       const results = await enhancedSearchService.searchRestaurants(
         searchQuery, 
-        filters, 
-        userLocation
+        searchFilters, 
+        locationToUse
       );
+      
+      // Track search with analytics service (includes parsed query and result count)
+      searchAnalyticsService.trackSearch(
+        searchQuery,
+        parsedQuery,
+        results.length,
+        searchFilters
+      ).catch(error => {
+        console.warn('⚠️ Error tracking search analytics:', error);
+      });
+      
       setSearchResults(results);
       setShowSuggestions(false);
       setShowSearchHistory(false);
     } catch (error) {
       console.error('Search error:', error);
       setSearchResults([]);
+      
+      // Track failed search
+      const parsedQuery = searchKeywordService.parseCompoundQuery(searchQuery);
+      searchAnalyticsService.trackSearch(
+        searchQuery,
+        parsedQuery,
+        0,
+        filters
+      ).catch(err => console.warn('⚠️ Error tracking failed search:', err));
     } finally {
       setIsSearching(false);
     }
   };
 
-  // Handle category search
+  // Handle category search - Keep results in Browse tab
   const handleCategorySearch = async (category) => {
     setSearchQuery(category.name);
     setFilters(prev => ({ ...prev, cuisineType: category.name }));
     saveToSearchHistory(category.name);
     
-    setIsSearching(true);
+    setLoadingStates(prev => ({ ...prev, category: true }));
     try {
       const results = await enhancedSearchService.searchRestaurants(
         category.name, 
         { ...filters, cuisineType: category.name }, 
         userLocation
       );
-      setSearchResults(results);
-      setActiveTab('search');
+      // Store in browseResults.category instead of searchResults
+      setBrowseResults(prev => ({ ...prev, category: results }));
+      // Keep user in Browse tab (don't switch to Search tab)
     } catch (error) {
       console.error('Category search error:', error);
-      setSearchResults([]);
+      setBrowseResults(prev => ({ ...prev, category: [] }));
     } finally {
-      setIsSearching(false);
+      setLoadingStates(prev => ({ ...prev, category: false }));
     }
   };
 
-  // Handle "Near Me" search
-  const handleNearMeSearch = async () => {
-    if (!userLocation) {
+  // Handle "Near Me" filter toggle
+  const handleNearMeToggle = async (enabled) => {
+    if (enabled && !userLocation) {
       try {
         await loadUserLocation();
         if (!userLocation) {
-          alert('Please enable location access to use "Near Me" search');
+          alert('Please enable location access to use "Near Me" filter');
           return;
         }
       } catch (error) {
@@ -248,20 +319,17 @@ const SearchTab = () => {
       }
     }
 
-    setIsSearching(true);
-    try {
-      const results = await enhancedSearchService.searchRestaurants(
-        '', 
-        { ...filters, distance: 5 }, 
-        userLocation
-      );
-      setSearchResults(results);
-      setSearchQuery('Near Me');
-    } catch (error) {
-      console.error('Near me search error:', error);
-      setSearchResults([]);
-    } finally {
-      setIsSearching(false);
+    setFilters(prev => ({
+      ...prev,
+      nearMe: enabled,
+      distance: enabled ? 5 : prev.distance // Auto-set distance to 5km when Near Me enabled
+    }));
+
+    // Auto-search if we have a query or other filters
+    if (searchQuery.trim() || enabled) {
+      setTimeout(() => {
+        handleSearch();
+      }, 100);
     }
   };
 
@@ -292,61 +360,54 @@ const SearchTab = () => {
       distance: 10,
       priceRange: 'all',
       openNow: false,
+      nearMe: false, // NEW: Clear Near Me filter
       sortBy: 'rating'
     });
     setSearchQuery('');
     setSearchResults([]);
   };
 
-  // Load popular restaurants
+  // Load popular restaurants - Store in browseResults
   const loadPopularRestaurants = async () => {
-    setIsSearching(true);
+    setLoadingStates(prev => ({ ...prev, popular: true }));
     try {
       const results = await enhancedSearchService.getPopularRestaurants(userLocation);
-      setSearchResults(results);
+      setBrowseResults(prev => ({ ...prev, popular: results }));
       setSearchQuery('Popular Restaurants');
     } catch (error) {
       console.error('Error loading popular restaurants:', error);
-      setSearchResults([]);
+      setBrowseResults(prev => ({ ...prev, popular: [] }));
     } finally {
-      setIsSearching(false);
+      setLoadingStates(prev => ({ ...prev, popular: false }));
     }
   };
 
-  // Load trending restaurants
+  // Load trending restaurants - Store in browseResults
   const loadTrendingRestaurants = async () => {
-    setIsSearching(true);
+    setLoadingStates(prev => ({ ...prev, trending: true }));
     try {
       const results = await enhancedSearchService.getTrendingRestaurants(userLocation);
-      setSearchResults(results);
+      setBrowseResults(prev => ({ ...prev, trending: results }));
       setSearchQuery('Trending Restaurants');
     } catch (error) {
       console.error('Error loading trending restaurants:', error);
-      setSearchResults([]);
+      setBrowseResults(prev => ({ ...prev, trending: [] }));
     } finally {
-      setIsSearching(false);
+      setLoadingStates(prev => ({ ...prev, trending: false }));
     }
   };
 
   // Handle tab change
   const handleTabChange = (tab) => {
     setActiveTab(tab);
-    setSearchResults([]);
+    // Don't clear searchResults when switching tabs - keep them separate
     setShowSuggestions(false);
     setShowSearchHistory(false);
     
-    switch (tab) {
-      case 'popular':
-        loadPopularRestaurants();
-        break;
-      case 'trending':
-        loadTrendingRestaurants();
-        break;
-      case 'categories':
-        // Categories tab doesn't need to load data
-        break;
-      default:
-        break;
+    if (tab === 'browse') {
+      // Load popular and trending when Browse tab is opened
+      loadPopularRestaurants();
+      loadTrendingRestaurants();
     }
   };
 
@@ -354,15 +415,34 @@ const SearchTab = () => {
   const handleQuickAction = (action, restaurant) => {
     switch (action) {
       case 'call':
-        if (restaurant.phoneNumber) {
-          window.open(`tel:${restaurant.phoneNumber}`);
+        // Check multiple phone number fields
+        const phoneNumber = restaurant.phoneNumber || restaurant.phone || restaurant.formattedPhoneNumber || restaurant.nationalPhoneNumber;
+        if (phoneNumber) {
+          // Clean phone number (remove spaces, dashes, parentheses)
+          const cleanPhone = phoneNumber.replace(/[\s\-\(\)]/g, '');
+          window.open(`tel:${cleanPhone}`);
         } else {
-          alert('Phone number not available');
+          alert('Phone number not available for this restaurant');
         }
         break;
       case 'directions':
-        if (restaurant.lat && restaurant.lng) {
-          const url = `https://www.google.com/maps/dir/?api=1&destination=${restaurant.lat},${restaurant.lng}`;
+        // Use place_id first (same as discover tab "Navigate Here" button)
+        const placeId = restaurant.place_id || restaurant.placeId || restaurant.id;
+        if (placeId) {
+          // Use Google Maps place URL (same as discover tab)
+          const url = `https://www.google.com/maps/place/?q=place_id:${placeId}`;
+          window.open(url, '_blank');
+        } else if (restaurant.lat && restaurant.lng) {
+          // Fallback to coordinates with navigation mode
+          const url = `https://www.google.com/maps/dir/?api=1&destination=${restaurant.lat},${restaurant.lng}&travelmode=driving`;
+          window.open(url, '_blank');
+        } else if (restaurant.geometry?.location?.lat && restaurant.geometry?.location?.lng) {
+          // Fallback to geometry location
+          const url = `https://www.google.com/maps/dir/?api=1&destination=${restaurant.geometry.location.lat},${restaurant.geometry.location.lng}&travelmode=driving`;
+          window.open(url, '_blank');
+        } else if (restaurant.location?.lat && restaurant.location?.lng) {
+          // Fallback to location object
+          const url = `https://www.google.com/maps/dir/?api=1&destination=${restaurant.location.lat},${restaurant.location.lng}&travelmode=driving`;
           window.open(url, '_blank');
         } else {
           alert('Location not available for directions');
@@ -397,10 +477,11 @@ const SearchTab = () => {
   // Get active filter count
   const getActiveFilterCount = () => {
     let count = 0;
+    if (filters.nearMe) count++;
     if (filters.cuisineType !== 'all') count++;
     if (filters.minRating > 0) count++;
     if (filters.halalStatus !== 'all') count++;
-    if (filters.distance !== 10) count++;
+    if (filters.distance !== 10 && !filters.nearMe) count++;
     if (filters.priceRange !== 'all') count++;
     if (filters.openNow) count++;
     return count;
@@ -409,6 +490,16 @@ const SearchTab = () => {
   // Get active filter chips for display
   const getActiveFilterChips = () => {
     const chips = [];
+    
+    // Near Me filter chip (NEW)
+    if (filters.nearMe) {
+      chips.push({
+        key: 'nearMe',
+        label: 'Near Me',
+        icon: '📍',
+        onRemove: () => handleNearMeToggle(false)
+      });
+    }
     
     if (filters.cuisineType !== 'all') {
       chips.push({
@@ -439,7 +530,7 @@ const SearchTab = () => {
       });
     }
     
-    if (filters.distance !== 10) {
+    if (filters.distance !== 10 && !filters.nearMe) {
       chips.push({
         key: 'distance',
         label: `Within ${filters.distance}km`,
@@ -479,7 +570,7 @@ const SearchTab = () => {
         <p>Find amazing restaurants across Malaysia</p>
       </div>
       
-      {/* Search Tabs */}
+      {/* Search Tabs - Reduced to 2 tabs */}
       <div className="search-tabs">
         <button 
           className={`tab-button ${activeTab === 'search' ? 'active' : ''}`}
@@ -488,46 +579,22 @@ const SearchTab = () => {
           🔍 Search
         </button>
         <button 
-          className={`tab-button ${activeTab === 'nearby' ? 'active' : ''}`}
-          onClick={() => handleTabChange('nearby')}
+          className={`tab-button ${activeTab === 'browse' ? 'active' : ''}`}
+          onClick={() => handleTabChange('browse')}
         >
-          📍 Near Me
-        </button>
-        <button 
-          className={`tab-button ${activeTab === 'categories' ? 'active' : ''}`}
-          onClick={() => handleTabChange('categories')}
-        >
-          🍽️ Categories
-        </button>
-        <button 
-          className={`tab-button ${activeTab === 'popular' ? 'active' : ''}`}
-          onClick={() => handleTabChange('popular')}
-        >
-          ⭐ Popular
-        </button>
-        <button 
-          className={`tab-button ${activeTab === 'trending' ? 'active' : ''}`}
-          onClick={() => handleTabChange('trending')}
-        >
-          🔥 Trending
-        </button>
-        <button 
-          className={`tab-button ${activeTab === 'saved' ? 'active' : ''}`}
-          onClick={() => handleTabChange('saved')}
-        >
-          💾 Saved
+          🍽️ Browse
         </button>
       </div>
 
       {/* Search Interface */}
-      {(activeTab === 'search' || activeTab === 'nearby') && (
+      {activeTab === 'search' && (
         <div className="search-interface">
           {/* Search Bar */}
           <div className="search-bar-container">
             <div className="search-bar">
               <input
                 type="text"
-                placeholder="Search restaurants, cuisines, or locations..."
+                placeholder="Try: 'Nasi Lemak', 'Kuala Lumpur', 'Halal Chinese'..."
                 value={searchQuery}
                 onChange={handleSearchInputChange}
                 onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
@@ -547,15 +614,6 @@ const SearchTab = () => {
                 {isSearching ? '⏳' : '🔍'}
               </button>
             </div>
-
-            {/* Near Me Button */}
-            <button 
-              className="near-me-btn"
-              onClick={handleNearMeSearch}
-              disabled={isSearching}
-            >
-              📍 Near Me
-            </button>
           </div>
 
           {/* Search Suggestions */}
@@ -605,7 +663,7 @@ const SearchTab = () => {
             </div>
           )}
 
-          {/* Active Filter Chips */}
+          {/* Active Filter Chips - Always visible */}
           {activeFilterChips.length > 0 && (
             <div className="active-filter-chips">
               <div className="chips-header">
@@ -631,10 +689,28 @@ const SearchTab = () => {
             </div>
           )}
 
-          {/* Quick Filters */}
+          {/* Quick Filters - Collapsible on mobile */}
           <div className="quick-filters">
             <div className="filters-header">
-              <h3>Quick Filters</h3>
+              <button 
+                className="filters-toggle-btn"
+                onClick={() => {
+                  // Only toggle on mobile (screen width <= 768px)
+                  if (window.innerWidth <= 768) {
+                    setShowFilters(!showFilters);
+                  }
+                }}
+              >
+                <h3>Quick Filters</h3>
+                {window.innerWidth <= 768 && (
+                  <span className="toggle-icon">
+                    {showFilters ? '🔼' : '🔽'}
+                  </span>
+                )}
+                {activeFilterCount > 0 && (
+                  <span className="filter-count-badge">({activeFilterCount})</span>
+                )}
+              </button>
               <div className="filters-actions">
                 {activeFilterCount > 0 && (
                   <button className="clear-filters-btn" onClick={clearFilters}>
@@ -651,24 +727,39 @@ const SearchTab = () => {
               </div>
             </div>
 
-            <div className="filter-row">
-              <select
-                value={filters.cuisineType}
-                onChange={(e) => handleFilterChange('cuisineType', e.target.value)}
-                className="filter-select"
-              >
-                <option value="all">All Cuisines</option>
-                <option value="Malay">Malay</option>
-                <option value="Chinese">Chinese</option>
-                <option value="Indian">Indian</option>
-                <option value="Western">Western</option>
-                <option value="Japanese">Japanese</option>
-                <option value="Korean">Korean</option>
-                <option value="Thai">Thai</option>
-                <option value="Italian">Italian</option>
-                <option value="Fast Food">Fast Food</option>
-                <option value="Cafe">Cafe</option>
-              </select>
+            {/* Filter Panel - Collapsible */}
+            {showFilters && (
+              <div className="filters-panel">
+                {/* Near Me Filter - NEW */}
+                <div className="filter-row">
+                  <label className="checkbox-filter near-me-filter">
+                    <input
+                      type="checkbox"
+                      checked={filters.nearMe}
+                      onChange={(e) => handleNearMeToggle(e.target.checked)}
+                    />
+                    <span>📍 Near Me (within 5km)</span>
+                  </label>
+                </div>
+
+                <div className="filter-row">
+                  <select
+                    value={filters.cuisineType}
+                    onChange={(e) => handleFilterChange('cuisineType', e.target.value)}
+                    className="filter-select"
+                  >
+                    <option value="all">All Cuisines</option>
+                    <option value="Malay">Malay</option>
+                    <option value="Chinese">Chinese</option>
+                    <option value="Indian">Indian</option>
+                    <option value="Western">Western</option>
+                    <option value="Japanese">Japanese</option>
+                    <option value="Korean">Korean</option>
+                    <option value="Thai">Thai</option>
+                    <option value="Italian">Italian</option>
+                    <option value="Fast Food">Fast Food</option>
+                    <option value="Cafe">Cafe</option>
+                  </select>
 
               <select
                 value={filters.minRating}
@@ -741,82 +832,377 @@ const SearchTab = () => {
                 <span>Open Now</span>
               </label>
             </div>
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      {/* Category Browsing */}
-      {activeTab === 'categories' && (
-        <div className="category-browsing">
-          <div className="category-header">
-            <h3>Browse by Cuisine</h3>
-            <p>Discover restaurants by food type</p>
-          </div>
-          
-          <div className="category-grid">
-            {categories.map((category) => (
+      {/* Browse Tab - NEW */}
+      {activeTab === 'browse' && (
+        <div className="browse-tab">
+          {/* Browse by Location */}
+          <div className="browse-section">
+            <h3>📍 Browse by Location</h3>
+            <div className="location-options">
               <button
-                key={category.id}
-                className="category-card"
-                onClick={() => handleCategorySearch(category)}
-                style={{ '--category-color': category.color }}
+                className={`location-option ${browseLocation === 'nearMe' ? 'active' : ''}`}
+                onClick={async () => {
+                  if (!userLocation) {
+                    try {
+                      await loadUserLocation();
+                      if (!userLocation) {
+                        alert('Please enable location access to use "Near Me"');
+                        return;
+                      }
+                    } catch (error) {
+                      alert('Could not get your location. Please try again.');
+                      return;
+                    }
+                  }
+                  setBrowseLocation('nearMe');
+                  setLoadingStates(prev => ({ ...prev, location: true }));
+                  try {
+                    const results = await enhancedSearchService.searchRestaurants(
+                      '', 
+                      { ...filters, distance: 5 }, 
+                      userLocation
+                    );
+                    // Store in browseResults.location (NOT searchResults)
+                    setBrowseResults(prev => ({ ...prev, location: results }));
+                    // Don't set searchQuery - keep Browse tab independent
+                    // Don't set Search tab filter - keep them separate
+                  } catch (error) {
+                    console.error('Near me search error:', error);
+                    setBrowseResults(prev => ({ ...prev, location: [] }));
+                  } finally {
+                    setLoadingStates(prev => ({ ...prev, location: false }));
+                  }
+                }}
               >
-                <div className="category-icon">{category.icon}</div>
-                <div className="category-name">{category.name}</div>
+                📍 Near Me
               </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Saved Searches */}
-      {activeTab === 'saved' && (
-        <div className="saved-searches">
-          <div className="saved-header">
-            <h3>💾 Saved Searches</h3>
-            <p>Your saved search queries and filter combinations</p>
-          </div>
-          
-          {savedSearches.length > 0 ? (
-            <div className="saved-searches-list">
-              {savedSearches.map((savedSearch) => (
-                <div key={savedSearch.id} className="saved-search-item">
-                  <div className="saved-search-content">
-                    <h4>{savedSearch.name}</h4>
-                    <p className="saved-search-query">
-                      {savedSearch.query || 'Filter-based search'}
-                    </p>
-                    <div className="saved-search-meta">
-                      <span>📅 {new Date(savedSearch.timestamp).toLocaleDateString()}</span>
-                      <span>🔍 {savedSearch.resultCount} results</span>
+              <button
+                className={`location-option ${browseLocation === 'all' ? 'active' : ''}`}
+                onClick={() => {
+                  setBrowseLocation('all');
+                  setBrowseResults(prev => ({ ...prev, location: [] }));
+                  // Don't clear searchQuery - keep Browse tab independent
+                }}
+              >
+                🌍 All Areas
+              </button>
+            </div>
+            
+            {/* Location Search Results (Near Me) */}
+            {browseLocation === 'nearMe' && browseResults.location.length > 0 && (
+              <div className="browse-results" style={{ marginTop: '20px' }}>
+                <h4 style={{ marginBottom: '16px', color: '#333' }}>
+                  📍 Restaurants Near Me ({browseResults.location.length})
+                </h4>
+                {browseResults.location.slice(0, 6).map((restaurant, index) => (
+                  <div 
+                    key={restaurant.id || restaurant.place_id || index} 
+                    className="result-item"
+                    onClick={() => handleRestaurantClick(restaurant)}
+                  >
+                    <div className="result-content">
+                      <div className="result-header">
+                        <h4>{restaurant.name || restaurant.displayName}</h4>
+                        {user && (
+                          <FavoriteButton 
+                            restaurant={restaurant}
+                            size="small"
+                          />
+                        )}
+                      </div>
+                      <p className="result-address">
+                        {restaurant.address || restaurant.formattedAddress || 'Address not available'}
+                      </p>
+                      <div className="result-meta">
+                        <span className="rating">⭐ {restaurant.rating?.toFixed(1) || 'N/A'}</span>
+                        {restaurant.distanceFromUser && (
+                          <span className="distance">
+                            📍 {restaurant.distanceFromUser.toFixed(1)}km
+                          </span>
+                        )}
+                        {restaurant.priceLevel && (
+                          <span className="price">
+                            {'$'.repeat(restaurant.priceLevel)}
+                          </span>
+                        )}
+                        {restaurant.halalStatus && restaurant.halalStatus !== 'unknown' && (
+                          <span className="halal">
+                            {restaurant.halalStatus === 'halal' ? '🕌' : 
+                             restaurant.halalStatus === 'pork-free' ? '🥩' : '🍖'}
+                          </span>
+                        )}
+                      </div>
+                      <button 
+                        className="view-details-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRestaurantClick(restaurant);
+                        }}
+                      >
+                        View Details
+                      </button>
                     </div>
                   </div>
-                  <div className="saved-search-actions">
-                    <button 
-                      className="load-search-btn"
-                      onClick={() => loadSavedSearch(savedSearch)}
-                    >
-                      🔄 Load
-                    </button>
-                    <button 
-                      className="delete-search-btn"
-                      onClick={() => {
-                        const newSaved = savedSearches.filter(s => s.id !== savedSearch.id);
-                        setSavedSearches(newSaved);
-                        localStorage.setItem('savedSearches', JSON.stringify(newSaved));
-                      }}
-                    >
-                      🗑️
-                    </button>
-                  </div>
-                </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Browse by Cuisine */}
+          <div className="browse-section">
+            <h3>🍽️ Browse by Cuisine</h3>
+            <p className="section-description">Discover restaurants by food type</p>
+            <div className="category-grid">
+              {categories.map((category) => (
+                <button
+                  key={category.id}
+                  className="category-card"
+                  onClick={() => handleCategorySearch(category)}
+                  style={{ '--category-color': category.color }}
+                >
+                  <div className="category-icon">{category.icon}</div>
+                  <div className="category-name">{category.name}</div>
+                </button>
               ))}
             </div>
-          ) : (
-            <div className="no-saved-searches">
-              <p>No saved searches yet. Save your favorite search queries and filters!</p>
-            </div>
-          )}
+            
+            {/* Category Search Results */}
+            {browseResults.category.length > 0 && (
+              <div className="browse-results" style={{ marginTop: '20px' }}>
+                <h4 style={{ marginBottom: '16px', color: '#333' }}>
+                  {searchQuery} Restaurants ({browseResults.category.length})
+                </h4>
+                {browseResults.category.slice(0, 6).map((restaurant, index) => (
+                  <div 
+                    key={restaurant.id || restaurant.place_id || index} 
+                    className="result-item"
+                    onClick={() => handleRestaurantClick(restaurant)}
+                  >
+                    <div className="result-content">
+                      <div className="result-header">
+                        <h4>{restaurant.name || restaurant.displayName}</h4>
+                        {user && (
+                          <FavoriteButton 
+                            restaurant={restaurant}
+                            size="small"
+                          />
+                        )}
+                      </div>
+                      <p className="result-address">
+                        {restaurant.address || restaurant.formattedAddress || 'Address not available'}
+                      </p>
+                      <div className="result-meta">
+                        <span className="rating">⭐ {restaurant.rating?.toFixed(1) || 'N/A'}</span>
+                        {restaurant.priceLevel && (
+                          <span className="price">
+                            {'$'.repeat(restaurant.priceLevel)}
+                          </span>
+                        )}
+                        {restaurant.halalStatus && restaurant.halalStatus !== 'unknown' && (
+                          <span className="halal">
+                            {restaurant.halalStatus === 'halal' ? '🕌' : 
+                             restaurant.halalStatus === 'pork-free' ? '🥩' : '🍖'}
+                          </span>
+                        )}
+                      </div>
+                      <button 
+                        className="view-details-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRestaurantClick(restaurant);
+                        }}
+                      >
+                        View Details
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Popular Restaurants */}
+          <div className="browse-section">
+            <h3>⭐ Popular Restaurants</h3>
+            <p className="section-description">Most loved restaurants in Malaysia</p>
+            {loadingStates.popular && browseResults.popular.length === 0 ? (
+              <div className="section-loading">Loading popular restaurants...</div>
+            ) : browseResults.popular.length > 0 ? (
+              <div className="browse-results">
+                {browseResults.popular.slice(0, 6).map((restaurant, index) => (
+                  <div 
+                    key={restaurant.id || restaurant.place_id || index} 
+                    className="result-item"
+                    onClick={() => handleRestaurantClick(restaurant)}
+                  >
+                    <div className="result-content">
+                      <div className="result-header">
+                        <h4>{restaurant.name || restaurant.displayName}</h4>
+                        {user && (
+                          <FavoriteButton 
+                            restaurant={restaurant}
+                            size="small"
+                          />
+                        )}
+                      </div>
+                      <p className="result-address">
+                        {restaurant.address || restaurant.formattedAddress || 'Address not available'}
+                      </p>
+                      <div className="result-meta">
+                        <span className="rating">⭐ {restaurant.rating?.toFixed(1) || 'N/A'}</span>
+                        {restaurant.priceLevel && (
+                          <span className="price">
+                            {'$'.repeat(restaurant.priceLevel)}
+                          </span>
+                        )}
+                        {restaurant.halalStatus && restaurant.halalStatus !== 'unknown' && (
+                          <span className="halal">
+                            {restaurant.halalStatus === 'halal' ? '🕌' : 
+                             restaurant.halalStatus === 'pork-free' ? '🥩' : '🍖'}
+                          </span>
+                        )}
+                      </div>
+                      <button 
+                        className="view-details-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRestaurantClick(restaurant);
+                        }}
+                      >
+                        View Details
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <button 
+                className="load-section-btn"
+                onClick={loadPopularRestaurants}
+              >
+                Load Popular Restaurants
+              </button>
+            )}
+          </div>
+
+          {/* Trending Restaurants */}
+          <div className="browse-section">
+            <h3>🔥 Trending Now</h3>
+            <p className="section-description">Restaurants gaining popularity</p>
+            {loadingStates.trending && browseResults.trending.length === 0 ? (
+              <div className="section-loading">Loading trending restaurants...</div>
+            ) : browseResults.trending.length > 0 ? (
+              <div className="browse-results">
+                {browseResults.trending.slice(0, 6).map((restaurant, index) => (
+                  <div 
+                    key={restaurant.id || restaurant.place_id || index} 
+                    className="result-item"
+                    onClick={() => handleRestaurantClick(restaurant)}
+                  >
+                    <div className="result-content">
+                      <div className="result-header">
+                        <h4>{restaurant.name || restaurant.displayName}</h4>
+                        {user && (
+                          <FavoriteButton 
+                            restaurant={restaurant}
+                            size="small"
+                          />
+                        )}
+                      </div>
+                      <p className="result-address">
+                        {restaurant.address || restaurant.formattedAddress || 'Address not available'}
+                      </p>
+                      <div className="result-meta">
+                        <span className="rating">⭐ {restaurant.rating?.toFixed(1) || 'N/A'}</span>
+                        {restaurant.priceLevel && (
+                          <span className="price">
+                            {'$'.repeat(restaurant.priceLevel)}
+                          </span>
+                        )}
+                        {restaurant.halalStatus && restaurant.halalStatus !== 'unknown' && (
+                          <span className="halal">
+                            {restaurant.halalStatus === 'halal' ? '🕌' : 
+                             restaurant.halalStatus === 'pork-free' ? '🥩' : '🍖'}
+                          </span>
+                        )}
+                      </div>
+                      <button 
+                        className="view-details-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRestaurantClick(restaurant);
+                        }}
+                      >
+                        View Details
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <button 
+                className="load-section-btn"
+                onClick={loadTrendingRestaurants}
+              >
+                Load Trending Restaurants
+              </button>
+            )}
+          </div>
+
+          {/* Saved Searches - Moved to Browse Tab */}
+          <div className="browse-section">
+            <h3>💾 Saved Searches</h3>
+            <p className="section-description">Your saved search queries and filter combinations</p>
+            {savedSearches.length > 0 ? (
+              <div className="saved-searches-list">
+                {savedSearches.map((savedSearch) => (
+                  <div key={savedSearch.id} className="saved-search-item">
+                    <div className="saved-search-content">
+                      <h4>{savedSearch.name}</h4>
+                      <p className="saved-search-query">
+                        {savedSearch.query || 'Filter-based search'}
+                      </p>
+                      <div className="saved-search-meta">
+                        <span>📅 {new Date(savedSearch.timestamp).toLocaleDateString()}</span>
+                        <span>🔍 {savedSearch.resultCount} results</span>
+                      </div>
+                    </div>
+                    <div className="saved-search-actions">
+                      <button 
+                        className="load-search-btn"
+                        onClick={() => {
+                          loadSavedSearch(savedSearch);
+                          setActiveTab('search'); // Switch to Search tab when loading
+                        }}
+                      >
+                        🔄 Load
+                      </button>
+                      <button 
+                        className="delete-search-btn"
+                        onClick={() => {
+                          const newSaved = savedSearches.filter(s => s.id !== savedSearch.id);
+                          setSavedSearches(newSaved);
+                          localStorage.setItem('savedSearches', JSON.stringify(newSaved));
+                        }}
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="no-saved-searches">
+                <p>No saved searches yet. Save your favorite search queries and filters from the Search tab!</p>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -828,18 +1214,12 @@ const SearchTab = () => {
         </div>
       )}
 
-      {/* Search Results */}
-      {searchResults.length > 0 && (
+      {/* Search Results - Only show in Search tab */}
+      {searchResults.length > 0 && activeTab === 'search' && (
         <div className="search-results">
           <div className="results-header">
             <div className="results-title">
-              <h3>
-                {activeTab === 'search' && `Found ${searchResults.length} restaurants`}
-                {activeTab === 'nearby' && `Found ${searchResults.length} restaurants near you`}
-                {activeTab === 'popular' && `Popular Restaurants (${searchResults.length})`}
-                {activeTab === 'trending' && `Trending Restaurants (${searchResults.length})`}
-                {activeTab === 'categories' && `Found ${searchResults.length} restaurants`}
-              </h3>
+              <h3>Found {searchResults.length} restaurants</h3>
               <div className="results-actions">
                 <button 
                   className={`view-toggle-btn ${showMapView ? 'active' : ''}`}
@@ -915,7 +1295,7 @@ const SearchTab = () => {
                         e.stopPropagation();
                         handleQuickAction('call', restaurant);
                       }}
-                      title="Call Restaurant"
+                      title={restaurant.phoneNumber || restaurant.phone ? `Call ${restaurant.phoneNumber || restaurant.phone}` : 'Phone number not available'}
                     >
                       📞
                     </button>
@@ -974,6 +1354,17 @@ const SearchTab = () => {
                       )}
                     </div>
                   )}
+
+                  {/* View Details Button - NEW */}
+                  <button 
+                    className="view-details-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleRestaurantClick(restaurant);
+                    }}
+                  >
+                    View Details
+                  </button>
                 </div>
               </div>
             ))}
@@ -982,7 +1373,7 @@ const SearchTab = () => {
       )}
 
       {/* No Results */}
-      {searchResults.length === 0 && !isSearching && (activeTab === 'search' || activeTab === 'nearby') && (
+      {searchResults.length === 0 && !isSearching && activeTab === 'search' && (
         <div className="no-results">
           <p>No restaurants found. Try adjusting your search or filters.</p>
         </div>

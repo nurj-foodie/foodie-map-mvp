@@ -1,4 +1,3 @@
-/* global google */
 import { routeIndexService } from './routeIndexService';
 
 class RoutePrePopulationService {
@@ -123,7 +122,13 @@ class RoutePrePopulationService {
   // Geocode location
   async geocodeLocation(address) {
     try {
-      const { Geocoder } = await google.maps.importLibrary("geocoding");
+      // Guard: Check if Google Maps is loaded before using it
+      if (!window.google?.maps?.importLibrary) {
+        console.error('❌ Google Maps not loaded yet');
+        throw new Error('Google Maps API not loaded');
+      }
+
+      const { Geocoder } = await window.google.maps.importLibrary("geocoding");
       const geocoder = new Geocoder();
       
       return new Promise((resolve, reject) => {
@@ -149,15 +154,21 @@ class RoutePrePopulationService {
   // Fetch route from Google Directions API
   async fetchRouteFromGoogle(startLocation, endLocation) {
     try {
-      const { DirectionsService } = await google.maps.importLibrary("routes");
+      // Guard: Check if Google Maps is loaded before using it
+      if (!window.google?.maps?.importLibrary) {
+        console.error('❌ Google Maps not loaded yet');
+        throw new Error('Google Maps API not loaded');
+      }
+
+      const { DirectionsService } = await window.google.maps.importLibrary("routes");
       const service = new DirectionsService();
       
       return new Promise((resolve, reject) => {
         const request = {
           origin: `${startLocation.lat},${startLocation.lng}`,
           destination: `${endLocation.lat},${endLocation.lng}`,
-          travelMode: google.maps.TravelMode.DRIVING,
-          unitSystem: google.maps.UnitSystem.METRIC,
+          travelMode: window.google.maps.TravelMode.DRIVING,
+          unitSystem: window.google.maps.UnitSystem.METRIC,
           provideRouteAlternatives: true,
           region: 'MY',
           language: 'en-MY'

@@ -1,10 +1,10 @@
 # 📋 KAWAN MAKAN (KM) — Product Requirements Document (PRD)
 
 **Version:** 0.1 (Post-MVP / Pre-Beta Phase)  
-**Last Updated:** 5 November 2025  
+**Last Updated:** 10 November 2025  
 **Maintainer:** @Founder (Project Lead)  
 **Companion Files:** `README.md`, `CHANGELOG.md`, `GAMIFICATIONLOG.md`  
-**Status:** MVP v0.5 Completed | Gamification Design v0.6 Complete | Pre-Beta v0.7 In Development
+**Status:** MVP v0.5 Completed | Gamification Design v0.6 Complete | App Review v0.6.1 Complete | Search Tab Review v0.6.2 Complete | Add Restaurant Tab Review v0.6.3 Complete | Favorites Tab Review v0.6.4 Complete | Pre-Beta v0.7 In Development
 
 ---
 
@@ -90,51 +90,65 @@ Find great halal food along your journey without breaking the bank on API costs,
 
 ### 1. Route Discovery & Planning
 
-**Feature:** Plan routes between cities and discover restaurants along the way
+**Feature:** Plan routes between cities and discover restaurants, R&R stops, and petrol stations along the way
 
 **Requirements:**
-- ✅ Enter start and end locations (autocomplete support)
+- ✅ Enter start and end locations (Firestore-first autocomplete with Google Places fallback)
 - ✅ Calculate multiple route alternatives
 - ✅ Display routes on interactive map
 - ✅ Show route distance, duration, and summary
 - ✅ Save and load favorite routes
 - ✅ Multi-route support with route selection
+- ✅ Firestore location index (learns from user searches)
+- ✅ Auto-index new locations when successfully geocoded
 
 **User Stories:**
 - As a user, I want to enter my start and end locations and see route options
-- As a user, I want to see restaurants along my chosen route
+- As a user, I want to see restaurants, R&R stops, and petrol stations along my chosen route
 - As a user, I want to save routes for future reference
+- As a user, I want autocomplete to learn from my previous searches
 
 **Acceptance Criteria:**
-- [ ] Route calculation completes within 5 seconds
-- [ ] Multiple route alternatives displayed when available
-- [ ] Routes can be saved and loaded from user account
-- [ ] Map displays routes clearly with restaurant markers
+- [x] Route calculation completes within 5 seconds ✅
+- [x] Multiple route alternatives displayed when available ✅
+- [x] Routes can be saved and loaded from user account ✅
+- [x] Map displays routes clearly with restaurant, R&R, and petrol markers ✅
+- [x] Autocomplete suggests previously used locations ✅
 
 ---
 
 ### 2. Restaurant Discovery
 
-**Feature:** Find restaurants along routes with detour calculations
+**Feature:** Find restaurants, R&R stops, and petrol stations along routes with detour calculations
 
 **Requirements:**
-- ✅ Display restaurants within 5km or 15min detour
-- ✅ Show detour distance and time for each restaurant
-- ✅ Filter by cuisine type, rating, halal status
-- ✅ Display restaurant details (name, address, rating, photos)
-- ✅ Select multiple restaurants for waypoint navigation
-- ✅ View restaurant details in modal
+- ✅ Display restaurants within 5km or 30min detour (OR logic)
+- ✅ Display R&R stops within 5km or 30min detour
+- ✅ Display petrol stations within 5km or 15min detour
+- ✅ Show detour distance and time for each place
+- ✅ Filter by place type (All, Restaurants, R&R, Petrol)
+- ✅ Filter by cuisine type, rating, halal status (restaurants only)
+- ✅ Display place details (name, address, rating, photos, operating hours)
+- ✅ Select multiple places for waypoint navigation
+- ✅ View place details in modal
+- ✅ Custom emoji markers with colored backgrounds (🍽️ restaurants, 🛣️ R&R, ⛽ petrol)
+- ✅ Brand detection for petrol stations (Petronas, Shell, BHP, etc.)
+- ✅ Safety filter: Places >100km away automatically excluded
 
 **User Stories:**
-- As a user, I want to see restaurants along my route with detour info
-- As a user, I want to filter restaurants by cuisine and rating
-- As a user, I want to see restaurant photos and details
+- As a user, I want to see restaurants, R&R stops, and petrol stations along my route with detour info
+- As a user, I want to filter places by type (restaurants, R&R, petrol)
+- As a user, I want to see place photos, details, and operating hours
+- As a user, I want to know which petrol station brand I'm stopping at
 
 **Acceptance Criteria:**
-- [ ] Restaurants displayed within 5km or 15min detour
-- [ ] Detour calculations accurate and fast
-- [ ] Filtering works correctly for all criteria
-- [ ] Restaurant details load within 2 seconds
+- [x] Restaurants displayed within 5km or 30min detour ✅
+- [x] R&R stops displayed within 5km or 30min detour ✅
+- [x] Petrol stations displayed within 5km or 15min detour ✅
+- [x] Detour calculations accurate and fast (Haversine-first, Distance Matrix fallback) ✅
+- [x] Place type filtering works correctly ✅
+- [x] Place details load within 2 seconds ✅
+- [x] Far-away places (>100km) automatically filtered out ✅
 
 ---
 
@@ -161,23 +175,39 @@ Find great halal food along your journey without breaking the bank on API costs,
 
 ### 4. Global Restaurant Search
 
-**Feature:** Search entire restaurant database with advanced filters
+**Feature:** Search entire restaurant database with intelligent keyword recognition and advanced filters
 
 **Requirements:**
-- ✅ Search by name, cuisine, location
+- ✅ Search by name, cuisine, location, food items
+- ✅ 🧠 **Intelligent Keyword Recognition** – Automatic recognition of locations, food items, cuisines, meal types
+- ✅ 🔍 **Compound Query Support** – Natural language queries (e.g., "roti canai petaling jaya", "breakfast kluang")
+- ✅ 🗺️ **Geocoding First Strategy** – Improved location detection (works for any location, even unknown cities)
+- ✅ 📊 **Search Analytics** – Privacy-focused tracking for keyword learning
+- ✅ 🧠 **Auto-Learning System** – Automatically learns new keywords and coordinates from user behavior
+- ✅ 🇲🇾 **Malaysia-Only Validation** – Budget-protected (only processes Malaysia locations)
 - ✅ Filter by rating, halal status, distance, price range
 - ✅ Sort by rating, distance, newest, most reviews
-- ✅ Display results in list and map view
-- ✅ Pagination for large result sets
+- ✅ Display results in list view
+- ✅ Browse tab with categories, popular, trending sections
+- ✅ Food prefix detection (prevents geocoding food-related queries)
+- ✅ Coordinate learning (automatically learns location coordinates)
 
 **User Stories:**
-- As a user, I want to search for restaurants by name
+- As a user, I want to search for restaurants by name, food item, or location
+- As a user, I want to search using natural language (e.g., "roti canai petaling jaya")
+- As a user, I want the system to understand my search intent automatically
 - As a user, I want to filter restaurants by halal status and rating
+- As a user, I want to browse restaurants by category, popular, or trending
 
 **Acceptance Criteria:**
-- [ ] Search results return within 2 seconds
-- [ ] Filters work correctly in combination
-- [ ] Results display correctly in both views
+- [x] Search results return within 2 seconds ✅
+- [x] Compound queries parse correctly ✅
+- [x] Location detection works for unknown cities ✅
+- [x] Food items recognized correctly ✅
+- [x] Malaysia-only validation protects API budget ✅
+- [x] Keyword learning system active and protected ✅
+- [x] Browse tab sections load independently ✅
+- [x] Filters work correctly in combination ✅
 
 ---
 
@@ -205,7 +235,7 @@ Find great halal food along your journey without breaking the bank on API costs,
 
 ### 6. Favorites System
 
-**Feature:** Save and manage favorite restaurants
+**Feature:** Save and manage favorite restaurants and saved routes
 
 **Requirements:**
 - ✅ Add restaurants to favorites
@@ -213,15 +243,37 @@ Find great halal food along your journey without breaking the bank on API costs,
 - ✅ Soft delete with 24-hour restore
 - ✅ Auto-cleanup after 24 hours
 - ✅ Quick access from favorites tab
+- ✅ Tabbed interface: Favorites and Saved Routes
+- ✅ View saved routes with route details (start, end, stops, distance, duration, date)
+- ✅ Load saved routes directly from FavoritesTab
+- ✅ Delete saved routes with confirmation
+- ✅ Auto-switch to Discover tab when loading a route
+- ✅ Smart duplicate prevention (name + location matching, 100m radius)
+- ✅ Automatic ID updates for old favorites (migrates Firestore doc IDs to Google Place IDs)
+- ✅ Duplicate cleanup system (removes duplicate documents automatically)
+- ✅ Consistent ID handling across all components
+- ✅ Visual feedback (button turns red when favorited)
 
 **User Stories:**
 - As a user, I want to save my favorite restaurants
 - As a user, I want to restore accidentally deleted favorites
+- As a user, I want to access my saved routes from the Favorites tab
+- As a user, I want to quickly load a previously saved route
+- As a user, I want to see clear visual feedback when a restaurant is favorited
+- As a user, I don't want duplicate favorites for the same restaurant
 
 **Acceptance Criteria:**
-- [ ] Favorites save instantly
-- [ ] Restore functionality works within 24 hours
-- [ ] Favorites list loads quickly
+- [x] Favorites save instantly ✅
+- [x] Restore functionality works within 24 hours ✅
+- [x] Favorites list loads quickly ✅
+- [x] Saved routes accessible from FavoritesTab ✅
+- [x] Route loading switches to Discover tab automatically ✅
+- [x] Route deletion requires confirmation ✅
+- [x] Favorite button turns red when favorited ✅
+- [x] No duplicate favorites created ✅
+- [x] Old favorites automatically updated with correct IDs ✅
+- [x] Duplicate cleanup works automatically ✅
+- [x] ID extraction consistent across all components ✅
 
 ---
 
@@ -232,20 +284,33 @@ Find great halal food along your journey without breaking the bank on API costs,
 **Requirements:**
 - ✅ Submit new restaurants (authenticated users)
 - ✅ Google Places integration for auto-fill
-- ✅ GPS location detection ("Locate Me")
+- ✅ Nearby restaurant detection (100m radius) to prevent duplicates
+- ✅ Interactive location map with draggable marker
+- ✅ Camera capture for photos (in addition to gallery)
+- ✅ Menu photo upload with custom naming
 - ✅ Manual override for all fields
-- ✅ Photo upload support
+- ✅ Photo upload support (regular + menu photos)
+- ✅ 5-step wizard form with validation
 - ✅ Admin review workflow
 
 **User Stories:**
 - As a user, I want to add restaurants that aren't in the database
+- As a user, I want to know if a restaurant already exists before submitting
+- As a user, I want to take photos with my camera, not just select from gallery
+- As a user, I want to pin the exact location on a map
+- As a user, I want to upload menu photos with names for each item
 - As an admin, I want to review and approve restaurant submissions
 
 **Acceptance Criteria:**
-- [ ] Submission form validates all required fields
-- [ ] Google Places integration works correctly
-- [ ] GPS location detection accurate
-- [ ] Admin dashboard shows pending submissions
+- [x] Submission form validates all required fields ✅
+- [x] Google Places integration works correctly ✅
+- [x] Nearby restaurant detection works (100m radius) ✅
+- [x] Interactive location map with draggable marker ✅
+- [x] Camera capture works on mobile devices ✅
+- [x] Menu photos upload with naming ✅
+- [x] Form prevents early submission ✅
+- [x] Location pinning required before submission ✅
+- [x] Admin dashboard shows pending submissions ✅
 
 ---
 
@@ -487,6 +552,15 @@ Find great halal food along your journey without breaking the bank on API costs,
 - ✅ Restaurant submissions
 - ✅ Admin dashboard
 - ✅ Cost optimization
+
+**Phase 2.1: App Review & Quality (v0.6.1) ✅ Completed (8 Nov 2025)**
+- ✅ R&R stops and petrol stations integration
+- ✅ Saved routes in FavoritesTab
+- ✅ Firestore location index for autocomplete
+- ✅ Place type filtering (All, Restaurants, R&R, Petrol)
+- ✅ Enhanced markers with colored backgrounds
+- ✅ Comprehensive bug fixes and UX improvements
+- ✅ Cost optimization (Haversine-first approach)
 
 **Phase 2: Pre-Beta (v0.6) ⏳ In Progress**
 - [ ] XP system implementation

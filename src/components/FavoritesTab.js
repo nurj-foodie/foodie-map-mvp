@@ -5,7 +5,11 @@ import FavoriteButton from './FavoriteButton';
 import RestaurantModal from './RestaurantModal';
 import './FavoritesTab.css';
 
-const FavoritesTab = () => {
+const FavoritesTab = ({ 
+  savedRoutes = [], 
+  onLoadRoute, 
+  onDeleteRoute 
+}) => {
   const { 
     favorites, 
     loading, 
@@ -19,6 +23,9 @@ const FavoritesTab = () => {
   // State for restaurant detail modal
   const [selectedRestaurant, setSelectedRestaurant] = useState(null);
   const [showRestaurantModal, setShowRestaurantModal] = useState(false);
+  
+  // Tab state
+  const [activeTab, setActiveTab] = useState('favorites');
 
   const favoriteRestaurants = getFavoriteRestaurants();
   const recentlyRemovedRestaurants = getRecentlyRemovedRestaurants();
@@ -50,10 +57,34 @@ const FavoritesTab = () => {
     <div className="favorites-tab">
       <div className="favorites-header">
         <h2>⭐ Your Favorites</h2>
-        <p>{favoriteRestaurants.length} saved restaurants</p>
+        <p>
+          {activeTab === 'favorites' 
+            ? `${favoriteRestaurants.length} saved restaurants`
+            : `${savedRoutes.length} saved routes`
+          }
+        </p>
       </div>
-      
-      {favoriteRestaurants.length === 0 ? (
+
+      {/* Tab Navigation */}
+      <div className="favorites-tabs">
+        <button
+          className={`tab-btn ${activeTab === 'favorites' ? 'active' : ''}`}
+          onClick={() => setActiveTab('favorites')}
+        >
+          ⭐ Favorites ({favoriteRestaurants.length})
+        </button>
+        <button
+          className={`tab-btn ${activeTab === 'routes' ? 'active' : ''}`}
+          onClick={() => setActiveTab('routes')}
+        >
+          📚 Saved Routes ({savedRoutes.length})
+        </button>
+      </div>
+
+      {/* Favorites Tab Content */}
+      {activeTab === 'favorites' && (
+        <>
+          {favoriteRestaurants.length === 0 ? (
         <div className="favorites-empty">
           <div className="empty-icon">⭐</div>
           <h3>No favorites yet</h3>
@@ -101,10 +132,10 @@ const FavoritesTab = () => {
             );
           })}
         </div>
-      )}
+          )}
 
-      {/* Recently Removed Section */}
-      {recentlyRemovedRestaurants.length > 0 && (
+          {/* Recently Removed Section - Only in Favorites tab */}
+          {recentlyRemovedRestaurants.length > 0 && (
         <div className="recently-removed-section">
           <div className="recently-removed-header">
             <h3>🗑️ Recently Removed</h3>
@@ -156,6 +187,95 @@ const FavoritesTab = () => {
             })}
           </div>
         </div>
+          )}
+        </>
+      )}
+
+      {/* Saved Routes Tab Content */}
+      {activeTab === 'routes' && (
+        <>
+          {savedRoutes.length === 0 ? (
+            <div className="favorites-empty">
+              <div className="empty-icon">📚</div>
+              <h3>No saved routes yet</h3>
+              <p>Create a route with selected restaurants and save it for future reference!</p>
+              <div className="empty-tips">
+                <p>💡 Tips:</p>
+                <ul>
+                  <li>Go to Discover tab and search for a route</li>
+                  <li>Select restaurants along your route</li>
+                  <li>Click "Save This Route" to save it</li>
+                </ul>
+              </div>
+            </div>
+          ) : (
+            <div className="favorites-list">
+              {savedRoutes.map((route) => {
+                const routeDate = route.createdAt?.toDate 
+                  ? route.createdAt.toDate() 
+                  : (route.createdAt ? new Date(route.createdAt) : new Date());
+                
+                return (
+                  <div key={route.id} className="favorite-item route-item">
+                    <div className="favorite-info">
+                      <h4>{route.name}</h4>
+                      <div className="route-details">
+                        <div className="route-detail-row">
+                          <span>🚀 <strong>Start:</strong> {route.startLocation?.name || 'Unknown'}</span>
+                        </div>
+                        <div className="route-detail-row">
+                          <span>🏁 <strong>End:</strong> {route.endLocation?.name || 'Unknown'}</span>
+                        </div>
+                        <div className="route-detail-row">
+                          <span>🍽️ <strong>Stops:</strong> {route.totalStops || 0} restaurant{route.totalStops !== 1 ? 's' : ''}</span>
+                        </div>
+                        {route.totalDistance && (
+                          <div className="route-detail-row">
+                            <span>📏 <strong>Distance:</strong> {route.totalDistance}</span>
+                          </div>
+                        )}
+                        {route.totalDuration && (
+                          <div className="route-detail-row">
+                            <span>⏱️ <strong>Duration:</strong> {route.totalDuration}</span>
+                          </div>
+                        )}
+                        <div className="route-detail-row route-date">
+                          <span>📅 Saved: {routeDate.toLocaleDateString()}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="favorite-actions">
+                      <button
+                        className="load-route-btn"
+                        onClick={() => {
+                          if (onLoadRoute) {
+                            onLoadRoute(route);
+                            // Switch to Discover tab after loading (if available)
+                            // This would need to be handled by parent component
+                          }
+                        }}
+                      >
+                        🔄 Load Route
+                      </button>
+                      <button
+                        className="delete-route-btn"
+                        onClick={() => {
+                          if (window.confirm(`Are you sure you want to delete "${route.name}"?`)) {
+                            if (onDeleteRoute) {
+                              onDeleteRoute(route.id, route.name);
+                            }
+                          }
+                        }}
+                      >
+                        🗑️ Delete
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </>
       )}
 
       {/* Restaurant Detail Modal */}

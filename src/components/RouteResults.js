@@ -9,6 +9,8 @@ const RouteResults = ({
   selectedRouteIndex, 
   onRouteSelect,
   filteredRestaurants,
+  filteredRNRStops,
+  filteredPetrolStations,
   selectedEateries,
   onEaterySelect,
   onViewDetails,
@@ -35,6 +37,7 @@ const RouteResults = ({
   onClearRouteCache,
   googleMapsLoaded
 }) => {
+  const [selectedPlaceType, setSelectedPlaceType] = React.useState('all');
   // Simple right-swipe to go back (mobile)
   const touchStartX = useRef(null);
   const touchStartY = useRef(null);
@@ -115,71 +118,138 @@ const RouteResults = ({
         <div id="map" style={{ height: '50vh', minHeight: '300px', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)' }}></div>
       </div>
 
-      {/* Restaurant Selection */}
-      {filteredRestaurants && filteredRestaurants.length > 0 && (
-        <div className="restaurant-selection">
-          <h3>🍽️ Restaurants Along Route ({filteredRestaurants.length})</h3>
-          <div className="restaurant-list">
-            {filteredRestaurants.map((restaurant, index) => {
-              // Build a stable unique id for both sides
-              const getUniqueId = (r) =>
-                r?.place_id || r?.id || `${r?.location?.lat}_${r?.location?.lng}_${r?.name || r?.displayName}`;
+      {/* Place Type Filter Tabs */}
+      <div className="place-type-tabs">
+        <button
+          className={`tab-btn ${selectedPlaceType === 'all' ? 'active' : ''}`}
+          onClick={() => setSelectedPlaceType('all')}
+        >
+          All ({((filteredRestaurants?.length || 0) + (filteredRNRStops?.length || 0) + (filteredPetrolStations?.length || 0))})
+        </button>
+        <button
+          className={`tab-btn ${selectedPlaceType === 'restaurant' ? 'active' : ''}`}
+          onClick={() => setSelectedPlaceType('restaurant')}
+        >
+          🍽️ Restaurants ({filteredRestaurants?.length || 0})
+        </button>
+        <button
+          className={`tab-btn ${selectedPlaceType === 'rnr' ? 'active' : ''}`}
+          onClick={() => setSelectedPlaceType('rnr')}
+        >
+          🛣️ R&R ({filteredRNRStops?.length || 0})
+        </button>
+        <button
+          className={`tab-btn ${selectedPlaceType === 'petrol_station' ? 'active' : ''}`}
+          onClick={() => setSelectedPlaceType('petrol_station')}
+        >
+          ⛽ Petrol ({filteredPetrolStations?.length || 0})
+        </button>
+      </div>
 
-              const isSelected = selectedEateries.some(eatery => 
-                getUniqueId(eatery) === getUniqueId(restaurant)
-              );
-              
-              return (
-                <div
-                  key={index}
-                  className={`restaurant-card ${isSelected ? 'selected' : ''}`}
-                  onClick={() => onEaterySelect(restaurant)}
-                >
-                  <div className="restaurant-info">
-                    <h4>{restaurant.name || restaurant.displayName}</h4>
-                    <p>{restaurant.address || restaurant.formattedAddress}</p>
-                    <div className="restaurant-details">
-                      <span>⭐ {restaurant.rating || 'N/A'}</span>
-                      {restaurant.detourDistanceKm && (
-                        <span className="detour-info">🚗 {restaurant.detourDistanceKm.toFixed(1)}km detour</span>
-                      )}
-                      {restaurant.detourDurationMinutes && (
-                        <span className="detour-info">⏱️ {restaurant.detourDurationMinutes.toFixed(0)}min</span>
+      {/* Places Selection - Unified component for all types */}
+      {(() => {
+        // Get places to display based on selected tab
+        let placesToShow = [];
+        if (selectedPlaceType === 'all') {
+          placesToShow = [
+            ...(filteredRestaurants || []).map(p => ({ ...p, placeType: 'restaurant' })),
+            ...(filteredRNRStops || []).map(p => ({ ...p, placeType: 'rnr' })),
+            ...(filteredPetrolStations || []).map(p => ({ ...p, placeType: 'petrol_station' }))
+          ];
+        } else if (selectedPlaceType === 'restaurant') {
+          placesToShow = (filteredRestaurants || []).map(p => ({ ...p, placeType: 'restaurant' }));
+        } else if (selectedPlaceType === 'rnr') {
+          placesToShow = (filteredRNRStops || []).map(p => ({ ...p, placeType: 'rnr' }));
+        } else if (selectedPlaceType === 'petrol_station') {
+          placesToShow = (filteredPetrolStations || []).map(p => ({ ...p, placeType: 'petrol_station' }));
+        }
+
+        if (placesToShow.length === 0) return null;
+
+        const getTypeLabel = (type) => {
+          if (type === 'restaurant') return '🍽️ Restaurant';
+          if (type === 'rnr') return '🛣️ R&R Stop';
+          if (type === 'petrol_station') return '⛽ Petrol Station';
+          return '📍 Place';
+        };
+
+        return (
+          <div className="restaurant-selection">
+            <h3>
+              {selectedPlaceType === 'all' 
+                ? `📍 Places Along Route (${placesToShow.length})`
+                : `${getTypeLabel(selectedPlaceType)}s Along Route (${placesToShow.length})`
+              }
+            </h3>
+            <div className="restaurant-list">
+              {placesToShow.map((place, index) => {
+                // Build a stable unique id for both sides
+                const getUniqueId = (p) =>
+                  p?.place_id || p?.id || `${p?.location?.lat}_${p?.location?.lng}_${p?.name || p?.displayName || p?.eateryName}`;
+
+                const isSelected = selectedEateries.some(eatery => 
+                  getUniqueId(eatery) === getUniqueId(place)
+                );
+                
+                const placeType = place.placeType || place.type || 'restaurant';
+                const brand = place.brand ? ` (${place.brand})` : '';
+                
+                return (
+                  <div
+                    key={index}
+                    className={`restaurant-card ${isSelected ? 'selected' : ''}`}
+                    onClick={() => onEaterySelect(place)}
+                  >
+                    <div className="restaurant-info">
+                      <h4>
+                        {getTypeLabel(placeType)} {place.name || place.displayName || place.eateryName}{brand}
+                      </h4>
+                      <p>{place.address || place.formattedAddress}</p>
+                      <div className="restaurant-details">
+                        {place.rating && <span>⭐ {place.rating}</span>}
+                        {place.detourDistanceKm && (
+                          <span className="detour-info">🚗 {place.detourDistanceKm.toFixed(1)}km detour</span>
+                        )}
+                        {place.detourDurationMinutes && (
+                          <span className="detour-info">⏱️ {place.detourDurationMinutes.toFixed(0)}min</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="restaurant-actions">
+                      <button
+                        className={`select-btn ${isSelected ? 'selected' : ''}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onEaterySelect(place);
+                        }}
+                      >
+                        {isSelected ? '✅ Selected' : '➕ Select'}
+                      </button>
+                      <button
+                        className="select-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onViewDetails && onViewDetails(place);
+                        }}
+                      >
+                        👁️ View Details
+                      </button>
+                      {placeType === 'restaurant' && (
+                        <FavoriteButton
+                          restaurant={place}
+                          size="small"
+                          showText={false}
+                          className="favorite-btn"
+                        />
                       )}
                     </div>
                   </div>
-                  <div className="restaurant-actions">
-                    <button
-                      className={`select-btn ${isSelected ? 'selected' : ''}`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onEaterySelect(restaurant);
-                      }}
-                    >
-                      {isSelected ? '✅ Selected' : '➕ Select'}
-                    </button>
-                    <button
-                      className="select-btn"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onViewDetails && onViewDetails(restaurant);
-                      }}
-                    >
-                      👁️ View Details
-                    </button>
-                    <FavoriteButton
-                      restaurant={restaurant}
-                      size="small"
-                      showText={false}
-                      className="favorite-btn"
-                    />
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Action Buttons */}
       <div className="action-buttons">
@@ -204,34 +274,6 @@ const RouteResults = ({
         </div>
       </div>
 
-      {/* Status Info */}
-      <div className="status-info">
-        <p>✅ Simple working version</p>
-        <p>✅ Route calculation with alternatives</p>
-        <p>✅ Restaurant discovery along route</p>
-        <p>✅ Route selection (if multiple routes)</p>
-        <p>✅ Multi-restaurant selection for food tours</p>
-        <p>✅ Multi-stop navigation with waypoints</p>
-        <p>✅ Save & load custom routes (user-specific)</p>
-        <p>✅ Drive navigation integration</p>
-        <p>✅ User restaurant submission</p>
-        <p style={{ color: googleMapsLoaded ? '#4CAF50' : '#FF9800' }}>
-          {googleMapsLoaded ? '✅ Google Maps loaded' : '⏳ Loading Google Maps...'}
-        </p>
-        
-        {currentUserId && (
-          <div className="user-actions">
-            <p>👤 User ID: {currentUserId}</p>
-            <div className="user-buttons">
-              <button onClick={onClearUserData}>🗑️ Clear Data</button>
-              <button onClick={onInspectData}>🔍 Inspect Data</button>
-              <button onClick={onGetUserStats}>🎮 My Stats</button>
-              <button onClick={onTestMultiRoute}>🧪 Test Multi-Route</button>
-              <button onClick={onClearRouteCache}>🗑️ Clear Cache</button>
-            </div>
-          </div>
-        )}
-      </div>
 
       {/* Modals would go here - Save Route, Saved Routes, etc. */}
     </div>

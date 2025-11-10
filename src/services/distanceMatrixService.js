@@ -82,9 +82,75 @@ class DistanceMatrixService {
   }
 
   // Calculate detours for restaurants along a route (optimized)
-  async calculateRouteDetours(route, restaurants) {
+  /**
+   * Get threshold for place type
+   */
+  getThresholdForType(type) {
+    switch(type) {
+      case 'restaurant':
+      case 'rnr':
+        return { distance: 5, duration: 30 };
+      case 'petrol_station':
+        return { distance: 5, duration: 15 };
+      default:
+        return { distance: 5, duration: 30 };
+    }
+  }
+
+  async calculateRouteDetours(route, places, placeType = 'restaurant') {
     try {
-      console.log(`🔍 Calculating detours for ${restaurants.length} restaurants along route`);
+      const threshold = this.getThresholdForType(placeType);
+      console.log(`🔍 Calculating detours for ${places.length} ${placeType} places along route (threshold: ${threshold.distance}km/${threshold.duration}min)`);
+      
+      // Use Haversine formula FIRST (FREE, no API cost)
+      console.log('💰 Using Haversine formula - FREE! (No API cost)');
+      const haversineResults = this.calculateDetoursHaversine(route, places);
+      
+      // Smart filtering: If Haversine distance > threshold, filter out immediately (no API call needed)
+      // Only places with Haversine distance <= threshold.distance OR duration <= threshold.duration might be worth validating
+      const potentiallyClosePlaces = haversineResults.filter(p => 
+        p.detourDistanceKm <= threshold.distance || p.detourDurationMinutes <= threshold.duration
+      );
+      
+      // If Haversine shows places > threshold, they're already filtered out - no Distance Matrix needed
+      const farPlaces = haversineResults.filter(p => 
+        p.detourDistanceKm > threshold.distance && p.detourDurationMinutes > threshold.duration
+      );
+      
+      if (farPlaces.length > 0) {
+        console.log(`💰 Filtered out ${farPlaces.length} ${placeType} places immediately (Haversine distance > ${threshold.distance}km) - saved API cost!`);
+      }
+      
+      // If no places are close enough, return empty array (already filtered)
+      if (potentiallyClosePlaces.length === 0) {
+        console.log(`✅ No ${placeType} places within range (Haversine filter) - no Distance Matrix API needed`);
+        return haversineResults.filter(p => p.detourDistanceKm <= threshold.distance || p.detourDurationMinutes <= threshold.duration);
+      }
+      
+      // If we have potentially close places, we could validate with Distance Matrix
+      // But for cost savings, we'll just use Haversine results (filtered to close places only)
+      // Distance Matrix validation can be added later if needed for accuracy
+      console.log(`✅ Haversine calculation successful: ${potentiallyClosePlaces.length} ${placeType} places within range`);
+      // Return only places that meet the criteria (distance <= threshold.distance OR duration <= threshold.duration)
+      return haversineResults.filter(p => p.detourDistanceKm <= threshold.distance || p.detourDurationMinutes <= threshold.duration);
+      
+    } catch (error) {
+      console.error(`❌ Route detour calculation failed for ${placeType}:`, error);
+      // Final fallback to Haversine formula
+      console.log('💰 Final fallback: Using Haversine formula');
+      return this.calculateDetoursHaversine(route, places);
+    }
+  }
+
+  // Legacy method for backward compatibility
+  async calculateRouteDetoursForRestaurants(route, restaurants) {
+    return this.calculateRouteDetours(route, restaurants, 'restaurant');
+  }
+
+  // Distance Matrix API calculation (used as fallback only)
+  async calculateDetoursDistanceMatrix(route, restaurants) {
+    try {
+      console.log('💰 Using Distance Matrix API - COST: ~RM0.005 per batch');
       
       // Extract route waypoints (every 5th step to reduce API calls)
       const routePoints = this.extractRouteWaypoints(route, 5);
@@ -155,11 +221,11 @@ class DistanceMatrixService {
         };
       });
 
-      console.log(`✅ Detour calculation completed for ${restaurantsWithDetours.length} restaurants`);
+      console.log(`✅ Distance Matrix calculation completed for ${restaurantsWithDetours.length} restaurants`);
       return restaurantsWithDetours;
       
     } catch (error) {
-      console.error('❌ Route detour calculation failed:', error);
+      console.error('❌ Distance Matrix API calculation failed:', error);
       // Fallback to Haversine formula
       return this.calculateDetoursHaversine(route, restaurants);
     }
@@ -206,9 +272,9 @@ class DistanceMatrixService {
     return waypoints;
   }
 
-  // Fallback to Haversine formula (FREE)
+  // Primary method: Haversine formula (FREE, no API cost)
   calculateDetoursHaversine(route, restaurants) {
-    console.log('💰 Using Haversine formula fallback - FREE!');
+    console.log('💰 Using Haversine formula - FREE! (No API cost)');
     
     const routePoints = this.extractRouteWaypoints(route, 1); // Use all points for accuracy
     

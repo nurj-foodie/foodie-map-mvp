@@ -1,6 +1,6 @@
 # 🗺️ Kawan Makan — Food Discovery App
 
-**Current Version:** v0.6 | [📋 View Changelog](./CHANGELOG.md)
+**Current Version:** v0.6.4 | [📋 View Changelog](./CHANGELOG.md)
 
 A cost-effective food discovery app that helps users find restaurants along their routes with 95% API cost reduction. Built for Peninsular Malaysia with route planning, restaurant discovery, and user contributions.
 
@@ -9,22 +9,34 @@ A cost-effective food discovery app that helps users find restaurants along thei
 ### ✅ Core Functionality
 - **🗺️ Route Planning** - Plan routes between cities with multiple alternatives
 - **🍽️ Restaurant Discovery** - Find restaurants along your route with detour calculations
-- **🧭 Waypoint Navigation** - Navigate via selected restaurants (Start → Restaurant → End)
-- **🔍 Smart Filtering** - Filter by distance, rating, cuisine type, halal status
-- **💾 Save & Load Routes** - User-specific saved routes with restaurant selections
+- **🛣️ R&R Stops** - Find rest stops along your route (5km/30min threshold)
+- **⛽ Petrol Stations** - Find petrol stations along your route (5km/15min threshold)
+- **🧭 Waypoint Navigation** - Navigate via selected places (Start → Place → End)
+- **🔍 Smart Filtering** - Filter by place type (All, Restaurants, R&R, Petrol), distance, rating, cuisine type, halal status
+- **💾 Save & Load Routes** - User-specific saved routes with place selections
+- **🗺️ Smart Autocomplete** - Firestore-first location index that learns from searches
 
 ### ✅ User Experience
 - **🔐 Authentication** - Google OAuth + Email/Password login
 - **⭐ Favorites System** - Save favorite restaurants with soft delete & 24-hour restore
+  - Smart duplicate prevention (name + location matching)
+  - Automatic ID updates for old favorites
+  - Duplicate cleanup system
+  - Consistent ID handling across all components
+- **📚 Saved Routes** - Access saved routes from FavoritesTab with tabbed interface
 - **👤 User Dashboard** - Personal overview, activity tracking, and stats
 - **🔍 Global Search** - Search entire database with advanced filters
 - **📱 Mobile-First** - Optimized for mobile devices
+- **🎨 Enhanced Markers** - Custom emoji markers with colored backgrounds for better visibility
 
 ### ✅ Restaurant Management
 - **➕ Add Restaurants** - User submission system with Google Places integration
 - **📍 GPS Location Detection** - "Locate Me" feature for current location
+- **🗺️ Interactive Location Map** - Pin restaurant location on interactive map with draggable marker
+- **📸 Photo Upload** - Upload photos from gallery or capture with camera
+- **📋 Menu Photos** - Upload menu photos with custom naming for menu items
+- **🔍 Nearby Detection** - Auto-detect existing restaurants within 100m to prevent duplicates
 - **🧾 Admin Dashboard** - Review, approve, and manage user submissions
-- **📸 Photo Upload** - Authenticated users can upload restaurant photos
 
 ### ✅ Gamification System (Designed)
 - **🎮 Beta System (v0.7)** - Simplified XP-based progression for testing
@@ -37,8 +49,9 @@ A cost-effective food discovery app that helps users find restaurants along thei
 
 ### ✅ Cost Optimization
 - **Firestore-First Search** - 95% reduction in Google Places API costs
-- **Haversine Distance Calculation** - No Distance Matrix API costs
-- **Automatic Caching** - Route and restaurant data caching
+- **Haversine-First Distance** - Free Haversine calculation before Distance Matrix API
+- **Location Index** - Firestore-based autocomplete reduces API calls
+- **Automatic Caching** - Route and place data caching (restaurants, R&R, petrol)
 - **Smart Fallback** - Uses Google Places only when needed
 
 ## 💰 Cost Savings
@@ -129,27 +142,40 @@ src/
 ## 🎮 How to Use
 
 ### 🗺️ Discovery Tab
-1. **Plan a Route** - Enter start and end locations (e.g., "Kuala Lumpur" → "Petaling Jaya")
-2. **Find Restaurants** - Click "Find Food Along Route" to discover restaurants along your route
+1. **Plan a Route** - Enter start and end locations (autocomplete learns from your searches)
+2. **Find Places** - Click "Find Food Along Route" to discover restaurants, R&R stops, and petrol stations
 3. **Select Routes** - Choose from multiple route alternatives if available
-4. **View on Map** - See restaurants marked on the map with detour information
-5. **Select Restaurants** - Click restaurants to add them to your journey
-6. **Navigate** - Start navigation with waypoints (Start → Restaurant → End)
+4. **Filter by Type** - Use tabs to filter by All, Restaurants, R&R, or Petrol stations
+5. **View on Map** - See places marked on the map with custom emoji markers and detour information
+6. **Select Places** - Click places to add them to your journey
+7. **Navigate** - Start navigation with waypoints (Start → Place → End)
 
 ### 🔍 Search Tab
 - **Global Search** - Search entire restaurant database
+- **🧠 Intelligent Keyword Recognition** - Automatic recognition of locations, food items, cuisines
+- **🔍 Compound Query Support** - Natural language queries (e.g., "roti canai petaling jaya", "breakfast kluang")
+- **🗺️ Smart Location Detection** - Geocoding-first strategy works for any location (even unknown cities)
+- **📊 Search Analytics** - Privacy-focused tracking for keyword learning
+- **🧠 Auto-Learning System** - Automatically learns new keywords and coordinates from user behavior
 - **Advanced Filters** - Filter by cuisine, rating, halal status, distance, price range
 - **Sort Options** - Sort by rating, distance, newest, most reviews
+- **🇲🇾 Malaysia-Only** - Budget-protected (only processes Malaysia locations)
 
 ### ❤️ Favorites Tab
-- **Save Favorites** - Add restaurants to your favorites list
+- **⭐ Favorites** - Save restaurants to your favorites list
+- **📚 Saved Routes** - Access your saved routes with full details
 - **Manage** - View, restore, or permanently delete favorites
-- **Quick Access** - Fast access to your favorite spots
+- **Load Routes** - Quickly load saved routes (auto-switches to Discover tab)
+- **Quick Access** - Fast access to your favorite spots and routes
 
 ### ➕ Add Restaurant Tab
-- **Submit New Restaurants** - Help grow the database
-- **Google Places Integration** - Auto-fill restaurant data
-- **GPS Location** - Use "Locate Me" for accurate positioning
+- **5-Step Wizard Form** - Guided submission process
+- **Google Places Integration** - Auto-fill restaurant data from search
+- **Nearby Detection** - Automatically detects existing restaurants within 100m radius
+- **Interactive Location Map** - Pin exact location with draggable marker and reverse geocoding
+- **Camera Capture** - Take photos directly with device camera (in addition to gallery)
+- **Menu Photos** - Upload menu photos with custom naming for each item
+- **Form Validation** - Prevents early submission, requires location pinning
 - **Admin Review** - Submissions go through quality control
 
 ### 👤 User Tab
@@ -171,10 +197,11 @@ src/
 4. **Cost Reduction** - 95% fewer API calls
 
 ### Distance Calculation
-- **Haversine Formula** - Mathematical distance calculation
-- **No Distance Matrix API** - 100% cost reduction
+- **Haversine-First** - Free mathematical distance calculation (primary method)
+- **Distance Matrix Fallback** - Only used when Haversine fails or returns invalid results
 - **Smart Speed Estimation** - City (35 km/h) vs Highway (90 km/h)
-- **Detour Filtering** - Show only restaurants within 2km or 15min
+- **Detour Filtering** - OR logic: Show places within 5km OR 30min (restaurants/R&R) or 5km OR 15min (petrol)
+- **Safety Threshold** - Places >100km away automatically excluded
 
 ### User Submission Workflow
 1. **Search Google Places** (optional) - Auto-fill data
@@ -249,7 +276,7 @@ See comprehensive gamification documentation:
 
 See [CHANGELOG.md](./CHANGELOG.md) for detailed version history and release notes.
 
-**Current Version:** v0.6 (Gamification System Design) - 5 November 2025
+**Current Version:** v0.6.3 (Add Restaurant Tab Review & UX Enhancements) - 10 November 2025
 
 ## 🔒 Security
 

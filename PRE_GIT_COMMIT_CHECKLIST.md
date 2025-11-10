@@ -40,7 +40,7 @@
 
 ### Session Files:
 12. ✅ `SESSION_WRAPUP_PROMPT.md`
-13. ✅ `SESSION_WRAPUP_SUMMARY.md`
+13. ✅ `session-summaries/SESSION_WRAPUP_SUMMARY.md` (moved to session-summaries folder)
 14. ✅ `PRE_GIT_COMMIT_CHECKLIST.md` (this file)
 
 ---

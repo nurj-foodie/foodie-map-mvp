@@ -242,16 +242,11 @@
   margin-bottom: 20px;
 }
 
-.photo-limits {
-  margin-top: 10px;
-  text-align: center;
-}
-
-.photo-limits small {
-  display: block;
-  color: #666;
-  font-size: 12px;
-  margin-bottom: 5px;
+.photo-upload-buttons {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 15px;
+  flex-wrap: wrap;
 }
 
 .photo-upload-button {
@@ -266,10 +261,32 @@
   transition: background-color 0.2s ease;
   border: none;
   font-size: 16px;
+  flex: 1;
+  min-width: 150px;
 }
 
 .photo-upload-button:hover {
   background: #a00001;
+}
+
+.photo-upload-button.camera-button {
+  background: #28a745;
+}
+
+.photo-upload-button.camera-button:hover {
+  background: #218838;
+}
+
+.photo-limits {
+  margin-top: 10px;
+  text-align: center;
+}
+
+.photo-limits small {
+  display: block;
+  color: #666;
+  font-size: 12px;
+  margin-bottom: 5px;
 }
 
 .uploaded-photos {
@@ -437,21 +454,135 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-/* Location Verification */
+/* Nearby Restaurants Warning */
+.nearby-restaurants-warning {
+  background: #fff3cd;
+  border: 2px solid #ffc107;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 25px;
+}
+
+.nearby-restaurants-warning h4 {
+  color: #856404;
+  margin: 0 0 10px 0;
+  font-size: 18px;
+}
+
+.nearby-restaurants-warning p {
+  color: #856404;
+  margin: 0 0 15px 0;
+  font-size: 14px;
+}
+
+.nearby-restaurants-list {
+  margin: 15px 0;
+}
+
+.nearby-restaurant-item {
+  background: white;
+  padding: 12px 15px;
+  border-radius: 6px;
+  margin-bottom: 10px;
+  border-left: 4px solid #ffc107;
+}
+
+.nearby-restaurant-item .restaurant-name {
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 5px;
+}
+
+.nearby-restaurant-item .restaurant-address {
+  color: #666;
+  font-size: 13px;
+  margin-bottom: 5px;
+}
+
+.nearby-restaurant-item .restaurant-distance {
+  color: #CC0001;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.warning-note {
+  color: #856404;
+  font-size: 13px;
+  font-style: italic;
+  margin-top: 10px;
+}
+
+.loading-nearby {
+  text-align: center;
+  padding: 15px;
+  color: #666;
+  font-size: 14px;
+  margin-bottom: 20px;
+}
+
+/* Location Verification & Map */
 .verify-location-btn {
   background: #28a745;
   color: white;
   border: none;
-  padding: 10px 20px;
-  border-radius: 6px;
+  padding: 12px 24px;
+  border-radius: 8px;
   cursor: pointer;
   font-weight: 600;
   margin-bottom: 15px;
   transition: background-color 0.2s ease;
+  font-size: 16px;
+  width: 100%;
 }
 
 .verify-location-btn:hover {
   background: #218838;
+}
+
+.location-map-container {
+  margin-bottom: 20px;
+}
+
+.location-map-container #location-map {
+  border-radius: 8px;
+  border: 2px solid #e0e0e0;
+  overflow: hidden;
+}
+
+.map-instructions {
+  margin-top: 15px;
+  text-align: center;
+}
+
+.map-instructions p {
+  color: #666;
+  font-size: 14px;
+  margin-bottom: 15px;
+}
+
+.location-coordinates {
+  margin-top: 10px;
+  padding: 8px 12px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  text-align: center;
+}
+
+.location-coordinates small {
+  color: #666;
+  font-size: 12px;
+  font-family: monospace;
+}
+
+.location-required-warning {
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 6px;
+  padding: 12px 15px;
+  margin-bottom: 15px;
+  color: #856404;
+  font-size: 14px;
+  font-weight: 500;
 }
 
 .verification-message {
@@ -635,6 +766,123 @@
   .hours-controls {
     flex-wrap: wrap;
   }
+  
+  .photo-upload-buttons {
+    flex-direction: column;
+  }
+  
+  .photo-upload-button {
+    width: 100%;
+  }
+  
+  .location-map-container #location-map {
+    height: 350px !important;
+  }
+  
+  .uploaded-photos,
+  .uploaded-menu-photos {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .nearby-restaurants-list {
+    max-height: 300px;
+    overflow-y: auto;
+  }
+}
+
+/* Menu Photos */
+.menu-photos-section {
+  margin-top: 30px;
+  padding-top: 30px;
+  border-top: 2px solid #e0e0e0;
+}
+
+.menu-photos-section h4 {
+  color: #CC0001;
+  margin: 0 0 10px 0;
+  font-size: 18px;
+}
+
+.menu-photos-section p {
+  color: #666;
+  font-size: 14px;
+  margin-bottom: 15px;
+}
+
+.uploaded-menu-photos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 15px;
+  margin-top: 20px;
+}
+
+.menu-photo-item {
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  background: white;
+}
+
+.menu-photo-item img {
+  width: 100%;
+  height: 120px;
+  object-fit: cover;
+  display: block;
+}
+
+.menu-name-input {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #e0e0e0;
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  font-size: 12px;
+  background: #f8f9fa;
+}
+
+.menu-name-input:focus {
+  outline: none;
+  border-color: #CC0001;
+  background: white;
+}
+
+.review-menu-photos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 15px;
+  margin-top: 15px;
+}
+
+.review-menu-item {
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.review-menu-item img {
+  width: 100%;
+  height: 100px;
+  object-fit: cover;
+  display: block;
+}
+
+.menu-item-name {
+  padding: 6px 8px;
+  background: #f8f9fa;
+  font-size: 11px;
+  color: #333;
+  text-align: center;
+  font-weight: 500;
+}
+
+.photo-upload-button.menu-button {
+  background: #17a2b8;
+}
+
+.photo-upload-button.menu-button:hover {
+  background: #138496;
 }
 
 @media (max-width: 480px) {
@@ -644,6 +892,36 @@
   
   .add-restaurant-step h3 {
     font-size: 20px;
+  }
+  
+  .photo-upload-buttons {
+    flex-direction: column;
+  }
+  
+  .photo-upload-button {
+    width: 100%;
+  }
+  
+  .uploaded-photos,
+  .uploaded-menu-photos {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .location-map-container #location-map {
+    height: 300px !important;
+  }
+  
+  .nearby-restaurants-warning {
+    padding: 15px;
+  }
+  
+  .nearby-restaurant-item {
+    padding: 10px;
+  }
+  
+  .menu-name-input {
+    font-size: 11px;
+    padding: 6px;
   }
   
   .uploaded-photos {

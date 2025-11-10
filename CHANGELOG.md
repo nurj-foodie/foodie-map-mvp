@@ -1,8 +1,318 @@
 # 🗺️ KAWAN MAKAN — CHANGELOG.md
 
-*Project timeline: 3 Oct – 5 Nov 2025*  
+*Project timeline: 3 Oct – 10 Nov 2025*  
 
 *Core Stack: React, Firebase Firestore, Google Maps Platform, @react-google-maps/api, TailwindCSS, Netlify/Firebase Hosting*
+
+---
+
+## v0.6.4 — Favorites Tab Review & ID System Overhaul (10 Nov 2025)
+
+**Milestone:** Comprehensive Favorites Tab review with ID system fixes and duplicate prevention.  
+**Objective:** Fix favorite button state, prevent duplicates, and ensure consistent ID handling across the app.
+
+### 📦 Features Added
+
+- 🔧 **Automatic ID Update** – Updates old favorites with correct Google Place IDs
+  - Detects favorites with Firestore document IDs
+  - Automatically updates to Google Place IDs when duplicates found
+  - Removes `eateryId` field to standardize on `restaurantId`
+  - Seamless migration for existing favorites
+- 🧹 **Duplicate Cleanup System** – Automatically removes duplicate favorites
+  - Detects duplicates on favorites load
+  - Keeps most recent favorite, removes older duplicates
+  - Runs automatically in background
+  - Prevents duplicate warnings
+- 🔍 **Smart Duplicate Detection** – Name + location matching (100m radius)
+  - Prevents adding same restaurant with different IDs
+  - Finds duplicates even when IDs don't match
+  - Updates existing favorites instead of creating new ones
+- ✅ **ID Standardization** – Consistent ID handling across all components
+  - Prioritizes Google Place IDs (`place_id`)
+  - Validates IDs before use (must start with "ChIJ" or "temp_")
+  - Ignores Firestore document IDs
+  - Generates temp IDs for restaurants without Google Place IDs
+
+### 🧩 Fixes & Improvements
+
+- ✅ **Fixed Favorite Button State** – Button now turns red when favorited
+  - Consistent ID extraction between `FavoriteButton` and `favoritesService`
+  - Proper state management with `favoriteIds` Set
+  - Visual feedback with CSS `!important` overrides
+- ✅ **Fixed Auto-Unfavorite Issue** – No longer unfavorites wrong restaurants
+  - Proper ID matching prevents conflicts
+  - Soft-delete filtering prevents wrong matches
+  - Consistent ID generation prevents mismatches
+- ✅ **Fixed Duplicate Creation** – Prevents multiple favorites for same restaurant
+  - Name + location duplicate detection
+  - Auto-update existing favorites with correct IDs
+  - Firestore cleanup removes duplicate documents
+- ✅ **Fixed ID Extraction** – Handles all ID field variations correctly
+  - Prioritizes `place_id` over `id`
+  - Validates `id` before use (Google Place ID or temp ID only)
+  - Ignores Firestore document IDs
+  - Consistent logic across all components
+- ✅ **Improved Restaurant Reconstruction** – Better handling of favorites from Firestore
+  - Extracts valid Google Place IDs from `restaurantData`
+  - Removes Firestore document IDs from `id` field
+  - Generates temp IDs when needed
+  - Ensures `place_id` is always set correctly
+
+### 🎯 Key Decisions Made
+
+- **ID Priority:** `place_id` → validated `id` → generated temp ID
+- **Duplicate Handling:** Update existing favorites instead of creating new ones
+- **Standardization:** Use `restaurantId` only, remove `eateryId` field
+- **Auto-Repair:** Automatically fix old favorites with incorrect IDs
+- **Cleanup Strategy:** Remove duplicates on load, keep most recent
+
+### 🧩 System Design Notes
+
+- **ID Extraction:** Three-tier validation (place_id → validated id → temp ID)
+- **Duplicate Detection:** Haversine distance + name fuzzy matching (100m radius)
+- **Auto-Update:** Updates `restaurantId` when duplicate found with different ID
+- **Firestore Cleanup:** Groups by `restaurantId`, keeps most recent, deletes others
+- **Backward Compatibility:** Handles both `restaurantId` and `eateryId` during migration
+
+### 📋 Documentation Created
+
+- ✅ `FAVORITES_TAB_FIXES_20251110.md` – Complete fixes documentation
+- ✅ `SESSION_START_FAVORITES_TAB_REVIEW_20251110.md` – Review planning document
+
+### 🧠 Lessons Learned
+
+- Consistent ID extraction critical for state management
+- Firestore document IDs should never be used as restaurant identifiers
+- Auto-repair systems prevent user frustration
+- Duplicate cleanup must happen at Firestore level, not just UI
+- Standardization prevents future conflicts
+
+---
+
+## v0.6.3 — Add Restaurant Tab Review & UX Enhancements (10 Nov 2025)
+
+**Milestone:** Comprehensive Add Restaurant tab review with major UX improvements.  
+**Objective:** Enhance restaurant submission workflow with duplicate prevention, camera capture, and interactive location mapping.
+
+### 📦 Features Added
+
+- 🔍 **Nearby Restaurant Detection** – Automatically detects existing restaurants within 100m radius
+  - Prevents duplicate submissions
+  - Shows warning with list of nearby restaurants
+  - Displays on first page of form
+  - Triggers automatically when user location is available
+- 📷 **Camera Capture** – Take photos directly with device camera
+  - "Take Photo" button for regular photos
+  - "Capture Menu" button for menu photos
+  - Works alongside gallery selection
+  - Mobile-optimized camera access
+- 🗺️ **Interactive Location Map** – Pin restaurant location on interactive map
+  - Replaces static "Locate Me" button in review section
+  - Draggable marker for precise location pinning
+  - Reverse geocoding updates address automatically
+  - Visual feedback with coordinates display
+  - Required validation prevents submission without location
+- 📋 **Menu Photos Section** – Dedicated menu photo upload with naming
+  - Separate section for menu photos
+  - Custom naming for each menu item
+  - Display in review section with names
+  - Supports both gallery and camera capture
+- ✅ **Enhanced Form Validation** – Prevents premature submission
+  - Requires Step 5 (Review) before submission
+  - Location pinning required (lat/lng cannot be 0)
+  - Name and address required before proceeding
+  - Enter key moves to next step (not submit) on earlier steps
+
+### 🧩 Fixes & Improvements
+
+- ✅ **Fixed Duplicate Check** – Prevents double-checking in React StrictMode
+- ✅ **Fixed Form Submission** – Prevents automatic submission without review
+- ✅ **Fixed Location Validation** – Requires location pinning on map
+- ✅ **Improved Mobile UX** – Touch-friendly buttons, responsive layout
+- ✅ **Enhanced Photo Processing** – Menu photos handled separately with naming
+- ✅ **Schema Alignment** – Form data matches Firestore schema exactly
+  - Nested maps (analytics, business, contact, socialMedia, metadata)
+  - Operating hours format (day: 0-6, openTime: "0800", closeTime: "2200")
+  - Menu photos array with names
+  - All required fields properly structured
+
+### 🎯 Key Decisions Made
+
+- **Duplicate Prevention:** Auto-detect nearby restaurants on page load (100m radius)
+- **Location Pinning:** Interactive map replaces static button for better UX
+- **Camera Integration:** Both gallery and camera options for maximum flexibility
+- **Menu Photos:** Separate section with naming for better organization
+- **Form Flow:** Multi-step validation prevents user errors
+
+### 🧩 System Design Notes
+
+- **Nearby Detection:** Uses Haversine distance calculation (100m radius)
+- **Location Map:** Google Maps with draggable marker and reverse geocoding
+- **Photo Processing:** Client-side compression before Base64 encoding
+- **Form State:** Multi-step wizard with validation at each step
+- **Schema Compliance:** Matches Firestore structure exactly
+
+### 📋 Documentation Created
+
+- ✅ `ADD_RESTAURANT_USER_FLOW.md` – Complete user flow documentation
+- ✅ `ADD_RESTAURANT_TEST_RESULTS.md` – Test results summary
+- ✅ `ADD_RESTAURANT_TESTING_CHECKLIST.md` – Testing checklist
+- ✅ `ADD_RESTAURANT_MOBILE_MENU_UPDATE.md` – Mobile and menu updates summary
+- ✅ `FIRESTORE_SCHEMA_MENU_PHOTOS.md` – Schema confirmation for menu photos
+
+### 🧠 Lessons Learned
+
+- Auto-detection prevents user frustration and duplicate data
+- Interactive maps provide better UX than static buttons
+- Camera access improves mobile user experience
+- Multi-step validation prevents submission errors
+- Schema alignment critical for data consistency
+
+---
+
+## v0.6.2 — Search Tab Review & Keyword Learning System (8–9 Nov 2025)
+
+**Milestone:** Comprehensive Search Tab review, intelligent keyword system, and geocoding improvements.  
+**Objective:** Enhance search functionality with smart keyword recognition, compound query support, and automatic learning system.
+
+### 📦 Features Added
+
+- 🧠 **Keyword Learning System (The Brain)** – Automatic keyword learning from user search behavior
+  - Learns locations, food items, cuisines, and meal types
+  - Learns coordinates automatically from geocoding results
+  - Grows with database and usage without manual intervention
+  - Privacy-focused: Only learns from aggregate patterns, no personal tracking
+- 🔍 **Compound Query Support** – Intelligent parsing of complex queries
+  - Supports "food + location" queries (e.g., "roti canai petaling jaya")
+  - Supports "cuisine + location" queries (e.g., "western johor bahru")
+  - Supports "meal type + location" queries (e.g., "breakfast kluang")
+  - Parses multiple keywords from single query
+- 🗺️ **Geocoding First Strategy** – Improved location detection
+  - Tries geocoding FIRST (like Discover tab) for better location detection
+  - Works for ANY location (even unknown ones like "kluang", "tawau")
+  - Automatic coordinate learning for future searches
+  - Malaysia-only validation to protect API budget
+- 📊 **Search Analytics System** – Track search patterns for learning
+  - Tracks search queries, parsed components, result counts
+  - Feeds keyword learning system
+  - Privacy-focused analytics (no personal data)
+- 🎨 **Enhanced Search UI** – Improved search navigation bar
+  - Enhanced styling with gradients and animations
+  - Better visual feedback and user experience
+  - Improved mobile responsiveness
+
+### 🧩 Fixes & Improvements
+
+- ✅ **Fixed Parsing Order** – Food items checked before locations (prevents "nasi" matching as location in "nasi lemak")
+- ✅ **Fixed Geocoding Issues** – Unknown locations now geocode correctly (kluang, tawau, semporna)
+- ✅ **Added Food Prefix Detection** – Prevents geocoding food-related partial queries ("nasi ", "mee ", "roti ")
+- ✅ **Added Malaysia Validation** – Only geocodes and learns Malaysia locations (protects API budget)
+- ✅ **Fixed Restaurant Card Issues**:
+  - Call button now checks multiple phone number fields
+  - Get directions button uses place_id for direct Google Maps navigation
+  - Removed eye emoji from View Details button
+  - Fixed bottom navigation overlap with last result
+- ✅ **Fixed Analytics Bug** – localStorage data validation (handles corrupted data gracefully)
+- ✅ **Fixed Learning System** – Prevents learning food prefixes as locations
+- ✅ **Improved Browse Tab** – Independent loading states for each section
+
+### 🎯 Key Decisions Made
+
+- **Geocoding Strategy:** Try geocoding FIRST (like Discover tab) for better location detection
+- **Parsing Order:** Food items before locations (more specific matches first)
+- **Learning System:** Automatic but protected (food prefix detection, Malaysia validation)
+- **Budget Protection:** Malaysia-only validation prevents unnecessary API calls
+- **Compound Queries:** Support natural language queries with multiple keywords
+
+### 🧩 System Design Notes
+
+- **Keyword Learning Service:** Analyzes search analytics, categorizes keywords, learns automatically
+- **Search Analytics Service:** Tracks searches with parsed components and result counts
+- **Search Keyword Service:** Provides intelligent keyword recognition and suggestions
+- **Enhanced Search Service:** Orchestrates search with geocoding-first strategy
+- **Coordinate Learning:** Automatically learns location coordinates from geocoding results
+- **Food Prefix Protection:** Prevents geocoding and learning food-related words
+
+### 📋 Documentation Created
+
+- ✅ `SEARCH_TAB_REVIEW_COMPLETE.md` – Complete review summary
+- ✅ `KEYWORD_SEARCH_CHALLENGES.md` – Why keyword search is tricky
+- ✅ `GEOCODING_FIRST_IMPLEMENTATION.md` – Geocoding strategy implementation
+- ✅ `GEOCODING_FIRST_IMPACT_ANALYSIS.md` – Impact analysis
+- ✅ `DISCOVER_VS_SEARCH_GEOCODING.md` – Comparison with Discover tab
+- ✅ `KEYWORD_BRAIN_LOCATION_LEARNING.md` – Learning system details
+- ✅ `MALAYSIA_ONLY_VALIDATION.md` – Budget protection details
+- ✅ `GEOCODING_FIRST_FIXES_SUMMARY.md` – All fixes summary
+- ✅ `SESSION_SUMMARY_SEARCH_TAB_REVIEW_20251108-09.md` – Session summary
+
+### 🧠 Lessons Learned
+
+- Keyword search is complex – ambiguity, parsing order, and edge cases require careful handling
+- Geocoding needs validation – can return wrong results, needs Malaysia-only check
+- Learning system needs safeguards – can learn wrong things without proper protection
+- Order matters – food items before locations, longer matches before shorter
+- Budget protection is critical – Malaysia-only validation prevents unnecessary API calls
+
+---
+
+## v0.6.1 — App Review & Quality Improvements (6–8 Nov 2025)
+
+**Milestone:** Comprehensive app review, bug fixes, and UX enhancements.  
+**Objective:** Ensure app quality meets founder standards and fix all identified issues.
+
+### 📦 Features Added
+
+- 🛣️ **R&R Stops Integration** – Search and display rest stops along routes (5km/30min threshold)
+- ⛽ **Petrol Station Integration** – Search and display petrol stations along routes (5km/15min threshold)
+- 📚 **Saved Routes in FavoritesTab** – Tabbed interface for Favorites and Saved Routes
+- 🗺️ **Firestore Location Index** – Autocomplete system that learns from user searches
+- 🎯 **Place Type Tabs** – Filter results by All, Restaurants, R&R, or Petrol stations
+- 🎨 **Enhanced Markers** – Custom emoji markers with colored backgrounds for better visibility
+
+### 🧩 Fixes & Improvements
+
+- ✅ **Fixed Google Maps Loading** – Proper API key injection and IP restriction handling
+- ✅ **Fixed Polyline Rendering** – Normalized storage format and added coordinate validation
+- ✅ **Fixed Map Element Timing** – Added retry mechanism for DOM element access
+- ✅ **Improved Restaurant Filtering** – OR logic (distance <= 5km OR duration <= 30min)
+- ✅ **Fixed Deprecated API Properties** – Updated to use `isOpen()` and `utc_offset_minutes`
+- ✅ **Fixed NEW Places API Viewport** – Added robust null checks for viewport properties
+- ✅ **Added 100km Safety Filter** – Prevents far-away places from appearing in results
+- ✅ **Removed Debug UI** – Cleaned up status-info section from RouteResults
+- ✅ **Reduced Verbose Logging** – Optimized console output for better performance
+- ✅ **Haversine-First Approach** – Cost optimization by using free Haversine before Distance Matrix API
+
+### 🎯 Key Decisions Made
+
+- **R&R & Petrol Integration:** Separate place types with different filtering thresholds
+- **Saved Routes Access:** Tabbed interface in FavoritesTab for better UX
+- **Location Autocomplete:** Firestore-first approach with Google Places fallback
+- **Filtering Logic:** OR-based (distance OR duration) for "quick detour" functionality
+- **Safety Thresholds:** 100km maximum distance to prevent edge cases
+
+### 🧩 System Design Notes
+
+- **Place Search Service:** Unified service for R&R stops and petrol stations
+- **Brand Detection:** Automatic brand extraction for petrol stations (Petronas, Shell, BHP, etc.)
+- **Data Serialization:** Comprehensive serialization to remove Google Maps objects before Firestore save
+- **Operating Hours:** Proper serialization of `periods` array to match Firestore schema
+- **Route Caching:** Enhanced to include all place types (restaurants, R&R, petrol)
+
+### 📋 Documentation Created
+
+- ✅ `APP_REVIEW_CHECKLIST.md` – Comprehensive review checklist
+- ✅ `APP_REVIEW_SESSION_20251106.md` – Detailed session tracking
+- ✅ `FAVORITES_TAB_ROUTES_PLAN.md` – Saved routes integration plan
+- ✅ `RR_AND_PETROL_IMPLEMENTATION_SPEC.md` – R&R and petrol implementation details
+
+### 🧠 Lessons Learned
+
+- Always check IP restrictions when Google Maps fails to load
+- Firestore-first autocomplete reduces API costs and improves UX
+- OR-based filtering provides better "quick detour" experience
+- Comprehensive serialization prevents Firestore errors
+- Tabbed interfaces improve navigation for related features
+- Safety thresholds prevent edge cases from breaking UX
 
 ---
 
@@ -244,9 +554,9 @@
 
 ## 🧭 Project Summary
 
-**Duration:** 3 Oct – Nov 2025  
+**Duration:** 3 Oct – 8 Nov 2025  
 
-**Total Versions:** v0.1 → v0.6  
+**Total Versions:** v0.1 → v0.6.1  
 
 **Core Focus:** Route discovery, eatery data management, authentication, admin control, and gamification system design.
 

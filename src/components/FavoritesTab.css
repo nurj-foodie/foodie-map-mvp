@@ -21,6 +21,42 @@
   font-size: 16px;
 }
 
+/* Tab Navigation */
+.favorites-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+  background: white;
+  padding: 12px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.favorites-tabs .tab-btn {
+  flex: 1;
+  padding: 12px 16px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  background: white;
+  color: #666;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  text-align: center;
+}
+
+.favorites-tabs .tab-btn:hover {
+  border-color: #CC0001;
+  background: #f8f9fa;
+}
+
+.favorites-tabs .tab-btn.active {
+  border-color: #CC0001;
+  background: #CC0001;
+  color: white;
+}
+
 .favorites-loading,
 .favorites-signin {
   text-align: center;
@@ -287,6 +323,68 @@
   color: white;
 }
 
+/* Route Item Styling */
+.route-item {
+  border-left: 4px solid #2196F3;
+}
+
+.route-details {
+  margin-top: 12px;
+}
+
+.route-detail-row {
+  margin-bottom: 6px;
+  font-size: 14px;
+  color: #666;
+}
+
+.route-detail-row strong {
+  color: #333;
+}
+
+.route-date {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #e0e0e0;
+  font-size: 12px;
+  color: #999;
+}
+
+.load-route-btn {
+  background: #4CAF50;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  white-space: nowrap;
+  margin-bottom: 8px;
+}
+
+.load-route-btn:hover {
+  background: #45a049;
+}
+
+.delete-route-btn {
+  background: #f44336;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  white-space: nowrap;
+}
+
+.delete-route-btn:hover {
+  background: #d32f2f;
+}
+
 @media (max-width: 480px) {
   .favorites-tab {
     padding: 16px;
@@ -299,6 +397,15 @@
   .favorites-header p {
     font-size: 14px;
   }
+
+  .favorites-tabs {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .favorites-tabs .tab-btn {
+    width: 100%;
+  }
   
   .favorite-item {
     padding: 16px;
@@ -306,6 +413,15 @@
   
   .favorite-info h4 {
     font-size: 16px;
+  }
+
+  .route-detail-row {
+    font-size: 13px;
+  }
+
+  .load-route-btn,
+  .delete-route-btn {
+    width: 100%;
   }
   
   .recently-removed-section {

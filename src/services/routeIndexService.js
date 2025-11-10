@@ -78,11 +78,7 @@ class RouteIndexService {
           maneuver: step.maneuver || ''
         })) : []
       })) : [],
-      overview_polyline: route.overview_polyline ? {
-        encoded_path: typeof route.overview_polyline === 'string' 
-          ? route.overview_polyline 
-          : route.overview_polyline.encoded_path
-      } : null,
+      overview_polyline: route.overview_polyline ? this.normalizePolyline(route.overview_polyline) : null,
       bounds: route.bounds ? this.extractBounds(route.bounds) : null,
       warnings: route.warnings || [],
       waypoint_order: route.waypoint_order || [],
@@ -109,6 +105,52 @@ class RouteIndexService {
       searchCount: 0,
       lastSearched: new Date()
     };
+  }
+
+  // Helper method to normalize polyline format - always store as { encoded_path: string }
+  normalizePolyline(polyline) {
+    try {
+      // If it's already a string, wrap it in object
+      if (typeof polyline === 'string') {
+        return { encoded_path: polyline };
+      }
+      
+      // If it's an object with encoded_path, use it
+      if (polyline && typeof polyline === 'object' && polyline.encoded_path) {
+        return { encoded_path: polyline.encoded_path };
+      }
+      
+      // If it's an object with overview_path (decoded array), we can't store it
+      // This shouldn't happen from Google API, but log it
+      if (polyline && typeof polyline === 'object' && polyline.overview_path) {
+        console.warn('⚠️ Polyline has overview_path (decoded) instead of encoded_path - cannot store decoded path');
+        return null;
+      }
+      
+      // If it's an array-like object with numeric keys, try to find encoded_path in first element
+      if (polyline && typeof polyline === 'object') {
+        const keys = Object.keys(polyline);
+        // Check if it looks like an array with numeric keys
+        if (keys.length > 0 && keys.every(key => /^\d+$/.test(key))) {
+          console.warn('⚠️ Polyline has numeric keys (array-like) - this format is not supported for storage');
+          return null;
+        }
+        
+        // Try to find any string value that might be encoded_path
+        for (const key of keys) {
+          if (typeof polyline[key] === 'string' && polyline[key].length > 10) {
+            // Likely an encoded path string
+            return { encoded_path: polyline[key] };
+          }
+        }
+      }
+      
+      console.warn('⚠️ Could not normalize polyline format:', typeof polyline);
+      return null;
+    } catch (error) {
+      console.warn('⚠️ Error normalizing polyline:', error);
+      return null;
+    }
   }
 
   // Helper method to extract bounds safely
@@ -138,8 +180,47 @@ class RouteIndexService {
     }
   }
 
+  // Serialize places data for Firestore (remove Google Maps objects)
+  serializePlaces(places) {
+    if (!places) return null;
+    
+    const serializePlace = (place) => {
+      if (!place) return null;
+      
+      const serialized = {
+        placeType: place.placeType || place.type || 'restaurant',
+        name: place.name || place.displayName || place.eateryName,
+        address: place.address || place.formattedAddress,
+        location: place.location ? {
+          lat: typeof place.location.lat === 'function' ? place.location.lat() : place.location.lat,
+          lng: typeof place.location.lng === 'function' ? place.location.lng() : place.location.lng
+        } : null,
+        place_id: place.place_id || place.id,
+        rating: place.rating,
+        detourDistanceKm: place.detourDistanceKm,
+        detourDurationMinutes: place.detourDurationMinutes,
+        brand: place.brand
+      };
+      
+      // Remove null/undefined values
+      Object.keys(serialized).forEach(key => {
+        if (serialized[key] === null || serialized[key] === undefined) {
+          delete serialized[key];
+        }
+      });
+      
+      return serialized;
+    };
+    
+    return {
+      restaurants: (places.restaurants || []).map(serializePlace).filter(p => p !== null),
+      rnr_stops: (places.rnr_stops || []).map(serializePlace).filter(p => p !== null),
+      petrol_stations: (places.petrol_stations || []).map(serializePlace).filter(p => p !== null)
+    };
+  }
+
   // Index route data to Firestore
-  async indexRoute(googleMapsRoutes, startLocation, endLocation) {
+  async indexRoute(googleMapsRoutes, startLocation, endLocation, places = null) {
     try {
       const routeId = this.generateRouteId(startLocation, endLocation);
       
@@ -153,19 +234,35 @@ class RouteIndexService {
       const existing = await getDocs(existingQuery);
       
       if (!existing.empty) {
-        console.log('✅ Route already indexed:', routeId);
+        // If places are provided, update the existing route with places
+        if (places) {
+          const existingDoc = existing.docs[0];
+          const serializedPlaces = this.serializePlaces(places);
+          await updateDoc(existingDoc.ref, {
+            places: serializedPlaces,
+            updatedAt: new Date()
+          });
+          console.log('✅ Updated route with places:', routeId);
+        } else {
+          console.log('✅ Route already indexed:', routeId);
+        }
         return routeId;
       }
 
       // Index each route
-      const indexedRoutes = googleMapsRoutes.map(route => 
-        this.extractRouteData(route, startLocation, endLocation)
-      );
+      const indexedRoutes = googleMapsRoutes.map(route => {
+        const routeData = this.extractRouteData(route, startLocation, endLocation);
+        // Add places if provided (serialized)
+        if (places) {
+          routeData.places = this.serializePlaces(places);
+        }
+        return routeData;
+      });
 
       // Save to Firestore
       for (const routeData of indexedRoutes) {
         await addDoc(collection(db, 'route_index'), routeData);
-        console.log('✅ Indexed route:', routeData.summary);
+        console.log('✅ Indexed route:', routeData.completeRoute?.summary || 'Unknown');
       }
 
       return routeId;

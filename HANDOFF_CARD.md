@@ -1,8 +1,8 @@
 # 🗂️ Kawan Makan — Handoff Card for Cursor 2.0
 
 **Project Name:** Kawan Makan (KM)  
-**Phase:** Post-MVP stabilization → Preparing for Gamification V2  
-**Last Updated:** 5 November 2025
+**Phase:** Post-MVP stabilization → App Review Complete → Preparing for Gamification V2  
+**Last Updated:** 8 November 2025
 
 ---
 
@@ -66,6 +66,18 @@ A community-driven food discovery app that maps eateries along travel routes, wi
 - Firebase-first caching
 - Mobile deployment (Firebase Hosting)
 
+### ✅ Completed (v0.6.1 - App Review & Quality)
+- R&R stops and petrol stations integration
+- Saved routes in FavoritesTab (tabbed interface)
+- Firestore location index for smart autocomplete
+- Place type filtering (All, Restaurants, R&R, Petrol)
+- Enhanced markers with colored backgrounds
+- Comprehensive bug fixes (14 issues resolved)
+- Haversine-first distance calculation
+- 100km safety filter for edge cases
+- Removed debug UI elements
+- Optimized logging for performance
+
 ### ⏳ In Progress (v0.6 - Pre-Beta)
 - Gamification system (XP, badges, levels)
 - Check-in system
@@ -90,8 +102,10 @@ A community-driven food discovery app that maps eateries along travel routes, wi
 
 ### Key Services
 - `firestoreSearchService.js` — Firebase-first restaurant search
-- `routeIndexService.js` — Route caching in Firestore
-- `distanceMatrixService.js` — Detour calculations (Haversine)
+- `placeSearchService.js` — R&R stops and petrol stations search
+- `locationIndexService.js` — Firestore location autocomplete
+- `routeIndexService.js` — Route caching in Firestore (includes all place types)
+- `distanceMatrixService.js` — Detour calculations (Haversine-first, Distance Matrix fallback)
 - `gamificationService.js` — XP, badges, levels (in progress)
 - `checkInService.js` — Check-in tracking (in progress)
 
@@ -172,7 +186,7 @@ cd foodie-simple && firebase deploy --only hosting
 
 ---
 
-**Last Updated:** 5 November 2025  
+**Last Updated:** 8 November 2025  
 **Maintained By:** @Founder (Project Lead)
 
 ---

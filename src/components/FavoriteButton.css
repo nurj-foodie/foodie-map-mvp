@@ -29,12 +29,13 @@
 
 .favorite-btn--active {
   border-color: #ff6b6b;
-  background: #fff5f5;
-  color: #ff6b6b;
+  background: #ff6b6b !important;
+  color: white !important;
 }
 
 .favorite-btn--active:hover {
-  background: #ffebeb;
+  background: #ff5252 !important;
+  border-color: #ff5252;
 }
 
 .favorite-btn:disabled {
