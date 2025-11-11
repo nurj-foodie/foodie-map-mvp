@@ -6,13 +6,20 @@
 
 ---
 
-## v0.6.5 — Restaurant Detail Modal Review & Edit Features (11 Nov 2025)
+## v0.6.5 — User Tab & Restaurant Detail Modal Review (11 Nov 2025)
 
-**Milestone:** Comprehensive Restaurant Detail Modal review with Add Review and Edit Details features.  
-**Objective:** Replace mock data with real Firestore queries, implement review and edit functionality, ensure user-submitted data displays correctly.
+**Milestone:** Comprehensive User Tab and Restaurant Detail Modal review with profile management, Add Review and Edit Details features.  
+**Objective:** Complete User Tab review (Overview, Settings, Gamification, Social), replace mock data with real Firestore queries, implement review and edit functionality, ensure user-submitted data displays correctly.
 
 ### 📦 Features Added
 
+- 👤 **User Tab Enhancements** – Profile management and settings
+  - Settings tab with profile photo upload (Base64 storage in Firestore)
+  - Username change functionality
+  - Fixed routes count bug (querying `saved_routes` collection)
+  - Live stats display from Firestore (routes, favorites, reviews, points)
+  - Gamification dashboard aligned with Beta v0.7 design
+  - Point values updated: Check-in (20 XP), Photo (40 XP), Review (50 XP)
 - 📝 **Add Review System** – Complete review submission workflow
   - `AddReviewModal` component with star rating and comment form
   - `reviewsService` for review CRUD operations
@@ -42,6 +49,12 @@
 
 ### 🧩 Fixes & Improvements
 
+- ✅ **User Tab Fixes** – Profile management and stats display
+  - Fixed routes count bug (was querying wrong collection)
+  - Implemented profile photo upload (Base64 in Firestore)
+  - Added username change functionality
+  - Aligned gamification point values with Beta v0.7
+  - All stats now display live data from Firestore
 - ✅ **Replaced Mock Data** – All mock data replaced with real Firestore queries
   - Photos load from `restaurant.userPhotos` and `restaurant.photos`
   - Reviews load from `reviews` collection via `reviewsService`
