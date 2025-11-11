@@ -2,9 +2,26 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // User documents - users can only access their own data
+    // Helper function to check if user is admin (by email - Firebase project owners)
+    // Defined once at top level for reuse across all collections
+    function isAdmin() {
+      return request.auth != null && (
+        request.auth.token.email == 'nurj.media@gmail.com' ||
+        request.auth.token.email == 'nurj.get@gmail.com' ||
+        request.auth.token.email == 'nurj.ariffin@gmail.com'
+      );
+    }
+    
+    // User documents - users can only access their own data, admins can read/write all
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read: if request.auth != null && (
+        request.auth.uid == userId || 
+        isAdmin()
+      );
+      allow write: if request.auth != null && (
+        request.auth.uid == userId || 
+        isAdmin()
+      );
     }
     
     // Eatery documents - public read/write for development (user submissions)
@@ -22,18 +39,25 @@ service cloud.firestore {
       // In production, use: if request.auth != null;
     }
     
-    // User favorites - users can only access their own favorites
+    // User favorites - users can only access their own favorites, admins can read all
     match /favorites/{favoriteId} {
-      allow read: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow read: if request.auth != null && (
+        request.auth.uid == resource.data.userId || 
+        isAdmin()
+      );
       allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
-      allow update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow update, delete: if request.auth != null && (
+        request.auth.uid == resource.data.userId || 
+        isAdmin()
+      );
     }
     
-    // User reviews - users can only access their own reviews
+    // User reviews - users can create reviews, ONLY ADMIN can verify/reject (moderate)
     match /reviews/{reviewId} {
       allow read: if true; // Public read for reviews
       allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
-      allow update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+      // Only admin can update (verify/reject) - users cannot change verified status after creation
+      allow update, delete: if request.auth != null && isAdmin();
     }
     
     // User check-ins - users can only access their own check-ins
@@ -43,23 +67,25 @@ service cloud.firestore {
       allow update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
     }
     
-    // User points - users can only access their own points
+    // User points - users can only access their own points, admins can read all
     // Note: userPoints uses userId as document ID for total points, and userId as field for point history
     match /userPoints/{pointId} {
-      // Allow read if document ID matches auth.uid (for total points) OR if userId field matches (for point history)
+      // Allow read if document ID matches auth.uid (for total points) OR if userId field matches (for point history) OR admin
       allow read: if request.auth != null && (
         pointId == request.auth.uid || 
-        resource.data.userId == request.auth.uid
+        resource.data.userId == request.auth.uid ||
+        isAdmin()
       );
       // Allow create if userId field matches auth.uid (for point history entries)
       allow create: if request.auth != null && (
         pointId == request.auth.uid || 
         request.resource.data.userId == request.auth.uid
       );
-      // Allow update/delete if document ID matches OR userId field matches
+      // Allow update/delete if document ID matches OR userId field matches OR admin
       allow update, delete: if request.auth != null && (
         pointId == request.auth.uid || 
-        resource.data.userId == request.auth.uid
+        resource.data.userId == request.auth.uid ||
+        isAdmin()
       );
     }
     
@@ -126,18 +152,16 @@ service cloud.firestore {
       allow update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
     }
     
-    // Restaurant edits - users can create edits, read their own edits, admins can read/update all
+    // Restaurant edits - users can create edits, read their own edits, ONLY ADMIN can approve/reject
     match /restaurant_edits/{editId} {
       allow read: if request.auth != null && (
         resource.data.userId == request.auth.uid || 
-        request.auth.token.admin == true
+        isAdmin()
       );
       allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
-      allow update: if request.auth != null && (
-        resource.data.userId == request.auth.uid || 
-        request.auth.token.admin == true
-      );
-      allow delete: if request.auth != null && request.auth.token.admin == true;
+      // Only admin can update (approve/reject) - users cannot change status after creation
+      allow update: if request.auth != null && isAdmin();
+      allow delete: if request.auth != null && isAdmin();
     }
     
     // Social posts - public read, authenticated users can create

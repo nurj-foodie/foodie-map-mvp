@@ -3,11 +3,18 @@ import { analyticsService } from '../services/analyticsService';
 import { getAdminAccess, revokeAdminAccess } from '../utils/adminAuth';
 import AdminLogin from './AdminLogin';
 import RestaurantReviewDashboard from './RestaurantReviewDashboard';
+import RestaurantEditReviewDashboard from './RestaurantEditReviewDashboard';
+import ReviewModerationDashboard from './ReviewModerationDashboard';
+import UserManagementDashboard from './UserManagementDashboard';
 import './AdminDashboard.css';
 
 const AdminDashboard = () => {
   const [hasAdminAccess, setHasAdminAccess] = useState(false);
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeMainTab, setActiveMainTab] = useState('analytics'); // analytics, restaurants, users
+  const [activeSubTab, setActiveSubTab] = useState({
+    analytics: 'overview', // overview, cost, users, performance
+    restaurants: 'submissions' // submissions, edits, reviews
+  });
   const [dateRange, setDateRange] = useState({
     startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 7 days ago
     endDate: new Date()
@@ -479,49 +486,99 @@ const AdminDashboard = () => {
         </div>
       </div>
 
-      <div className="admin-tabs">
+      {/* Main Tabs */}
+      <div className="admin-main-tabs">
         <button 
-          className={`tab-btn ${activeTab === 'overview' ? 'active' : ''}`}
-          onClick={() => setActiveTab('overview')}
+          className={`main-tab-btn ${activeMainTab === 'analytics' ? 'active' : ''}`}
+          onClick={() => setActiveMainTab('analytics')}
         >
-          📊 Overview
+          📊 Analytics
         </button>
         <button 
-          className={`tab-btn ${activeTab === 'cost' ? 'active' : ''}`}
-          onClick={() => setActiveTab('cost')}
+          className={`main-tab-btn ${activeMainTab === 'restaurants' ? 'active' : ''}`}
+          onClick={() => setActiveMainTab('restaurants')}
         >
-          💰 Cost Analytics
+          🍽️ Restaurants
         </button>
         <button 
-          className={`tab-btn ${activeTab === 'users' ? 'active' : ''}`}
-          onClick={() => setActiveTab('users')}
+          className={`main-tab-btn ${activeMainTab === 'users' ? 'active' : ''}`}
+          onClick={() => setActiveMainTab('users')}
         >
-          👤 User Behavior
-        </button>
-        <button 
-          className={`tab-btn ${activeTab === 'performance' ? 'active' : ''}`}
-          onClick={() => setActiveTab('performance')}
-        >
-          ⚡ System Performance
-        </button>
-        <button 
-          className={`tab-btn ${activeTab === 'restaurants' ? 'active' : ''}`}
-          onClick={() => setActiveTab('restaurants')}
-        >
-          🍽️ Restaurant Review
+          👥 Users
         </button>
       </div>
 
+      {/* Sub-tabs based on main tab */}
+      {activeMainTab === 'analytics' && (
+        <div className="admin-sub-tabs">
+          <button 
+            className={`sub-tab-btn ${activeSubTab.analytics === 'overview' ? 'active' : ''}`}
+            onClick={() => setActiveSubTab({ ...activeSubTab, analytics: 'overview' })}
+          >
+            📊 Overview
+          </button>
+          <button 
+            className={`sub-tab-btn ${activeSubTab.analytics === 'cost' ? 'active' : ''}`}
+            onClick={() => setActiveSubTab({ ...activeSubTab, analytics: 'cost' })}
+          >
+            💰 Cost Analytics
+          </button>
+          <button 
+            className={`sub-tab-btn ${activeSubTab.analytics === 'users' ? 'active' : ''}`}
+            onClick={() => setActiveSubTab({ ...activeSubTab, analytics: 'users' })}
+          >
+            👤 User Behavior
+          </button>
+          <button 
+            className={`sub-tab-btn ${activeSubTab.analytics === 'performance' ? 'active' : ''}`}
+            onClick={() => setActiveSubTab({ ...activeSubTab, analytics: 'performance' })}
+          >
+            ⚡ System Performance
+          </button>
+        </div>
+      )}
+
+      {activeMainTab === 'restaurants' && (
+        <div className="admin-sub-tabs">
+          <button 
+            className={`sub-tab-btn ${activeSubTab.restaurants === 'submissions' ? 'active' : ''}`}
+            onClick={() => setActiveSubTab({ ...activeSubTab, restaurants: 'submissions' })}
+          >
+            📝 Submissions
+          </button>
+          <button 
+            className={`sub-tab-btn ${activeSubTab.restaurants === 'edits' ? 'active' : ''}`}
+            onClick={() => setActiveSubTab({ ...activeSubTab, restaurants: 'edits' })}
+          >
+            ✏️ Edits
+          </button>
+          <button 
+            className={`sub-tab-btn ${activeSubTab.restaurants === 'reviews' ? 'active' : ''}`}
+            onClick={() => setActiveSubTab({ ...activeSubTab, restaurants: 'reviews' })}
+          >
+            ⭐ Reviews
+          </button>
+        </div>
+      )}
+
       <div className="admin-content">
-        {loading ? (
+        {loading && activeMainTab === 'analytics' ? (
           <div className="loading">Loading analytics data...</div>
         ) : (
           <>
-            {activeTab === 'overview' && renderOverview()}
-            {activeTab === 'cost' && renderCostAnalytics()}
-            {activeTab === 'users' && renderUserBehavior()}
-            {activeTab === 'performance' && renderSystemPerformance()}
-            {activeTab === 'restaurants' && <RestaurantReviewDashboard />}
+            {/* Analytics Sub-tabs */}
+            {activeMainTab === 'analytics' && activeSubTab.analytics === 'overview' && renderOverview()}
+            {activeMainTab === 'analytics' && activeSubTab.analytics === 'cost' && renderCostAnalytics()}
+            {activeMainTab === 'analytics' && activeSubTab.analytics === 'users' && renderUserBehavior()}
+            {activeMainTab === 'analytics' && activeSubTab.analytics === 'performance' && renderSystemPerformance()}
+            
+            {/* Restaurants Sub-tabs */}
+            {activeMainTab === 'restaurants' && activeSubTab.restaurants === 'submissions' && <RestaurantReviewDashboard />}
+            {activeMainTab === 'restaurants' && activeSubTab.restaurants === 'edits' && <RestaurantEditReviewDashboard />}
+            {activeMainTab === 'restaurants' && activeSubTab.restaurants === 'reviews' && <ReviewModerationDashboard />}
+            
+            {/* Users Tab */}
+            {activeMainTab === 'users' && <UserManagementDashboard />}
           </>
         )}
       </div>

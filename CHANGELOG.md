@@ -6,6 +6,73 @@
 
 ---
 
+## v0.6.6 — Admin Tab Review & App Review Completion (11 Nov 2025)
+
+**Milestone:** Complete Admin Tab review with Restaurant Edit Review, Review Moderation, and User Management dashboards. Comprehensive app review completed before beta phase.  
+**Objective:** Review and enhance Admin Dashboard, implement missing admin features, fix Firestore permission issues, complete app review.
+
+### 📦 Features Added
+
+- 🔧 **Admin Dashboard Reorganization** – Grouped tabs for better UX
+  - Main tabs: Analytics, Restaurants, Users
+  - Analytics sub-tabs: Overview, Cost, User Behavior, System Performance
+  - Restaurants sub-tabs: Submissions, Edits, Reviews
+  - Users tab: User Management Dashboard
+- ✏️ **Restaurant Edit Review Dashboard** – Complete admin workflow
+  - `RestaurantEditReviewDashboard` component
+  - Lists pending edits with original vs. proposed changes
+  - Approve/reject functionality (single and bulk)
+  - Filter by status (pending, approved, rejected, all)
+  - Applies changes to restaurant documents on approval
+- ⭐ **Review Moderation Dashboard** – Review moderation system
+  - `ReviewModerationDashboard` component
+  - Lists unverified reviews
+  - Verify/delete functionality (single and bulk)
+  - Filter by status (unverified, verified, all)
+  - Displays review details (rating, comment, user, restaurant, photos)
+- 👥 **User Management Dashboard** – Comprehensive user management
+  - `UserManagementDashboard` component
+  - List all users with search and filter
+  - View user details and live statistics
+  - Suspend, activate, ban, unban users
+  - Statistics: points, routes, favorites, reviews
+
+### 🧩 Fixes & Improvements
+
+- ✅ **Firestore Rules Updated** – Admin access to all collections
+  - Admin read/write access to `users` collection
+  - Admin read access to `userPoints` collection
+  - Admin read access to `favorites` collection
+  - Admin read/update/delete access to `restaurant_edits` collection
+  - Admin read/update/delete access to `reviews` collection
+  - Consolidated `isAdmin()` function (single definition)
+- ✅ **Fixed User Stats Loading** – Correct query structure
+  - Fixed `loadUserStats` to read total points from document ID
+  - Added individual error handling for each query
+  - Improved error messages
+- ✅ **Profile Photo Loading** – Reduced rate limit errors
+  - Added `loading="lazy"` attribute to images
+  - Added `onError` handler for graceful fallback
+  - Improved placeholder display logic
+- ✅ **Firestore Indexes Added** – Efficient querying
+  - Added composite indexes for `restaurant_edits` collection
+  - Added indexes for admin queries
+
+### 🎯 Key Decisions Made
+
+- **Admin Dashboard Structure:** Grouped into main tabs (Analytics, Restaurants, Users) with sub-tabs
+- **Bulk Actions:** Implemented for both edit review and review moderation
+- **Admin Emails:** Configured 3 admin emails in Firestore rules
+- **User Statistics:** Live data from Firestore (points, routes, favorites, reviews)
+
+### 🧩 System Design Notes
+
+- **Edit Review Flow:** User submits → Admin reviews → Approve/Reject → Apply changes
+- **Review Moderation Flow:** User submits → Admin verifies → Display publicly
+- **User Management Flow:** Admin views → Manages status → Updates account
+
+---
+
 ## v0.6.5 — User Tab & Restaurant Detail Modal Review (11 Nov 2025)
 
 **Milestone:** Comprehensive User Tab and Restaurant Detail Modal review with profile management, Add Review and Edit Details features.  

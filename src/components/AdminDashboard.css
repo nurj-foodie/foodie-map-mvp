@@ -102,31 +102,66 @@
   transform: none;
 }
 
-.admin-tabs {
+/* Main Tabs */
+.admin-main-tabs {
+  display: flex;
+  gap: 5px;
+  margin-bottom: 10px;
+  border-bottom: 3px solid #e9ecef;
+}
+
+.main-tab-btn {
+  padding: 15px 30px;
+  border: none;
+  background: transparent;
+  color: #6c757d;
+  font-weight: 700;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  transition: all 0.2s;
+  font-size: 18px;
+  margin-bottom: -3px;
+}
+
+.main-tab-btn:hover {
+  color: #007bff;
+  background: #f8f9fa;
+}
+
+.main-tab-btn.active {
+  color: #007bff;
+  border-bottom-color: #007bff;
+  background: #f8f9fa;
+}
+
+/* Sub-tabs */
+.admin-sub-tabs {
   display: flex;
   gap: 5px;
   margin-bottom: 30px;
   border-bottom: 2px solid #e9ecef;
+  padding-left: 10px;
 }
 
-.tab-btn {
-  padding: 15px 25px;
+.sub-tab-btn {
+  padding: 12px 20px;
   border: none;
   background: transparent;
   color: #6c757d;
   font-weight: 600;
   cursor: pointer;
-  border-bottom: 3px solid transparent;
+  border-bottom: 2px solid transparent;
   transition: all 0.2s;
-  font-size: 16px;
+  font-size: 15px;
+  margin-bottom: -2px;
 }
 
-.tab-btn:hover {
+.sub-tab-btn:hover {
   color: #007bff;
   background: #f8f9fa;
 }
 
-.tab-btn.active {
+.sub-tab-btn.active {
   color: #007bff;
   border-bottom-color: #007bff;
   background: #f8f9fa;
@@ -134,6 +169,69 @@
 
 .admin-content {
   min-height: 500px;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .admin-main-tabs {
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+
+  .main-tab-btn {
+    padding: 12px 20px;
+    font-size: 16px;
+    flex: 1;
+    min-width: calc(50% - 5px);
+  }
+
+  .admin-sub-tabs {
+    flex-wrap: wrap;
+    gap: 5px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .sub-tab-btn {
+    padding: 10px 15px;
+    font-size: 14px;
+    white-space: nowrap;
+  }
+
+  .admin-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+  }
+
+  .admin-header h1 {
+    font-size: 1.8rem;
+  }
+
+  .admin-controls {
+    flex-direction: column;
+    width: 100%;
+    gap: 15px;
+  }
+
+  .date-range-selector {
+    flex-direction: column;
+    width: 100%;
+    gap: 10px;
+  }
+
+  .date-range-selector input {
+    width: 100%;
+  }
+
+  .export-buttons {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .export-btn {
+    width: 100%;
+  }
 }
 
 .loading {
