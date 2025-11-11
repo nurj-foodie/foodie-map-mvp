@@ -44,15 +44,43 @@ service cloud.firestore {
     }
     
     // User points - users can only access their own points
+    // Note: userPoints uses userId as document ID for total points, and userId as field for point history
     match /userPoints/{pointId} {
-      allow read: if request.auth != null && request.auth.uid == resource.data.userId;
+      // Allow read if document ID matches auth.uid (for total points) OR if userId field matches (for point history)
+      allow read: if request.auth != null && (
+        pointId == request.auth.uid || 
+        resource.data.userId == request.auth.uid
+      );
+      // Allow create if userId field matches auth.uid (for point history entries)
+      allow create: if request.auth != null && (
+        pointId == request.auth.uid || 
+        request.resource.data.userId == request.auth.uid
+      );
+      // Allow update/delete if document ID matches OR userId field matches
+      allow update, delete: if request.auth != null && (
+        pointId == request.auth.uid || 
+        resource.data.userId == request.auth.uid
+      );
+    }
+    
+    // User achievements - users can only access their own achievements
+    // Note: achievements collection is for achievement definitions (templates)
+    match /achievements/{achievementId} {
+      allow read: if true; // Public read for achievement definitions
+      allow create, update, delete: if request.auth != null;
+    }
+    
+    // User achievements - actual user achievements (userAchievements collection)
+    match /userAchievements/{achievementId} {
+      // Allow read if userId field matches auth.uid (for list queries with where('userId', '==', userId))
+      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
       allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
       allow update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
     }
     
-    // User achievements - users can only access their own achievements
-    match /achievements/{achievementId} {
-      allow read: if request.auth != null && request.auth.uid == resource.data.userId;
+    // User routes - users can only access their own routes
+    match /userRoutes/{routeId} {
+      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
       allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
       allow update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
     }
@@ -65,14 +93,14 @@ service cloud.firestore {
     
     // User streaks - users can only access their own streaks
     match /userStreaks/{streakId} {
-      allow read: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
       allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
       allow update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
     }
     
     // User challenges - users can only access their own challenges
     match /userChallenges/{challengeId} {
-      allow read: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
       allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
       allow update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
     }
@@ -96,6 +124,20 @@ service cloud.firestore {
       allow read: if true; // Public read for photos
       allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
       allow update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
+    
+    // Restaurant edits - users can create edits, read their own edits, admins can read/update all
+    match /restaurant_edits/{editId} {
+      allow read: if request.auth != null && (
+        resource.data.userId == request.auth.uid || 
+        request.auth.token.admin == true
+      );
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow update: if request.auth != null && (
+        resource.data.userId == request.auth.uid || 
+        request.auth.token.admin == true
+      );
+      allow delete: if request.auth != null && request.auth.token.admin == true;
     }
     
     // Social posts - public read, authenticated users can create

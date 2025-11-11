@@ -1,8 +1,103 @@
 # 🗺️ KAWAN MAKAN — CHANGELOG.md
 
-*Project timeline: 3 Oct – 10 Nov 2025*  
+*Project timeline: 3 Oct – 11 Nov 2025*  
 
 *Core Stack: React, Firebase Firestore, Google Maps Platform, @react-google-maps/api, TailwindCSS, Netlify/Firebase Hosting*
+
+---
+
+## v0.6.5 — Restaurant Detail Modal Review & Edit Features (11 Nov 2025)
+
+**Milestone:** Comprehensive Restaurant Detail Modal review with Add Review and Edit Details features.  
+**Objective:** Replace mock data with real Firestore queries, implement review and edit functionality, ensure user-submitted data displays correctly.
+
+### 📦 Features Added
+
+- 📝 **Add Review System** – Complete review submission workflow
+  - `AddReviewModal` component with star rating and comment form
+  - `reviewsService` for review CRUD operations
+  - Prevents duplicate reviews (checks existing reviews)
+  - Admin verification workflow (reviews marked as `verified: false`)
+  - Awards 50 XP per review submission (aligned with Beta v0.7)
+- ✏️ **Edit Restaurant Details** – Multi-type edit system with admin verification
+  - `EditRestaurantModal` component with tabbed interface
+  - `restaurantEditService` for edit submissions
+  - Supports 4 edit types: Photos, Operating Hours, Name, Closed Status
+  - Photo upload (Base64, multiple photos)
+  - Operating hours editor (multiple periods per day)
+  - Admin verification workflow (`restaurant_edits` collection)
+  - Awards 5 XP per edit session (flat rate)
+- 🔄 **Auto-Refresh Restaurant Data** – Modal fetches fresh data from Firestore
+  - Fetches full restaurant document on modal open
+  - Includes latest `userPhotos` from Firestore
+  - Auto-refreshes after edits are submitted
+  - Loading state while fetching
+  - Fallback to provided restaurant data if Firestore fetch fails
+- 📸 **Photo Display Improvements** – Better handling of photo data
+  - Parses JSON strings if photos stored as strings
+  - Filters invalid strings like `"[ ]"` or `"[]"`
+  - Improved `getPrimaryPhotoUrl()` function
+  - Handles both arrays and JSON strings
+  - Displays user-submitted photos (Base64 from Firestore)
+
+### 🧩 Fixes & Improvements
+
+- ✅ **Replaced Mock Data** – All mock data replaced with real Firestore queries
+  - Photos load from `restaurant.userPhotos` and `restaurant.photos`
+  - Reviews load from `reviews` collection via `reviewsService`
+  - Check-ins load from `checkIns` collection via `checkInService`
+  - Real user-submitted data now displays correctly
+- ✅ **Fixed Add Review Button** – Now opens modal and submits reviews
+  - Created `AddReviewModal` component
+  - Integrated with `reviewsService`
+  - Connected to gamification system
+- ✅ **Fixed Share Button** – Implemented Web Share API with clipboard fallback
+  - Native share on mobile devices
+  - Clipboard copy fallback for desktop
+  - Handles share cancellation gracefully
+- ✅ **Fixed Photo Loading** – Handles various photo storage formats
+  - Parses JSON strings automatically
+  - Filters invalid photo strings
+  - Primary photo displays correctly
+- ✅ **Fixed Infinite Render Loop** – EditRestaurantModal now renders correctly
+  - Changed `useEffect` dependency to restaurant ID only
+  - Used `useCallback` for fetch function
+  - Proper cleanup on modal close
+- ✅ **Fixed Z-Index Issues** – Modals now appear above RestaurantModal overlay
+  - AddReviewModal z-index: 20000
+  - EditRestaurantModal z-index: 20000
+  - Proper modal layering
+- ✅ **Fixed Review Points Error** – Reviews now award points correctly
+  - Changed to `awardPoints(userId, 'REVIEW', metadata)`
+  - Aligned with gamificationService API
+
+### 🎯 Key Decisions Made
+
+- **Photo Storage:** Base64 in Firestore (no Firebase Storage needed for now)
+- **Review System:** Admin verification required (reviews marked `verified: false`)
+- **Edit System:** Admin verification required (edits in `restaurant_edits` collection)
+- **Point Values:** 50 XP for reviews, 5 XP for edits (aligned with Beta v0.7)
+- **Data Fetching:** Modal fetches fresh data on open to show latest user submissions
+
+### 🧩 System Design Notes
+
+- **Review Flow:** User submits → Stored in `reviews` → Admin verifies → Displayed
+- **Edit Flow:** User submits → Stored in `restaurant_edits` → Admin approves → Applied to restaurant
+- **Photo Handling:** Supports arrays, JSON strings, and Base64 data
+- **Auto-Refresh:** Modal fetches latest data on open and after edits
+
+### 📋 Documentation Created
+
+- ✅ `APP_REVIEW_SESSION_20251111.md` – Complete session documentation
+- ✅ `RESTAURANT_MODAL_REVIEW_20251111.md` – Initial review findings (updated)
+
+### 🧠 Lessons Learned
+
+- Mock data should be replaced early in development
+- Modal z-index hierarchy critical for nested modals
+- Photo data can be stored in various formats (need robust parsing)
+- Auto-fetching fresh data ensures users see latest submissions
+- Admin verification workflow essential for user-generated content
 
 ---
 

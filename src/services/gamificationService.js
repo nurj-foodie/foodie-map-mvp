@@ -28,26 +28,26 @@ class GamificationService {
     this.challengesCollection = 'userChallenges';
     this.notificationsCollection = 'userNotifications';
     
-    // Enhanced point system
+    // Enhanced point system (Beta v0.7 aligned)
     this.POINTS = {
-      // Check-in points
-      CHECK_IN: 10,
-      FIRST_CHECK_IN_BONUS: 25,
+      // Check-in points (Beta: +20 XP)
+      CHECK_IN: 20,
+      FIRST_CHECK_IN_BONUS: 25, // Bonus for first check-in ever
       CHECK_IN_STREAK: 5, // per consecutive day, max 50
       
-      // Review points
-      REVIEW: 15,
-      REVIEW_WITH_PHOTO: 25, // 15 + 10 bonus
-      REVIEW_DETAILED: 25, // 15 + 10 bonus for 100+ words
-      REVIEW_HELPFUL: 20, // 15 + 5 bonus
+      // Review points (Beta: +50 XP)
+      REVIEW: 50,
+      REVIEW_WITH_PHOTO: 60, // 50 + 10 bonus
+      REVIEW_DETAILED: 60, // 50 + 10 bonus for 100+ words
+      REVIEW_HELPFUL: 55, // 50 + 5 bonus
       
-      // Photo points
-      PHOTO_FIRST: 25,
+      // Photo points (Beta: +40 XP for first photo)
+      PHOTO_FIRST: 40,
       PHOTO_ADDITIONAL: 10,
-      PHOTO_WITH_REVIEW: 40, // 25 + 15 bonus
-      PHOTO_WITH_CHECKIN: 45, // 25 + 20 bonus
-      PHOTO_HIGH_QUALITY: 30, // 25 + 5 bonus
-      PHOTO_LOCATION_TAGGED: 35, // 25 + 10 bonus
+      PHOTO_WITH_REVIEW: 55, // 40 + 15 bonus
+      PHOTO_WITH_CHECKIN: 60, // 40 + 20 bonus
+      PHOTO_HIGH_QUALITY: 45, // 40 + 5 bonus
+      PHOTO_LOCATION_TAGGED: 50, // 40 + 10 bonus
       
       // Favorites points
       FAVORITE: 3,
@@ -62,6 +62,9 @@ class GamificationService {
       SHARE_RESTAURANT: 5,
       SHARE_ROUTE: 10,
       SHARE_ACHIEVEMENT: 15,
+      
+      // Restaurant edit points (Beta: +5 XP per edit session)
+      RESTAURANT_EDIT: 5,
       
       // Video points (future)
       VIDEO_FIRST: 100,
@@ -419,8 +422,11 @@ class GamificationService {
       const docSnap = await getDoc(userPointsRef);
       
       if (docSnap.exists()) {
-        return docSnap.data().totalPoints || 0;
+        const totalPoints = docSnap.data().totalPoints || 0;
+        console.log(`📊 Total points for userId ${userId}: ${totalPoints}`);
+        return totalPoints;
       }
+      console.log(`📊 No points document found for userId ${userId}, returning 0`);
       return 0;
     } catch (error) {
       console.error('❌ Error getting user total points:', error);
@@ -796,14 +802,26 @@ class GamificationService {
   // Get user's favorites count
   async getUserFavoritesCount(userId) {
     try {
+      // Query all favorites for user (favoritesService uses removedAt field, not removed)
       const q = query(
         collection(db, 'favorites'),
-        where('userId', '==', userId),
-        where('removed', '==', false)
+        where('userId', '==', userId)
       );
 
       const querySnapshot = await getDocs(q);
-      return querySnapshot.size;
+      
+      // Filter out removed items in JavaScript (matching favoritesService pattern)
+      let activeCount = 0;
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        // Count only active favorites (no removedAt field)
+        if (!data.removedAt) {
+          activeCount++;
+        }
+      });
+      
+      console.log(`📊 Favorites count for userId ${userId}: ${activeCount} active out of ${querySnapshot.size} total`);
+      return activeCount;
     } catch (error) {
       console.error('❌ Error getting user favorites count:', error);
       return 0;
@@ -813,15 +831,19 @@ class GamificationService {
   // Get user's routes count
   async getUserRoutesCount(userId) {
     try {
+      // Fixed: Query saved_routes collection (not userRoutes) to match where routes are actually saved
       const q = query(
-        collection(db, 'userRoutes'),
+        collection(db, 'saved_routes'),
         where('userId', '==', userId)
       );
 
       const querySnapshot = await getDocs(q);
-      return querySnapshot.size;
+      const count = querySnapshot.size;
+      console.log(`📊 Routes count for userId ${userId}: ${count} routes found`);
+      return count;
     } catch (error) {
       console.error('❌ Error getting user routes count:', error);
+      console.error('Query details:', { userId, collection: 'saved_routes' });
       return 0;
     }
   }

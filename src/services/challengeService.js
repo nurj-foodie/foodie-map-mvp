@@ -26,18 +26,41 @@ class ChallengeService {
     
     // Challenge definitions
     this.CHALLENGES = {
-      // Daily challenges
+      // Daily challenges (Beta v0.7 aligned)
       DAILY_CHECK_IN: {
         id: 'daily_check_in',
         type: 'daily',
-        title: 'Daily Check-in',
-        description: 'Check into a restaurant today',
-        points: 10,
+        title: 'Daily Explorer',
+        description: 'Visit 2 new eateries today', // Beta: Visit 2 new eateries → +75 XP
+        points: 75,
         emoji: '📍',
-        difficulty: 'easy',
-        target: 1,
+        difficulty: 'medium',
+        target: 2,
         action: 'checkIn'
       },
+      DAILY_PHOTO: {
+        id: 'daily_photo',
+        type: 'daily',
+        title: 'Daily Photographer',
+        description: 'Upload 2 photos', // Beta: Upload 2 photos → +60 XP
+        points: 60,
+        emoji: '📸',
+        difficulty: 'medium',
+        target: 2,
+        action: 'photo'
+      },
+      DAILY_REVIEW: {
+        id: 'daily_review',
+        type: 'daily',
+        title: 'Daily Reviewer',
+        description: 'Write 1 review', // Beta: Write 1 review → +50 XP
+        points: 50,
+        emoji: '⭐',
+        difficulty: 'hard',
+        target: 1,
+        action: 'review'
+      },
+      // Additional daily challenges (beyond beta scope)
       DAILY_FAVORITES: {
         id: 'daily_favorites',
         type: 'daily',
@@ -45,20 +68,9 @@ class ChallengeService {
         description: 'Add 2 restaurants to favorites',
         points: 25,
         emoji: '❤️',
-        difficulty: 'medium',
+        difficulty: 'easy',
         target: 2,
         action: 'favorite'
-      },
-      DAILY_REVIEW: {
-        id: 'daily_review',
-        type: 'daily',
-        title: 'Daily Reviewer',
-        description: 'Write a review',
-        points: 50,
-        emoji: '⭐',
-        difficulty: 'hard',
-        target: 1,
-        action: 'review'
       },
       DAILY_ROUTE: {
         id: 'daily_route',
@@ -71,30 +83,42 @@ class ChallengeService {
         target: 1,
         action: 'route'
       },
-      DAILY_PHOTO: {
-        id: 'daily_photo',
-        type: 'daily',
-        title: 'Daily Photographer',
-        description: 'Upload a restaurant photo',
-        points: 30,
-        emoji: '📸',
-        difficulty: 'medium',
-        target: 1,
-        action: 'photo'
-      },
       
-      // Weekly challenges
+      // Weekly challenges (Beta v0.7 aligned)
       WEEKLY_EXPLORER: {
         id: 'weekly_explorer',
         type: 'weekly',
         title: 'Weekly Explorer',
-        description: 'Visit 3 different restaurants',
-        points: 100,
+        description: '5 check-ins in new districts', // Beta: 5 check-ins in new districts → +150 XP
+        points: 150,
         emoji: '🍽️',
         difficulty: 'medium',
-        target: 3,
+        target: 5,
         action: 'checkIn'
       },
+      WEEKLY_SUBMISSION: {
+        id: 'weekly_submission',
+        type: 'weekly',
+        title: 'Weekly Contributor',
+        description: '1 new restaurant submission', // Beta: 1 new restaurant submission → +100 XP
+        points: 100,
+        emoji: '🧑‍🍳',
+        difficulty: 'hard',
+        target: 1,
+        action: 'submission'
+      },
+      WEEKLY_CHALLENGES_COMPLETE: {
+        id: 'weekly_challenges_complete',
+        type: 'weekly',
+        title: 'Challenge Master',
+        description: 'Complete 3 daily challenges', // Beta: Complete 3 daily challenges → +100 XP
+        points: 100,
+        emoji: '🎯',
+        difficulty: 'medium',
+        target: 3,
+        action: 'challenge'
+      },
+      // Additional weekly challenges (beyond beta scope)
       WEEKLY_CITY_EXPLORER: {
         id: 'weekly_city_explorer',
         type: 'weekly',

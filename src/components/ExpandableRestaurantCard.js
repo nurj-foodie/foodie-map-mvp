@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import FavoriteButton from './FavoriteButton';
 import { useAuth } from '../contexts/AuthContext';
 import { checkInService } from '../services/checkInService';
+import { reviewsService } from '../services/reviewsService';
 import './ExpandableRestaurantCard.css';
 import ReviewsModal from './ReviewsModal';
 
-const ExpandableRestaurantCard = ({ restaurant, onViewDetails, onAddReview, onShare }) => {
+const ExpandableRestaurantCard = ({ restaurant, onViewDetails, onAddReview, onShare, onEdit }) => {
   const { user } = useAuth();
   const [expandedSections, setExpandedSections] = useState({
     photos: false,
@@ -176,14 +177,66 @@ const ExpandableRestaurantCard = ({ restaurant, onViewDetails, onAddReview, onSh
   };
 
 
-  // Get primary photo (user-uploaded first, then Google Places)
-  const getPrimaryPhoto = () => {
-    if (restaurant.userPhotos && restaurant.userPhotos.length > 0) {
-      return restaurant.userPhotos[0];
+  // Get primary photo URL (user-uploaded first, then Google Places)
+  const getPrimaryPhotoUrl = () => {
+    // Check user photos first
+    let userPhotos = restaurant.userPhotos || [];
+    if (typeof userPhotos === 'string') {
+      try {
+        userPhotos = JSON.parse(userPhotos);
+      } catch (e) {
+        userPhotos = [];
+      }
     }
-    if (restaurant.photos && restaurant.photos.length > 0) {
-      return restaurant.photos[0];
+    if (Array.isArray(userPhotos) && userPhotos.length > 0) {
+      const userPhoto = userPhotos[0];
+      if (userPhoto.data) return userPhoto.data; // Base64
+      if (userPhoto.url) return userPhoto.url;
+      return null;
     }
+    
+    // Check Google photos
+    let googlePhotos = restaurant.photos || [];
+    if (typeof googlePhotos === 'string') {
+      try {
+        googlePhotos = JSON.parse(googlePhotos);
+      } catch (e) {
+        googlePhotos = [];
+      }
+    }
+    if (Array.isArray(googlePhotos) && googlePhotos.length > 0) {
+      const googlePhoto = googlePhotos[0];
+      if (typeof googlePhoto === 'string') {
+        // Skip empty strings like "[ ]"
+        if (googlePhoto.trim() && googlePhoto !== '[ ]' && googlePhoto !== '[]') {
+          return googlePhoto; // Already a URL string
+        }
+        return null;
+      }
+      if (typeof googlePhoto === 'object' && googlePhoto !== null) {
+        // Check if it's a URL
+        if (googlePhoto.url && typeof googlePhoto.url === 'string') {
+          return googlePhoto.url;
+        }
+        // Check if photo_reference is a URL
+        if (googlePhoto.photo_reference && typeof googlePhoto.photo_reference === 'string') {
+          if (googlePhoto.photo_reference.startsWith('http')) {
+            return googlePhoto.photo_reference;
+          }
+          // It's a photo_reference ID - would need Google Places API to convert
+          console.warn('⚠️ Primary photo is photo_reference ID, not URL:', googlePhoto.photo_reference);
+          return null;
+        }
+      }
+    }
+    
+    // Check photoUrl field (fallback)
+    if (restaurant.photoUrl && typeof restaurant.photoUrl === 'string') {
+      if (restaurant.photoUrl.startsWith('http')) {
+        return restaurant.photoUrl;
+      }
+    }
+    
     return null;
   };
 
@@ -264,23 +317,238 @@ const ExpandableRestaurantCard = ({ restaurant, onViewDetails, onAddReview, onSh
         [section]: true
       }));
 
-      // Simulate API call (replace with actual data fetching)
-      setTimeout(() => {
-        const mockData = generateMockData(section);
+      try {
+        // Get restaurant ID (support both place_id and id)
+        const restaurantId = restaurant.place_id || restaurant.placeId || restaurant.id;
+        
+        if (!restaurantId) {
+          console.warn('⚠️ No restaurant ID found, cannot load data');
+          setLoadingStates(prev => ({
+            ...prev,
+            [section]: false
+          }));
+          return;
+        }
+
+        let data = null;
+
+        switch (section) {
+          case 'photos':
+            // Load photos from restaurant data
+            // Handle case where photos might be stored as JSON strings
+            let userPhotos = restaurant.userPhotos || [];
+            let googlePhotos = restaurant.photos || [];
+            
+            // Parse if stored as JSON strings
+            if (typeof userPhotos === 'string') {
+              try {
+                userPhotos = JSON.parse(userPhotos);
+              } catch (e) {
+                console.warn('⚠️ Failed to parse userPhotos JSON string:', e);
+                userPhotos = [];
+              }
+            }
+            if (typeof googlePhotos === 'string') {
+              try {
+                googlePhotos = JSON.parse(googlePhotos);
+              } catch (e) {
+                console.warn('⚠️ Failed to parse googlePhotos JSON string:', e);
+                googlePhotos = [];
+              }
+            }
+            
+            // Ensure they're arrays
+            if (!Array.isArray(userPhotos)) userPhotos = [];
+            if (!Array.isArray(googlePhotos)) googlePhotos = [];
+            
+            console.log('📸 Loading photos:', { 
+              userPhotosCount: userPhotos.length, 
+              googlePhotosCount: googlePhotos.length,
+              googlePhotosSample: googlePhotos.slice(0, 2),
+              userPhotosType: typeof restaurant.userPhotos,
+              googlePhotosType: typeof restaurant.photos
+            });
+            
+            // Format user photos (they're stored as base64 objects)
+            const formattedUserPhotos = userPhotos.map((photo, index) => {
+              try {
+                return {
+                  id: photo.id || index,
+                  url: photo.data || photo.url || null,
+                  user: photo.uploadedBy || 'User',
+                  verified: photo.verified || false,
+                  uploadedAt: photo.uploadedAt || new Date()
+                };
+              } catch (error) {
+                console.warn('⚠️ Error formatting user photo:', error, photo);
+                return null;
+              }
+            }).filter(photo => photo && photo.url);
+
+            // Format Google photos (they might be strings or objects)
+            // Photos from Firestore can be:
+            // 1. String URLs (already converted from Google Places)
+            // 2. Objects with photo_reference (URL string from getUrl())
+            // 3. Objects with url property
+            const formattedGooglePhotos = googlePhotos.map((photo, index) => {
+              try {
+                if (typeof photo === 'string') {
+                  // Skip invalid strings like "[ ]" or empty strings
+                  if (!photo.trim() || photo === '[ ]' || photo === '[]') {
+                    return null;
+                  }
+                  // Already a URL string
+                  return { url: photo, source: 'google_places' };
+                }
+                if (typeof photo === 'object' && photo !== null) {
+                  // Check if photo_reference exists and is a string URL (starts with http)
+                  if (photo.photo_reference) {
+                    if (typeof photo.photo_reference === 'string') {
+                      if (photo.photo_reference.startsWith('http')) {
+                        return { url: photo.photo_reference, source: 'google_places' };
+                      } else {
+                        // This is a photo_reference ID, not a URL - skip it
+                        console.warn('⚠️ Photo reference ID found (not URL), skipping:', photo.photo_reference);
+                        return null;
+                      }
+                    } else {
+                      console.warn('⚠️ photo_reference is not a string:', typeof photo.photo_reference, photo);
+                      return null;
+                    }
+                  }
+                  // Check if url property exists
+                  if (photo.url && typeof photo.url === 'string') {
+                    return { url: photo.url, source: 'google_places' };
+                  }
+                  return null;
+                }
+                return null;
+              } catch (error) {
+                console.warn('⚠️ Error formatting Google photo:', error, photo);
+                return null;
+              }
+            }).filter(photo => photo && photo.url);
+
+            console.log('✅ Formatted photos:', {
+              userPhotos: formattedUserPhotos.length,
+              googlePhotos: formattedGooglePhotos.length,
+              total: formattedUserPhotos.length + formattedGooglePhotos.length
+            });
+
+            data = {
+              userPhotos: formattedUserPhotos,
+              googlePhotos: formattedGooglePhotos,
+              totalCount: formattedUserPhotos.length + formattedGooglePhotos.length
+            };
+            break;
+
+          case 'reviews':
+            // Load reviews from Firestore
+            const reviewsResult = await reviewsService.getRestaurantReviews(restaurantId, 20);
+            const reviews = reviewsResult.reviews || [];
+            
+            // Format reviews for display
+            const formattedReviews = reviews.map(review => ({
+              id: review.id,
+              user: {
+                name: review.userName || 'Anonymous',
+                avatar: review.userPhotoURL || null
+              },
+              rating: review.rating || 0,
+              comment: review.comment || '',
+              verified: review.verified || false,
+              photos: review.photos || [],
+              likes: {
+                count: review.likes?.length || 0,
+                userLiked: review.likes?.includes(user?.uid) || false
+              },
+              helpful: review.helpful || 0,
+              createdAt: review.createdAt || new Date()
+            }));
+
+            // Calculate average rating
+            const avgRating = formattedReviews.length > 0
+              ? formattedReviews.reduce((sum, r) => sum + r.rating, 0) / formattedReviews.length
+              : 0;
+
+            data = {
+              topReviews: formattedReviews,
+              totalCount: formattedReviews.length,
+              averageRating: parseFloat(avgRating.toFixed(1)),
+              categoryRatings: {
+                foodQuality: 0,
+                valueForMoney: 0,
+                serviceQuality: 0,
+                ambiance: 0
+              }
+            };
+            break;
+
+          case 'checkIns':
+            // Load check-ins from Firestore
+            const checkInsResult = await checkInService.getRestaurantCheckIns(restaurantId, 50);
+            const checkIns = checkInsResult.checkIns || [];
+            
+            // Format check-ins for display
+            const formattedCheckIns = checkIns.map(checkIn => ({
+              id: checkIn.id,
+              user: {
+                name: checkIn.userName || 'Anonymous',
+                avatar: checkIn.userPhotoURL || null
+              },
+              verified: checkIn.verified || false,
+              location: checkIn.userLocation || null,
+              distance: checkIn.distance || null,
+              timestamp: checkIn.timestamp?.toDate ? checkIn.timestamp.toDate() : new Date(checkIn.timestamp)
+            }));
+
+            data = {
+              recentCheckIns: formattedCheckIns,
+              totalCount: formattedCheckIns.length,
+              verifiedCount: formattedCheckIns.filter(ci => ci.verified).length
+            };
+            break;
+
+          default:
+            data = null;
+        }
+
+        if (data) {
+          setLoadedData(prev => ({
+            ...prev,
+            [section]: data
+          }));
+        }
+      } catch (error) {
+        console.error(`❌ Error loading ${section} data:`, error);
+        // Set empty data on error
         setLoadedData(prev => ({
           ...prev,
-          [section]: mockData
+          [section]: section === 'photos' ? { userPhotos: [], googlePhotos: [], totalCount: 0 } :
+                     section === 'reviews' ? { 
+                       topReviews: [], 
+                       totalCount: 0, 
+                       averageRating: 0,
+                       categoryRatings: {
+                         foodQuality: 0,
+                         valueForMoney: 0,
+                         serviceQuality: 0,
+                         ambiance: 0
+                       }
+                     } :
+                     { recentCheckIns: [], totalCount: 0, verifiedCount: 0 }
         }));
+      } finally {
         setLoadingStates(prev => ({
           ...prev,
           [section]: false
         }));
-      }, 1000);
+      }
     }
   };
 
-  // Generate mock data for demonstration
-  const generateMockData = (section) => {
+  // Generate mock data for demonstration (DEPRECATED - kept for reference)
+  const generateMockData_DEPRECATED = (section) => {
     switch (section) {
       case 'photos':
         return {
@@ -504,7 +772,7 @@ const ExpandableRestaurantCard = ({ restaurant, onViewDetails, onAddReview, onSh
     return mobileReviewsShown < loadedData.reviews.topReviews.length;
   };
 
-  const primaryPhoto = getPrimaryPhoto();
+  const primaryPhotoUrl = getPrimaryPhotoUrl();
   const overallRating = getOverallRating();
   const ratingBreakdown = getRatingBreakdown();
   const verificationStatus = getVerificationStatus();
@@ -513,12 +781,16 @@ const ExpandableRestaurantCard = ({ restaurant, onViewDetails, onAddReview, onSh
     <div className="expandable-restaurant-card">
       {/* Photo Section */}
       <div className="photo-section">
-        {primaryPhoto ? (
+        {primaryPhotoUrl ? (
           <div className="main-photo">
             <img 
-              src={primaryPhoto} 
-              alt={restaurant.name}
+              src={primaryPhotoUrl} 
+              alt={restaurant.name || restaurant.displayName || 'Restaurant'}
               className="restaurant-image"
+              onError={(e) => {
+                console.warn('⚠️ Failed to load primary photo:', primaryPhotoUrl);
+                e.target.style.display = 'none';
+              }}
             />
             <button 
               className="photo-count-badge"
@@ -766,7 +1038,7 @@ const ExpandableRestaurantCard = ({ restaurant, onViewDetails, onAddReview, onSh
                         <span className="rating-stars">{renderStars(loadedData.reviews.averageRating)}</span>
                       </div>
                       <div className="category-breakdown">
-                        {Object.entries(loadedData.reviews.categoryRatings).map(([category, rating]) => (
+                        {loadedData.reviews?.categoryRatings && typeof loadedData.reviews.categoryRatings === 'object' && Object.entries(loadedData.reviews.categoryRatings).map(([category, rating]) => (
                           <div key={category} className="category-item">
                             <span className="category-name">{category}</span>
                             <span className="category-rating">{rating}</span>
@@ -806,10 +1078,23 @@ const ExpandableRestaurantCard = ({ restaurant, onViewDetails, onAddReview, onSh
                           <div className="review-content">
                             <p className="review-comment">{review.comment}</p>
                             <div className="review-details">
-                              <span className="visit-type">{review.visitDetails.visitType}</span>
-                              <span className="party-size">{review.visitDetails.partySize} people</span>
-                              <span className="meal-type">{review.visitDetails.mealType}</span>
+                              {review.visitDetails && (
+                                <>
+                                  {review.visitDetails.visitType && (
+                                    <span className="visit-type">{review.visitDetails.visitType}</span>
+                                  )}
+                                  {review.visitDetails.partySize && (
+                                    <span className="party-size">{review.visitDetails.partySize} people</span>
+                                  )}
+                                  {review.visitDetails.mealType && (
+                                    <span className="meal-type">{review.visitDetails.mealType}</span>
+                                  )}
+                                </>
+                              )}
                               {review.verified && <span className="verified-badge">✅ Verified</span>}
+                              <span className="review-date">
+                                {new Date(review.createdAt).toLocaleDateString()}
+                              </span>
                             </div>
                           </div>
                         </div>
@@ -924,7 +1209,17 @@ const ExpandableRestaurantCard = ({ restaurant, onViewDetails, onAddReview, onSh
           )}
           <button 
             className="btn btn-secondary"
-            onClick={() => onAddReview(restaurant)}
+            onClick={(e) => {
+              e.stopPropagation();
+              console.log('📝 Add Review button clicked in ExpandableRestaurantCard');
+              console.log('📝 onAddReview handler:', typeof onAddReview);
+              if (onAddReview) {
+                console.log('📝 Calling onAddReview handler');
+                onAddReview(restaurant);
+              } else {
+                console.warn('⚠️ onAddReview handler not provided');
+              }
+            }}
           >
             Add Review
           </button>
@@ -940,6 +1235,21 @@ const ExpandableRestaurantCard = ({ restaurant, onViewDetails, onAddReview, onSh
             showText={true}
             className="btn-favorite"
           />
+          {user && onEdit && (
+            <button 
+              className="btn btn-edit"
+              onClick={() => {
+                try {
+                  console.log('✏️ Edit button clicked for:', restaurant.name || restaurant.displayName);
+                  onEdit(restaurant);
+                } catch (error) {
+                  console.error('❌ Error opening edit modal:', error);
+                }
+              }}
+            >
+              ✏️ Edit Details
+            </button>
+          )}
         </div>
       </div>
 
