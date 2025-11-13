@@ -1,8 +1,89 @@
 # 🗺️ KAWAN MAKAN — CHANGELOG.md
 
-*Project timeline: 3 Oct – 11 Nov 2025*  
+*Project timeline: 3 Oct – 13 Nov 2025*  
 
 *Core Stack: React, Firebase Firestore, Google Maps Platform, @react-google-maps/api, TailwindCSS, Netlify/Firebase Hosting*
+
+---
+
+## v0.6.7 — Beta Phase Planning & K-Coins System Design (13 Nov 2025)
+
+**Milestone:** Complete beta phase flow planning with integrated marketing and technical strategy. K-Coins system designed for beta accumulation phase.  
+**Objective:** Plan end-to-end beta phase flow, integrate marketing strategy with technical implementation, design K-Coins system, update gamification documentation.
+
+### 📦 Planning & Documentation
+
+- 📋 **Beta Phase Flow Plan** – Complete end-to-end beta flow planning
+  - Created `BETA_PHASE_FLOW_PLAN_INTEGRATED.md` with 19 implementation phases
+  - Integrated marketing strategy with technical implementation
+  - Landing page strategy (separate standalone React app)
+  - Waitlist system with referral tracking
+  - Survey system (T+2, device/frequency/corridor capture)
+  - Weekly wave system (flexible admin control, 50-100 seats per wave)
+  - Creator partnership system (automatic access + scoring bonus)
+  - Travel package draw system (monthly for top referrers)
+- 💰 **K-Coins System Design** – Reward currency for beta phase
+  - Earning: Waitlist signup (+25), Referrals (+100), Survey (+50)
+  - Display: Balance visible in UI (no "coming soon" messaging)
+  - Accumulation: Beta phase accumulation only (no spending)
+  - Post-beta use cases: Premium features, in-app purchases, token conversion
+  - Hybrid approach: Subscription-like features + one-time purchases
+- 📧 **Email Drip Sequence** – Updated 6-email sequence
+  - T+0: Welcome (K-Coins, referral link, corridor question)
+  - T+2: Survey (30-second form = +50 K-Coins)
+  - T+5: Community building (Kawan Makan Community / Komuniti Kawan Makan)
+  - T+8: Referral reminder
+  - Rolling: Invite (when beta access granted)
+  - T+7 post-invite: Feedback (NPS, missing spots, favorite detours)
+- 🎯 **Cohort Scoring System** – Updated scoring formula
+  - Corridor fit: 40% weight (prioritize Kluang↔Penang, KL↔JB)
+  - Drive frequency: 25% weight (weekly > monthly > occasional)
+  - Referrals: 25% weight (+50 per referral that joins beta)
+  - Creator flag: 10% weight (automatic priority)
+  - Email engagement: +5 per open, +10 per click
+- 👥 **Creator System** – Creator partnership management
+  - Automatic beta access (priority)
+  - Scoring bonus (+10% if going through scoring)
+  - Manual admin approval
+  - Reserved slots (~20% of each wave)
+  - Unique referral codes for tracking
+- 🎁 **Travel Package Draw** – Monthly reward system
+  - Top referrers qualify (admin configurable, e.g., top 50)
+  - Random draw from qualifiers
+  - Malaysia travel package prize
+  - Announcement email + community update
+
+### 🧩 Documentation Updates
+
+- ✅ **GAMIFICATION_BETA_v0.7.md** – Updated with K-Coins system
+  - Added Section 4: K-Coins System (Beta - Accumulation Phase)
+  - Updated beta goals to include K-Coins accumulation
+  - Added K-Coins migration plan (post-beta conversion)
+  - Updated checklists and success criteria
+- ✅ **BETA_PHASE_FLOW_PLAN_INTEGRATED.md** – Complete integrated plan
+  - 19 implementation phases
+  - Marketing assets checklist
+  - 30-day pre-beta plan
+  - KPIs and measurement framework
+  - Risks and mitigations
+
+### 🎯 Key Decisions Made
+
+- **K-Coins:** Implemented now, visible in UI, accumulation only during beta
+- **Landing Page:** Separate standalone React app (lightweight)
+- **Referral System:** Links join waitlist, K-Coins awarded on waitlist signup
+- **Survey:** T+2, captures corridor/drive frequency, +50 K-Coins
+- **Weekly Waves:** Flexible admin control, 50-100 seats per wave
+- **Creator System:** Automatic access + scoring bonus + manual approval
+- **Community Name:** Always use "Kawan Makan Community (EN) / Komuniti Kawan Makan (BM)"
+
+### 🧩 System Design Notes
+
+- **Beta Phase:** K-Coins accumulate only (no spending, mysterious)
+- **Post-Beta:** K-Coins convert to premium features, tokens, in-app purchases
+- **Referral Flow:** Waitlist → Waitlist (K-Coins), Beta → Beta (cohort points)
+- **Email Sequence:** 6 emails over beta period (Welcome, Survey, Community, Referral, Invite, Feedback)
+- **Wave System:** Admin controls timing and size, prioritizes corridor fit + engagement
 
 ---
 

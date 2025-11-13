@@ -1,6 +1,6 @@
 # 🗺️ Kawan Makan — Food Discovery App
 
-**Current Version:** v0.6.6 | [📋 View Changelog](./CHANGELOG.md)
+**Current Version:** v0.6.7 | [📋 View Changelog](./CHANGELOG.md)
 
 A cost-effective food discovery app that helps users find restaurants along their routes with 95% API cost reduction. Built for Peninsular Malaysia with route planning, restaurant discovery, and user contributions.
 
@@ -53,6 +53,9 @@ A cost-effective food discovery app that helps users find restaurants along thei
 ### ✅ Gamification System (Designed)
 - **🎮 Beta System (v0.7)** - Simplified XP-based progression for testing
 - **🏆 Badge System** - Multi-tier progression (Explorer I-VII, Memory Keeper, Food Critic, Local Hero, Treasure Hunter)
+- **💰 K-Coins System** - Reward currency for beta phase (accumulation only)
+  - Earn: Waitlist signup (+25), Referrals (+100), Survey (+50)
+  - Post-beta: Convert to premium features, tokens, in-app purchases
 - **💎 Special Perks** - Founder Tier and Beta Tester exclusive perks
 - **🎁 Tangible Rewards** - Physical merchandise, events, and future discounts
 - **💰 Founder Pass** - RM100 pricing (500 lots) with complete perk structure
@@ -267,7 +270,15 @@ npm run build
 
 ## 📈 Future Enhancements
 
+### Beta Phase (v0.7)
+- **📋 Beta Flow Implementation** - Waitlist, referrals, K-Coins, weekly waves
 - **🎮 Gamification Implementation** - Implement designed gamification system (Beta v0.7)
+- **💰 K-Coins System** - Accumulation during beta, conversion post-beta
+- **👥 Creator Partnerships** - Creator referral program and priority access
+- **📧 Email Drip Campaigns** - Nurture sequence for waitlist and beta users
+- **🎁 Travel Package Draw** - Monthly rewards for top referrers
+
+### Post-Beta (v1.0+)
 - **💎 Founder Pass Launch** - Launch Founder Pass (RM100, 500 lots) with exclusive perks
 - **🎁 Tangible Rewards** - Physical merchandise (pin, tote bag, take-away pack) and events
 - **💬 Social Features** - Reviews, sharing, friend connections

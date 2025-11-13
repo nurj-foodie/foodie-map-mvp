@@ -1,10 +1,10 @@
 # 🎮 KAWAN MAKAN — GAMIFICATION BETA v0.7
 
 **Version:** 0.7 (Beta Testing Phase)  
-**Last Updated:** 5 November 2025  
+**Last Updated:** 13 November 2025  
 **Maintainer:** @Founder (Game Director)  
 **Based On:** Gamification V2 Draft  
-**Companion Files:** `GAMIFICATIONLOG.md`, `PRD.md`, `CHANGELOG.md`
+**Companion Files:** `GAMIFICATIONLOG.md`, `PRD.md`, `CHANGELOG.md`, `BETA_PHASE_FLOW_PLAN_INTEGRATED.md`
 
 ---
 
@@ -24,6 +24,7 @@ Test core loops first, add complexity later. Focus on validating: XP system, bas
 - Measure user engagement (check-ins, photos, reviews)
 - Collect data for v2 refinement
 - Ensure Shariah compliance
+- Accumulate K-Coins through beta participation (waitlist, referrals, surveys)
 
 ---
 
@@ -68,7 +69,56 @@ Test core loops first, add complexity later. Focus on validating: XP system, bas
 
 ---
 
-## 4. Energy System (Beta - Simplified)
+## 4. K-Coins System (Beta - Accumulation Phase)
+
+### Overview
+
+K-Coins are a reward currency earned during beta phase through participation and referrals. During beta, K-Coins accumulate only (no spending). They will convert to premium features, in-app purchases, and tokens post-beta.
+
+### K-Coins Earning (Beta Phase)
+
+| Action | K-Coins Reward | Notes |
+|--------|---------------|-------|
+| Join waitlist | +25 K-Coins | Automatic on signup |
+| Refer a friend (waitlist) | +100 K-Coins | When referred user joins waitlist |
+| Complete survey | +50 K-Coins | 30-second survey (device, frequency, corridor) |
+| Travel package draw | Variable | Monthly winner (top referrers) |
+
+### K-Coins Display (Beta)
+
+- **Balance visible in UI** (header/navigation, User Tab)
+- **Transaction history** available
+- **No spending during beta** (accumulation only)
+- **No "coming soon" messaging** (keep it mysterious)
+
+### Post-Beta K-Coins Use Cases
+
+**Note:** Defined for planning, implemented post-beta. See `BETA_PHASE_FLOW_PLAN_INTEGRATED.md` Section 3.4 for full details.
+
+**A. Premium Features:**
+- Premium Filters (100 K-Coins/month)
+- Offline Cache Access (50 K-Coins/month)
+- Early Feature Voting (25 K-Coins per vote)
+- Ad-Free Experience (200 K-Coins/month)
+- Priority Support (100 K-Coins per request)
+
+**B. In-App Purchases:**
+- Energy Boosters (50 K-Coins)
+- Route Search Credits (30 K-Coins)
+- Token Conversion (10 K-Coins = 1 Token)
+- Badge Unlocks (150 K-Coins)
+- Profile Customization (75 K-Coins)
+
+**C. Gamification Integration:**
+- Token conversion to Food/Photo/Review/Explorer tokens
+- XP Boosters (100 K-Coins = 2x XP for 24h)
+- Challenge Skips (50 K-Coins per skip)
+
+**Beta Goal:** Accumulate K-Coins through participation, convert to rewards post-beta
+
+---
+
+## 5. Energy System (Beta - Simplified)
 
 ### Energy Costs
 
@@ -98,7 +148,7 @@ Test core loops first, add complexity later. Focus on validating: XP system, bas
 
 ---
 
-## 5. Check-In System (Beta - Basic)
+## 6. Check-In System (Beta - Basic)
 
 ### Basic Rules
 
@@ -117,7 +167,7 @@ Test core loops first, add complexity later. Focus on validating: XP system, bas
 
 ---
 
-## 6. Badges & Achievements (Beta)
+## 7. Badges & Achievements (Beta)
 
 ### Progression Badges (Easier for Beta)
 
@@ -205,7 +255,7 @@ Test core loops first, add complexity later. Focus on validating: XP system, bas
 
 ---
 
-## 7. Challenges (Beta)
+## 8. Challenges (Beta)
 
 ### Daily Challenges
 
@@ -223,7 +273,7 @@ Test core loops first, add complexity later. Focus on validating: XP system, bas
 
 ---
 
-## 8. Leaderboards (Beta - Simple)
+## 9. Leaderboards (Beta - Simple)
 
 ### Leaderboard Types
 
@@ -242,7 +292,7 @@ Test core loops first, add complexity later. Focus on validating: XP system, bas
 
 ---
 
-## 9. Anti-Abuse (Beta - Basic)
+## 10. Anti-Abuse (Beta - Basic)
 
 ### Location Verification
 
@@ -266,7 +316,7 @@ Test core loops first, add complexity later. Focus on validating: XP system, bas
 
 ---
 
-## 10. Beta Testing Metrics
+## 11. Beta Testing Metrics
 
 | Metric | Target | Notes |
 |--------|--------|-------|
@@ -280,7 +330,7 @@ Test core loops first, add complexity later. Focus on validating: XP system, bas
 
 ---
 
-## 11. What's NOT in Beta
+## 12. What's NOT in Beta
 
 ### Deferred to v2 (Post-Beta)
 
@@ -299,7 +349,17 @@ Test core loops first, add complexity later. Focus on validating: XP system, bas
 
 ---
 
-## 12. Beta → v2 Migration Plan
+## 13. Beta → v2 Migration Plan
+
+### K-Coins Migration
+
+- **K-Coins earned:** Preserved and carried over to post-beta
+- **Conversion options:** 
+  - Premium features (filters, offline cache, etc.)
+  - Token conversion (10 K-Coins = 1 Token, any type)
+  - In-app purchases (energy boosters, badges, etc.)
+- **Beta tester bonus:** +10% bonus on token conversion
+- **Average accumulation:** 200-500 K-Coins per user during beta
 
 ### Data Preservation
 
@@ -307,6 +367,7 @@ Test core loops first, add complexity later. Focus on validating: XP system, bas
 - **Levels achieved:** Maintain in v2
 - **Badges unlocked:** Preserved
 - **Energy balance:** Convert to v2 system
+- **K-Coins balance:** Preserved for post-beta conversion
 
 ### Migration Steps
 
@@ -318,7 +379,7 @@ Test core loops first, add complexity later. Focus on validating: XP system, bas
 
 ---
 
-## 13. Ethical Guardrails (Beta)
+## 14. Ethical Guardrails (Beta)
 
 | Principle | Implementation |
 |------------|----------------|
@@ -330,32 +391,36 @@ Test core loops first, add complexity later. Focus on validating: XP system, bas
 
 ---
 
-## 14. Beta Testing Checklist
+## 15. Beta Testing Checklist
 
 ### Pre-Beta Launch
 
 - [ ] XP system implemented and tested
 - [ ] Energy economy working correctly
+- [ ] K-Coins system implemented (earning and display)
 - [ ] Check-in system with GPS verification
 - [ ] Basic anti-abuse measures active
 - [ ] Leaderboards functional
 - [ ] Daily/weekly challenges working
 - [ ] Badge system operational
 - [ ] Analytics tracking configured
+- [ ] Waitlist and referral system integrated
 
 ### Beta Monitoring
 
 - [ ] Track XP earned per user
 - [ ] Monitor Energy usage patterns
+- [ ] Track K-Coins accumulation per user
 - [ ] Measure check-in frequency
 - [ ] Analyze challenge completion rates
 - [ ] Track level progression speed
 - [ ] Monitor API costs
+- [ ] Track referral and survey completion rates
 - [ ] Collect user feedback
 
 ---
 
-## 15. Success Criteria for Beta
+## 16. Success Criteria for Beta
 
 ### Technical
 
@@ -372,6 +437,9 @@ Test core loops first, add complexity later. Focus on validating: XP system, bas
 - ✅ 50%+ users reach L5 in first week
 - ✅ 30%+ users upload photos
 - ✅ 20%+ users write reviews
+- ✅ Average 200-500 K-Coins accumulated per user during beta
+- ✅ 30%+ users complete survey (T+2)
+- ✅ 25%+ referral rate (users referring others)
 
 ### User Satisfaction
 

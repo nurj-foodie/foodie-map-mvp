@@ -2,12 +2,13 @@
 
 **Version:** 0.1 (Concept Phase)  
 
-**Last Updated:** 5 November 2025  
+**Last Updated:** 13 November 2025  
 **Note:** This document has been updated to reflect new token naming conventions (straightforward) and separate Energy/Explorer token systems. See `GAMIFICATION_NAMING_DISCUSSION.md` for details.  
+**Beta Phase Update:** K-Coins system added for beta phase (accumulation only). See `GAMIFICATION_BETA_v0.7.md` Section 4 and `BETA_PHASE_FLOW_PLAN_INTEGRATED.md` for details.
 
 **Maintainer:** @Founder (Game Director)  
 
-**Companion Files:** `PRD.md`, `CHANGELOG.md`, `README.md`, `GAMIFICATION_BETA_v0.7.md`, `GAMIFICATION_POST_BETA_v1.0.md`
+**Companion Files:** `PRD.md`, `CHANGELOG.md`, `README.md`, `GAMIFICATION_BETA_v0.7.md`, `GAMIFICATION_POST_BETA_v1.0.md`, `BETA_PHASE_FLOW_PLAN_INTEGRATED.md`
 
 ---
 
@@ -60,7 +61,32 @@ Encourage exploration, consistency, and community — all while keeping gameplay
 
 ---
 
-## 4. Resource System (v2 Integration Plan)
+## 4. K-Coins System (Beta Phase)
+
+### Overview
+
+K-Coins are a reward currency introduced during beta phase. During beta, K-Coins accumulate only (no spending). Post-beta, K-Coins convert to premium features, in-app purchases, and tokens.
+
+### Beta Phase Earning
+
+| Action | K-Coins Reward | Notes |
+|--------|---------------|-------|
+| Join waitlist | +25 K-Coins | Automatic on signup |
+| Refer a friend (waitlist) | +100 K-Coins | When referred user joins waitlist |
+| Complete survey | +50 K-Coins | 30-second survey (device, frequency, corridor) |
+| Travel package draw | Variable | Monthly winner (top referrers) |
+
+### Post-Beta Conversion
+
+- **Premium Features:** Filters (100/month), Offline Cache (50/month), Feature Voting (25/vote)
+- **In-App Purchases:** Energy Boosters (50), Route Credits (30), Token Conversion (10 K-Coins = 1 Token)
+- **Gamification Integration:** Convert to Food/Photo/Review/Explorer tokens, XP Boosters, Challenge Skips
+
+**See:** `GAMIFICATION_BETA_v0.7.md` Section 4 and `BETA_PHASE_FLOW_PLAN_INTEGRATED.md` Section 3.4 for full details.
+
+---
+
+## 5. Resource System (v2 Integration Plan)
 
 ### Token Types (Four Core Resources)
 
@@ -71,12 +97,13 @@ Encourage exploration, consistency, and community — all while keeping gameplay
 | ✍️ **Review** | Reviews | Required for leveling | Quality content reward |
 | 📍 **Explorer** | Route discoveries | Required for leveling | Exploration reward |
 
-### Energy System (Separate from Tokens)
+### Energy System (Separate from Tokens and K-Coins)
 
 | Resource | Purpose | Usage | Notes |
 |---------|---------|-------|-------|
 | ⚡ **Energy** | API cost control | Route searches (costs 10⚡), multi-stop routes (15⚡) | Prevents API abuse |
 | | | Regeneration: +20⚡/hour, daily cap 100⚡ | Can be crafted (Energy Drinks) |
+| 💰 **K-Coins** | Reward currency | Beta accumulation only, post-beta conversion | Separate from Energy and Tokens |
 
 **Key Distinction:**
 - **Tokens (Food, Photo, Review, Explorer):** Used for progression (leveling via crafting)
