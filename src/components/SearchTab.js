@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useFavorites } from '../contexts/FavoritesContext';
 import { enhancedSearchService } from '../services/enhancedSearchService';
@@ -36,9 +36,13 @@ const SearchTab = () => {
   const [searchHistory, setSearchHistory] = useState([]);
   const [showSearchHistory, setShowSearchHistory] = useState(false);
   const [showMapView, setShowMapView] = useState(false);
+  const mapRef = useRef(null);
+  const mapInstanceRef = useRef(null);
+  const markersRef = useRef([]);
   const [savedSearches, setSavedSearches] = useState([]);
   // Filters visibility: collapsed on mobile by default, always visible on desktop
   const [showFilters, setShowFilters] = useState(window.innerWidth > 768); // Desktop: true, Mobile: false
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768); // Track mobile state
   const [browseLocation, setBrowseLocation] = useState('all'); // 'all' or 'nearMe' for Browse tab
   const [searchAnalytics, setSearchAnalytics] = useState({
     totalSearches: 0,
@@ -74,12 +78,22 @@ const SearchTab = () => {
   // Handle window resize to update filter visibility
   useEffect(() => {
     const handleResize = () => {
-      if (window.innerWidth > 768) {
+      const mobile = window.innerWidth <= 768;
+      setIsMobile(mobile);
+      if (!mobile) {
         setShowFilters(true); // Always show on desktop
       }
+      // On mobile, keep current state (don't auto-collapse if user expanded)
     };
+    handleResize(); // Check on mount
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Handle restaurant click - defined early for use in map useEffect
+  const handleRestaurantClick = useCallback((restaurant) => {
+    setSelectedRestaurant(restaurant);
+    setShowRestaurantModal(true);
   }, []);
 
   // Load user location and search history on component mount
@@ -89,6 +103,254 @@ const SearchTab = () => {
     loadSavedSearches();
     loadSearchAnalytics();
   }, []);
+
+  // Initialize map when map view is toggled on
+  useEffect(() => {
+    if (!showMapView || !searchResults.length) {
+      // Clean up markers when map view is closed
+      if (markersRef.current.length > 0) {
+        markersRef.current.forEach(marker => marker.setMap(null));
+        markersRef.current = [];
+      }
+      return;
+    }
+
+    // Wait for Google Maps to load
+    const initMap = () => {
+      if (!window.google?.maps || !mapRef.current) {
+        setTimeout(initMap, 100);
+        return;
+      }
+
+      const { Map } = window.google.maps;
+      const mapElement = mapRef.current;
+
+      // Determine map center and bounds based on search type
+      let mapCenter;
+      let bounds = null;
+      const shouldShowUserLocation = filters.nearMe && userLocation;
+      
+      // Check if search query is a food item without location (e.g., "nasi lemak" vs "nasi lemak in Alor Star")
+      // Parse query to detect if it's food-only (no location)
+      let parsedQuery = null;
+      try {
+        parsedQuery = searchKeywordService.parseCompoundQuery(searchQuery);
+      } catch (e) {
+        // Ignore parsing errors
+      }
+      const isFoodItemOnly = parsedQuery && parsedQuery.foodItem && !parsedQuery.location;
+      const hasLocationInQuery = parsedQuery && parsedQuery.location;
+
+      if (shouldShowUserLocation) {
+        // Near Me: Center on user location
+        mapCenter = {
+          lat: userLocation.lat,
+          lng: userLocation.lng
+        };
+      } else if (isFoodItemOnly && userLocation) {
+        // Food item search without location: Center on user location (e.g., "nasi lemak" when user is in Kluang)
+        mapCenter = {
+          lat: userLocation.lat,
+          lng: userLocation.lng
+        };
+      } else if (searchResults.length > 0) {
+        // Location-specific search or search with results: Calculate bounds from restaurant locations
+        bounds = new window.google.maps.LatLngBounds();
+        searchResults.forEach(restaurant => {
+          const location = restaurant.location || restaurant.geometry?.location;
+          if (location) {
+            const lat = typeof location === 'object' ? location.lat : location.latitude;
+            const lng = typeof location === 'object' ? location.lng : location.longitude;
+            if (lat && lng) {
+              bounds.extend({ lat, lng });
+            }
+          }
+        });
+        
+        // If we have valid bounds, use center of bounds
+        if (!bounds.isEmpty()) {
+          mapCenter = bounds.getCenter().toJSON();
+        } else {
+          // Fallback: use first restaurant location
+          const firstRestaurant = searchResults[0];
+          const location = firstRestaurant.location || firstRestaurant.geometry?.location;
+          if (location) {
+            mapCenter = {
+              lat: typeof location === 'object' ? location.lat : location.latitude,
+              lng: typeof location === 'object' ? location.lng : location.longitude
+            };
+          } else if (userLocation) {
+            // Use user location if available
+            mapCenter = {
+              lat: userLocation.lat,
+              lng: userLocation.lng
+            };
+          } else {
+            // Final fallback: Malaysia center
+            mapCenter = { lat: 4.2105, lng: 101.9758 };
+          }
+        }
+      } else if (userLocation) {
+        // No results but user location available: center on user location
+        mapCenter = {
+          lat: userLocation.lat,
+          lng: userLocation.lng
+        };
+      } else {
+        // Final fallback: Malaysia center
+        mapCenter = { lat: 4.2105, lng: 101.9758 };
+      }
+
+      // Initialize map
+      // Determine zoom level: Near Me = 13, Results with bounds = auto-fit, User location = 12, Default = 10
+      let initialZoom = 10;
+      if (shouldShowUserLocation) {
+        initialZoom = 13;
+      } else if (bounds && !bounds.isEmpty()) {
+        initialZoom = 12; // Will be overridden by fitBounds
+      } else if (userLocation && mapCenter.lat === userLocation.lat && mapCenter.lng === userLocation.lng) {
+        initialZoom = 12; // User location center
+      }
+
+      const map = new Map(mapElement, {
+        center: mapCenter,
+        zoom: initialZoom,
+        mapId: process.env.REACT_APP_GOOGLE_MAPS_MAP_ID || 'DEMO_MAP_ID'
+      });
+
+      mapInstanceRef.current = map;
+
+      // Determine if map is centered on user location
+      const isCenteredOnUserLocation = userLocation && 
+        Math.abs(mapCenter.lat - userLocation.lat) < 0.01 && 
+        Math.abs(mapCenter.lng - userLocation.lng) < 0.01;
+      
+      // Fit bounds logic:
+      // - If food item only search: Don't fit bounds, keep user-centered view
+      // - If location-specific search: Fit bounds to show all results
+      // - If Near Me: Don't fit bounds, keep user-centered view
+      if (isFoodItemOnly && isCenteredOnUserLocation) {
+        // Food item search: Keep centered on user, zoom to show nearby area
+        map.setZoom(12);
+      } else if (bounds && !bounds.isEmpty() && searchResults.length > 1 && !isCenteredOnUserLocation) {
+        // Location-specific search: Fit bounds to show all results
+        map.fitBounds(bounds);
+      } else if (isCenteredOnUserLocation && userLocation) {
+        // User location center: Set appropriate zoom
+        map.setZoom(12);
+      }
+
+      // Helper function to create marker content element
+      const createMarkerContent = (color, emoji) => {
+        const content = document.createElement('div');
+        content.style.width = '24px';
+        content.style.height = '24px';
+        content.style.borderRadius = '50%';
+        content.style.backgroundColor = color;
+        content.style.border = '2px solid white';
+        content.style.display = 'flex';
+        content.style.alignItems = 'center';
+        content.style.justifyContent = 'center';
+        content.style.fontSize = '12px';
+        content.style.boxShadow = '0 2px 4px rgba(0,0,0,0.3)';
+        content.textContent = emoji;
+        return content;
+      };
+
+      // Always add user location marker if userLocation is available
+      // This helps users understand where they are relative to search results
+      if (userLocation) {
+        // Use AdvancedMarkerElement if available, fallback to Marker
+        if (window.google.maps.marker?.AdvancedMarkerElement) {
+          const userMarker = new window.google.maps.marker.AdvancedMarkerElement({
+            position: userLocation,
+            map: map,
+            title: 'Your Location',
+            content: createMarkerContent('#4285F4', '📍')
+          });
+          markersRef.current.push(userMarker);
+        } else {
+          // Fallback to deprecated Marker
+          const userMarker = new window.google.maps.Marker({
+            position: userLocation,
+            map: map,
+            title: 'Your Location',
+            icon: {
+              path: window.google.maps.SymbolPath.CIRCLE,
+              fillColor: '#4285F4',
+              fillOpacity: 1,
+              strokeColor: '#FFFFFF',
+              strokeWeight: 2,
+              scale: 8
+            },
+            zIndex: 1000
+          });
+          markersRef.current.push(userMarker);
+        }
+      }
+
+      // Add restaurant markers
+      searchResults.forEach((restaurant, index) => {
+        const location = restaurant.location || restaurant.geometry?.location;
+        if (!location) return;
+
+        const lat = typeof location === 'object' ? location.lat : location.latitude;
+        const lng = typeof location === 'object' ? location.lng : location.longitude;
+        
+        if (!lat || !lng) return;
+
+        // Use AdvancedMarkerElement if available, fallback to Marker
+        if (window.google.maps.marker?.AdvancedMarkerElement) {
+          const marker = new window.google.maps.marker.AdvancedMarkerElement({
+            position: { lat, lng },
+            map: map,
+            title: restaurant.name || restaurant.displayName,
+            content: createMarkerContent('#CC0001', '🍽️')
+          });
+
+          // Add click listener to open restaurant modal
+          marker.addListener('click', () => {
+            handleRestaurantClick(restaurant);
+          });
+
+          markersRef.current.push(marker);
+        } else {
+          // Fallback to deprecated Marker
+          const marker = new window.google.maps.Marker({
+            position: { lat, lng },
+            map: map,
+            title: restaurant.name || restaurant.displayName,
+            icon: {
+              path: window.google.maps.SymbolPath.CIRCLE,
+              fillColor: '#CC0001',
+              fillOpacity: 0.8,
+              strokeColor: '#FFFFFF',
+              strokeWeight: 2,
+              scale: 6
+            },
+            zIndex: 500 + index
+          });
+
+          // Add click listener to open restaurant modal
+          marker.addListener('click', () => {
+            handleRestaurantClick(restaurant);
+          });
+
+          markersRef.current.push(marker);
+        }
+      });
+    };
+
+    initMap();
+
+    // Cleanup function
+    return () => {
+      if (markersRef.current.length > 0) {
+        markersRef.current.forEach(marker => marker.setMap(null));
+        markersRef.current = [];
+      }
+    };
+  }, [showMapView, searchResults, filters.nearMe, userLocation, handleRestaurantClick]);
 
   // Load search history from localStorage
   const loadSearchHistory = () => {
@@ -235,14 +497,22 @@ const SearchTab = () => {
 
     setIsSearching(true);
     try {
-      // Use userLocation if Near Me filter is enabled
-      const locationToUse = filters.nearMe ? userLocation : null;
-      const searchFilters = filters.nearMe 
-        ? { ...filters, distance: 5 } 
-        : filters;
-      
-      // Parse query for analytics
+      // Parse query to determine search type
       const parsedQuery = searchKeywordService.parseCompoundQuery(searchQuery);
+      const isFoodItemOnly = parsedQuery && parsedQuery.foodItem && !parsedQuery.location;
+      
+      // Always use userLocation if available (for better UX - show nearby results first)
+      // Exception: If search has explicit location (e.g., "nasi lemak in Alor Star"), don't use user location
+      const locationToUse = (userLocation && !parsedQuery?.location) ? userLocation : (filters.nearMe ? userLocation : null);
+      
+      // Adjust distance filter based on search type
+      let searchFilters = { ...filters };
+      if (filters.nearMe) {
+        searchFilters.distance = 5; // Near Me = 5km
+      } else if (isFoodItemOnly && userLocation) {
+        // Food item search: Start with reasonable radius (will expand if needed)
+        searchFilters.distance = searchFilters.distance || 25; // Default 25km for food items
+      }
       
       const results = await enhancedSearchService.searchRestaurants(
         searchQuery, 
@@ -468,11 +738,6 @@ const SearchTab = () => {
     }
   };
 
-  // Handle restaurant click
-  const handleRestaurantClick = (restaurant) => {
-    setSelectedRestaurant(restaurant);
-    setShowRestaurantModal(true);
-  };
 
   // Get active filter count
   const getActiveFilterCount = () => {
@@ -690,19 +955,19 @@ const SearchTab = () => {
           )}
 
           {/* Quick Filters - Collapsible on mobile */}
-          <div className="quick-filters">
+          <div className={`quick-filters ${!showFilters ? 'filters-collapsed' : ''}`}>
             <div className="filters-header">
               <button 
                 className="filters-toggle-btn"
                 onClick={() => {
-                  // Only toggle on mobile (screen width <= 768px)
-                  if (window.innerWidth <= 768) {
+                  // Only toggle on mobile
+                  if (isMobile) {
                     setShowFilters(!showFilters);
                   }
                 }}
               >
                 <h3>Quick Filters</h3>
-                {window.innerWidth <= 768 && (
+                {isMobile && (
                   <span className="toggle-icon">
                     {showFilters ? '🔼' : '🔽'}
                   </span>
@@ -711,7 +976,7 @@ const SearchTab = () => {
                   <span className="filter-count-badge">({activeFilterCount})</span>
                 )}
               </button>
-              <div className="filters-actions">
+              <div className={`filters-actions ${!showFilters && isMobile ? 'filters-actions-collapsed' : ''}`}>
                 {activeFilterCount > 0 && (
                   <button className="clear-filters-btn" onClick={clearFilters}>
                     Clear ({activeFilterCount})
@@ -1216,58 +1481,65 @@ const SearchTab = () => {
 
       {/* Search Results - Only show in Search tab */}
       {searchResults.length > 0 && activeTab === 'search' && (
-        <div className="search-results">
-          <div className="results-header">
-            <div className="results-title">
-              <h3>Found {searchResults.length} restaurants</h3>
-              <div className="results-actions">
-                <button 
-                  className={`view-toggle-btn ${showMapView ? 'active' : ''}`}
-                  onClick={() => setShowMapView(!showMapView)}
-                >
-                  {showMapView ? '📋 List View' : '🗺️ Map View'}
-                </button>
-                <button 
-                  className="save-search-btn"
-                  onClick={saveCurrentSearch}
-                  title="Save this search"
-                >
-                  💾 Save Search
-                </button>
-              </div>
-            </div>
-          </div>
-          
-          {/* Map View */}
-          {showMapView && (
-            <div className="map-view">
-              <div className="map-container">
-                <div className="map-placeholder">
-                  <div className="map-placeholder-content">
-                    <h4>🗺️ Map View</h4>
-                    <p>Interactive map showing {searchResults.length} restaurants</p>
-                    <div className="map-restaurants">
-                      {searchResults.slice(0, 5).map((restaurant, index) => (
-                        <div key={index} className="map-restaurant-marker">
-                          <span className="marker-icon">📍</span>
-                          <span className="marker-name">{restaurant.name}</span>
-                        </div>
-                      ))}
-                      {searchResults.length > 5 && (
-                        <div className="map-restaurant-marker">
-                          <span className="marker-icon">📍</span>
-                          <span className="marker-name">+{searchResults.length - 5} more</span>
-                        </div>
-                      )}
-                    </div>
-                    <p className="map-note">Full map integration coming soon!</p>
-                  </div>
+        <div className={`search-results ${showMapView ? 'map-view-active' : ''}`}>
+          {!showMapView && (
+            <div className="results-header">
+              <div className="results-title">
+                <h3>Found {searchResults.length} restaurants</h3>
+                <div className="results-actions">
+                  <button 
+                    className={`view-toggle-btn ${showMapView ? 'active' : ''}`}
+                    onClick={() => setShowMapView(!showMapView)}
+                  >
+                    {showMapView ? '📋 List View' : '🗺️ Map View'}
+                  </button>
+                  <button 
+                    className="save-search-btn"
+                    onClick={saveCurrentSearch}
+                    title="Save this search"
+                  >
+                    💾 Save Search
+                  </button>
                 </div>
               </div>
             </div>
           )}
           
-          <div className={`results-list ${showMapView ? 'with-map' : ''}`}>
+          {/* Map View - Full Screen Experience */}
+          {showMapView && (
+            <>
+              <div className="map-view-fullscreen">
+                <div className="map-container-fullscreen">
+                  <div 
+                    ref={mapRef}
+                    id="search-map"
+                    className="map-fullscreen"
+                  />
+                  {userLocation && (
+                    <div className="map-legend">
+                      <span className="legend-dot user-location-dot"></span>
+                      Your Location
+                      <span className="legend-dot restaurant-dot"></span>
+                      Restaurants
+                    </div>
+                  )}
+                </div>
+              </div>
+              {/* Map View Exit Button */}
+              <div className="map-view-controls">
+                <button 
+                  className="map-exit-btn"
+                  onClick={() => setShowMapView(false)}
+                >
+                  📋 List View
+                </button>
+              </div>
+            </>
+          )}
+          
+          {/* Results List - Only show when map view is NOT active */}
+          {!showMapView && (
+          <div className="results-list">
             {searchResults.map((restaurant, index) => (
               <div 
                 key={restaurant.id || restaurant.place_id || index} 
@@ -1369,6 +1641,7 @@ const SearchTab = () => {
               </div>
             ))}
           </div>
+          )}
         </div>
       )}
 

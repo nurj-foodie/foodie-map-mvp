@@ -311,6 +311,7 @@
   padding: 20px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   margin-bottom: 20px;
+  min-height: auto;
 }
 
 .filters-header {
@@ -318,6 +319,7 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 16px;
+  min-height: auto;
 }
 
 .filters-header h3 {
@@ -1316,7 +1318,93 @@
   box-shadow: 0 4px 8px rgba(204, 0, 1, 0.3);
 }
 
-/* Map View */
+/* Map View - Full Screen Experience */
+.map-view-fullscreen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 80px; /* Account for bottom navigation */
+  z-index: 999;
+  background: white;
+}
+
+.search-results.map-view-active {
+  /* Hide all content except map when map view is active */
+}
+
+.map-view-controls {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 1000;
+}
+
+.map-exit-btn {
+  background: white;
+  border: 2px solid #CC0001;
+  color: #CC0001;
+  padding: 12px 20px;
+  border-radius: 25px;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.map-exit-btn:hover {
+  background: #CC0001;
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(204, 0, 1, 0.3);
+}
+
+.map-container-fullscreen {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.map-fullscreen {
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+}
+
+.map-legend {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(255, 255, 255, 0.95);
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 12px;
+  color: #666;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 1000;
+}
+
+.legend-dot {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.user-location-dot {
+  background: #4285F4;
+}
+
+.restaurant-dot {
+  background: #CC0001;
+  margin-left: 12px;
+}
+
+/* Map View - Regular (for non-fullscreen) */
 .map-view {
   margin-bottom: 20px;
 }
@@ -1327,6 +1415,12 @@
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+@media (max-width: 768px) {
+  .map-view-fullscreen {
+    bottom: 70px; /* Account for mobile bottom navigation */
+  }
 }
 
 .map-placeholder {
@@ -1396,6 +1490,136 @@
 
 /* Mobile Responsive for Phase 3 */
 @media (max-width: 768px) {
+  /* Quick Filters - Compact when collapsed */
+  .quick-filters {
+    padding: 12px 16px;
+    margin-bottom: 12px;
+    transition: padding 0.3s ease, margin-bottom 0.3s ease;
+  }
+
+  /* Even more compact when collapsed - minimal space */
+  .quick-filters.filters-collapsed {
+    padding: 4px 10px;
+    margin-bottom: 4px;
+    min-height: auto;
+    max-height: 40px; /* Limit height when collapsed */
+    overflow: hidden;
+  }
+
+  /* Filters Header - Compact on mobile */
+  .quick-filters.filters-collapsed .filters-header {
+    margin-bottom: 0;
+    min-height: auto;
+    padding: 0;
+    align-items: center;
+  }
+
+  .quick-filters.filters-collapsed .filters-header h3 {
+    font-size: 14px;
+    line-height: 1.3;
+    margin: 0;
+  }
+
+  /* Filters Toggle Button - More compact */
+  .quick-filters.filters-collapsed .filters-toggle-btn {
+    width: 100%;
+    cursor: pointer;
+    padding: 0;
+    min-height: auto;
+    line-height: 1.3;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .quick-filters.filters-collapsed .filters-toggle-btn h3 {
+    font-size: 14px;
+    margin: 0;
+    line-height: 1.3;
+    padding: 0;
+  }
+
+  /* Compact filter count badge when collapsed */
+  .quick-filters.filters-collapsed .filter-count-badge {
+    font-size: 10px;
+    padding: 1px 6px;
+    line-height: 1.2;
+  }
+
+  /* Compact toggle icon when collapsed */
+  .quick-filters.filters-collapsed .toggle-icon {
+    font-size: 12px;
+    line-height: 1;
+  }
+
+  /* General mobile filters header */
+  .filters-header {
+    margin-bottom: 0;
+    min-height: auto;
+  }
+
+  .filters-header h3 {
+    font-size: 15px;
+    line-height: 1.2;
+  }
+
+  .filters-toggle-btn {
+    width: 100%;
+    cursor: pointer;
+    padding: 2px 0;
+    min-height: auto;
+    line-height: 1.2;
+  }
+
+  .filters-toggle-btn h3 {
+    font-size: 15px;
+    margin: 0;
+    line-height: 1.2;
+    padding: 0;
+  }
+
+  .filters-toggle-btn:hover {
+    opacity: 0.8;
+  }
+
+  /* Filters Actions - Compact on mobile */
+  .filters-actions {
+    flex-direction: row;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  /* Hide action buttons when filters are collapsed on mobile */
+  .filters-actions.filters-actions-collapsed {
+    display: none;
+  }
+
+  .clear-filters-btn,
+  .save-search-btn {
+    padding: 6px 10px;
+    font-size: 11px;
+  }
+
+  /* Filter Panel - Hidden when collapsed, no margin when visible */
+  .filters-panel {
+    margin-top: 12px;
+    padding-top: 12px;
+  }
+
+  /* Active Filter Chips - Compact spacing */
+  .active-filter-chips {
+    margin: 12px 0;
+    padding: 12px;
+  }
+
+  .chips-header {
+    margin-bottom: 8px;
+  }
+
+  .chips-header span {
+    font-size: 13px;
+  }
+
   .filter-chips {
     gap: 6px;
   }
@@ -1403,11 +1627,6 @@
   .filter-chip {
     padding: 4px 8px;
     font-size: 12px;
-  }
-  
-  .filters-actions {
-    flex-direction: column;
-    gap: 6px;
   }
   
   .results-title {
@@ -1441,16 +1660,6 @@
   
   .marker-name {
     font-size: 12px;
-  }
-
-  /* Collapsible Filters on Mobile */
-  .filters-toggle-btn {
-    width: 100%;
-    cursor: pointer;
-  }
-
-  .filters-toggle-btn:hover {
-    opacity: 0.8;
   }
 
   /* Browse Tab Mobile */

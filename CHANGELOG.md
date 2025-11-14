@@ -1,8 +1,46 @@
 # 🗺️ KAWAN MAKAN — CHANGELOG.md
 
-*Project timeline: 3 Oct – 13 Nov 2025*  
+*Project timeline: 3 Oct – 14 Nov 2025*  
 
 *Core Stack: React, Firebase Firestore, Google Maps Platform, @react-google-maps/api, TailwindCSS, Netlify/Firebase Hosting*
+
+---
+
+## v0.6.8 — Search Tab Mobile Fixes & Menu Database Enhancement (14 Nov 2025)
+
+**Milestone:** Mobile UX improvements, search accuracy fixes, menu database system enhancement.  
+**Objective:** Fix mobile testing bugs, improve search UX, implement structured menu database with meal time divisions.
+
+### 🐛 Bug Fixes
+
+- **Mobile Filter Layout** – Quick filters collapsed by default, optimized CSS for compact state
+- **Map View** – Fullscreen Google Maps integration, user location marker always visible, dynamic centering
+- **Distance Sorting** – Fixed sorting to prioritize closest restaurants (Johor → Melaka → NS → KL)
+- **Results Visibility** – Restaurant cards completely hidden in map view, conditional rendering
+- **Search Accuracy** – Fixed "Could not determine location" warning, always use user location for food searches
+- **API Over-Firing** – Filter Firestore results before API calls, only expand if insufficient relevant results
+- **Result Limits** – Increased minResults to 30, maxResultCount to 60
+
+### 🚀 Enhancements
+
+- **Menu Database System** – Structured menu with meal time divisions (breakfast/lunch/dinner/all)
+  - Added `mealTime` field to menu photos
+  - Created `buildMenuDatabase()` function
+  - Menu structure: `{breakfast: [], lunch: [], dinner: [], all: [], allItems: []}`
+  - Menu items included in searchable text
+- **Food Items Extraction** – Extract food items from restaurant names when saving to Firestore
+  - Created `extractFoodItems()` function
+  - Supports 50+ Malaysian food items
+  - Saves to `foodItems` array in Firestore
+- **Search Improvements** – Lenient text filtering, menu database integration, better result combination
+
+### 📊 Technical Changes
+
+- **SearchTab.js** – Fullscreen map, conditional rendering, user location marker
+- **SearchTab.css** – Fullscreen map styles, mobile-responsive filters
+- **enhancedSearchService.js** – Fixed search bounds, progressive radius with filtering, lenient mode
+- **firestoreSearchService.js** – Food items extraction, menu database saving
+- **AddRestaurantTab.js** – Meal time selection, menu database building
 
 ---
 

@@ -4,6 +4,46 @@ import { collection, addDoc, query, where, getDocs, limit } from 'firebase/fires
 import { db } from '../config/firebaseConfig';
 import './AddRestaurantTab.css';
 
+// Build structured menu database from menu photos
+// Organizes menu items by meal time for better search and display
+const buildMenuDatabase = (menuPhotos) => {
+  const menu = {
+    breakfast: [],
+    lunch: [],
+    dinner: [],
+    all: [], // Items available all day
+    allItems: [] // Flat list of all items for search
+  };
+  
+  menuPhotos.forEach(photo => {
+    if (!photo.menuName || !photo.menuName.trim()) return; // Skip unnamed items
+    
+    const menuItem = {
+      id: photo.id,
+      name: photo.menuName.trim(),
+      photo: photo.data,
+      photoId: photo.id,
+      addedAt: photo.uploadedAt || new Date()
+    };
+    
+    // Add to appropriate meal time category
+    const mealTime = photo.mealTime || 'all';
+    if (mealTime === 'all') {
+      menu.all.push(menuItem);
+      menu.breakfast.push(menuItem);
+      menu.lunch.push(menuItem);
+      menu.dinner.push(menuItem);
+    } else if (menu[mealTime]) {
+      menu[mealTime].push(menuItem);
+    }
+    
+    // Add to flat list for search
+    menu.allItems.push(menuItem.name.toLowerCase());
+  });
+  
+  return menu;
+};
+
 const AddRestaurantTab = () => {
   const { user } = useAuth();
   const [activeStep, setActiveStep] = useState(1);
@@ -556,6 +596,7 @@ const AddRestaurantTab = () => {
             id: Date.now() + Math.random(),
             name: file.name,
             menuName: '', // User will name this menu item
+            mealTime: 'all', // Default: 'breakfast', 'lunch', 'dinner', 'all'
             size: compressedFile.size,
             type: compressedFile.type,
             data: e.target.result,
@@ -581,6 +622,13 @@ const AddRestaurantTab = () => {
   const updateMenuPhotoName = (photoId, menuName) => {
     setMenuPhotos(prev => prev.map(photo => 
       photo.id === photoId ? { ...photo, menuName: menuName.trim() } : photo
+    ));
+  };
+
+  // Update menu photo meal time
+  const updateMenuPhotoMealTime = (photoId, mealTime) => {
+    setMenuPhotos(prev => prev.map(photo => 
+      photo.id === photoId ? { ...photo, mealTime: mealTime } : photo
     ));
   };
 
@@ -856,7 +904,11 @@ const AddRestaurantTab = () => {
         // Photos
         photos: [], // Will be populated by admin after approval
         userPhotos: uploadedPhotos,
-        menuPhotos: menuPhotos, // NEW: Menu photos with names
+        menuPhotos: menuPhotos, // Menu photos with names and meal times
+        
+        // Structured Menu Database (built from menuPhotos)
+        // This enables accurate food item searches and meal-time filtering
+        menu: buildMenuDatabase(menuPhotos),
         
         // User engagement
         userCheckIns: 0,
@@ -1301,6 +1353,17 @@ const AddRestaurantTab = () => {
                     onChange={(e) => updateMenuPhotoName(photo.id, e.target.value)}
                     className="menu-name-input"
                   />
+                  <select
+                    value={photo.mealTime || 'all'}
+                    onChange={(e) => updateMenuPhotoMealTime(photo.id, e.target.value)}
+                    className="meal-time-select"
+                    title="When is this item available?"
+                  >
+                    <option value="all">🌅 All Day</option>
+                    <option value="breakfast">🌅 Breakfast</option>
+                    <option value="lunch">☀️ Lunch</option>
+                    <option value="dinner">🌙 Dinner</option>
+                  </select>
                   <button
                     type="button"
                     onClick={() => removeMenuPhoto(photo.id)}

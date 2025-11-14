@@ -209,7 +209,7 @@ class FirestoreSearchService {
           },
           radius: 10000
         },
-        maxResultCount: 30,
+        maxResultCount: 60, // Increased for better coverage
         language: 'en-MY',
         region: 'MY',
       };
@@ -492,6 +492,73 @@ class FirestoreSearchService {
   }
 
   /**
+   * Extract food items from restaurant name and description
+   * This helps with accurate food item searches (e.g., "nasi lemak")
+   */
+  extractFoodItems(name, types = []) {
+    const nameLower = (name || '').toLowerCase();
+    const typesLower = types.map(t => String(t).toLowerCase());
+    const combinedText = `${nameLower} ${typesLower.join(' ')}`;
+    
+    // Common Malaysian food items (multi-word first, then single words)
+    const foodItems = [
+      // Multi-word food items (check these first)
+      'nasi lemak', 'nasi goreng', 'nasi kerabu', 'nasi dagang', 'nasi kandar',
+      'char kway teow', 'char kuey teow', 'char kuay teow',
+      'roti canai', 'roti telur', 'roti kosong', 'roti naan', 'roti jala',
+      'mee goreng', 'mee rebus', 'mee soup', 'mee hoon',
+      'laksa', 'laksa penang', 'laksa johor', 'laksa sarawak',
+      'satay', 'satay ayam', 'satay daging', 'satay kambing',
+      'rendang', 'rendang ayam', 'rendang daging',
+      'ayam goreng', 'ayam percik', 'ayam masak merah',
+      'ikan bakar', 'ikan goreng', 'ikan asam pedas',
+      'teh tarik', 'kopi o', 'kopi ais', 'kopi peng',
+      'murtabak', 'murtabak ayam', 'murtabak daging',
+      'curry puff', 'karipap', 'karipap ayam',
+      'biryani', 'nasi biryani', 'biryani ayam',
+      'tandoori', 'tandoori chicken',
+      'dim sum', 'siew mai', 'har gow', 'char siew bao',
+      'bak kut teh', 'bak kut teh klang',
+      'hokkien mee', 'hokkien char',
+      'wonton mee', 'wonton soup',
+      'pad thai', 'tom yam', 'green curry',
+      'ramen', 'udon', 'soba',
+      'sushi', 'sashimi', 'maki',
+      'burger', 'pizza', 'pasta',
+      'bubur', 'bubur cha cha', 'bubur kacang',
+      'cendol', 'ais kacang', 'abc',
+      'rojak', 'rojak buah', 'rojak pasir',
+      // Single-word food items
+      'nasi', 'mee', 'roti', 'satay', 'laksa', 'rendang',
+      'curry', 'soup', 'noodles', 'rice', 'chicken', 'fish',
+      'beef', 'lamb', 'prawn', 'crab', 'squid'
+    ];
+    
+    const foundFoodItems = [];
+    
+    // Check for multi-word food items first (more specific)
+    for (const foodItem of foodItems) {
+      if (foodItem.includes(' ') && combinedText.includes(foodItem)) {
+        foundFoodItems.push(foodItem);
+      }
+    }
+    
+    // Then check single-word items (avoid duplicates)
+    for (const foodItem of foodItems) {
+      if (!foodItem.includes(' ') && combinedText.includes(foodItem)) {
+        // Check if not already included as part of multi-word
+        const isPartOfMultiWord = foundFoodItems.some(multi => multi.includes(foodItem));
+        if (!isPartOfMultiWord) {
+          foundFoodItems.push(foodItem);
+        }
+      }
+    }
+    
+    // Remove duplicates and return
+    return [...new Set(foundFoodItems)];
+  }
+
+  /**
    * Extract cuisine information from types array and name
    */
   extractCuisineInfo(types, name) {
@@ -662,6 +729,10 @@ class FirestoreSearchService {
           const halalStatus = this.extractHalalStatus(restaurant.types || [], restaurant.name);
           const businessFeatures = this.extractBusinessFeatures(restaurant.types || []);
           
+          // Extract food items from restaurant name and types
+          // This enables accurate food item searches (e.g., "nasi lemak")
+          const foodItems = this.extractFoodItems(restaurant.name, restaurant.types || []);
+          
           // Convert currentOpeningHours to operatingHours (Firestore structure)
           let operatingHours = {
             isOpen: false,
@@ -716,6 +787,15 @@ class FirestoreSearchService {
             cuisineCategory: cuisineInfo.cuisineCategory,
             cuisineType: cuisineInfo.cuisineType,
             cuisineTags: cuisineInfo.cuisineTags,
+            
+            // Food Items (extracted from name/description for accurate food searches)
+            // Example: ["nasi lemak", "roti canai"] - enables searching "nasi lemak" to find restaurants that serve it
+            foodItems: foodItems,
+            
+            // Menu Database (if available from user submissions)
+            // Structured menu organized by meal time: {breakfast: [], lunch: [], dinner: [], all: [], allItems: []}
+            // This provides accurate food item searches and meal-time filtering
+            menu: restaurant.menu || null,
             
             // Halal Status
             halalStatus: halalStatus,

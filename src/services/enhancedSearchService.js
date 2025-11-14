@@ -247,9 +247,7 @@ class EnhancedSearchService {
         }
         
         // If still no location, use default (will be handled below)
-        if (!searchBounds) {
-          console.log('⚠️ Could not determine location, using default Malaysia center');
-        }
+        // Note: searchBounds might be null here, but we'll set it below using userLocation
       }
       
       // Update filters if cuisine or meal type found in query
@@ -261,28 +259,147 @@ class EnhancedSearchService {
       }
       
       // Use determined location or fallback to user location or default
+      // IMPORTANT: For food item searches, ALWAYS use user location if available
+      const isFoodItemSearch = foodFromQuery && !locationFromQuery;
+      
       if (searchBounds && searchCenter) {
-        // Already set above
+        // Already set above (location-specific search)
+        console.log('✅ Using location-specific search bounds');
+      } else if (userLocation && isFoodItemSearch) {
+        // Food item search: ALWAYS use user location with progressive radius expansion
+        searchCenter = userLocation;
+        // Start with 25km, will expand if needed (handled below)
+        searchBounds = this.createSearchBounds(userLocation, filters.distance || 25);
+        console.log('✅ Using user location for food item search:', userLocation);
       } else if (userLocation) {
+        // Other searches: Use user location if available
         searchCenter = userLocation;
         searchBounds = this.createSearchBounds(userLocation, filters.distance || 10);
+        console.log('✅ Using user location for search:', userLocation);
       } else {
-        // Default to Malaysia center if no location specified
+        // Default to Malaysia center ONLY if no user location available
         searchCenter = { lat: 4.2105, lng: 101.9758 }; // Malaysia center
         searchBounds = this.createSearchBounds(searchCenter, filters.distance || 50);
+        console.log('⚠️ No user location available, using default Malaysia center');
       }
 
       if (!searchBounds) {
-        throw new Error('Could not determine search location');
+        // Final fallback - should never reach here if userLocation exists
+        if (userLocation) {
+          searchCenter = userLocation;
+          searchBounds = this.createSearchBounds(userLocation, filters.distance || 25);
+          console.log('✅ Fallback: Using user location for search bounds');
+        } else {
+          throw new Error('Could not determine search location');
+        }
       }
 
-      // Perform search using existing firestoreSearchService
-      const results = await firestoreSearchService.searchRestaurants(searchBounds, {
-        foodType: filters.cuisineType !== 'all' ? filters.cuisineType : 'all',
-        minRating: filters.minRating || 0,
-        halalOnly: filters.halalStatus === 'halal',
-        openNow: filters.openNow || false
-      });
+      // Progressive radius expansion for food item searches with user location
+      // Strategy: At each radius (25km → 50km → 100km):
+      //   1. Try Firestore first
+      //   2. If < 20 results after filtering → fallback to Google Places API at same radius
+      //   3. If still < 20 results → expand to next radius and repeat
+      let results = [];
+      let currentRadius = filters.distance || 25;
+      let finalRadius = currentRadius; // Make accessible for Google Places fallback
+      const radiusSteps = [25, 50, 100]; // Progressive expansion
+      const minResults = 30; // Target minimum results (increased for better coverage)
+      let shouldFallbackToGoogle = false;
+      
+      if (isFoodItemSearch && userLocation && !filters.nearMe) {
+        // Progressive search: Start small, expand if needed
+        for (const radius of radiusSteps) {
+          if (radius < currentRadius) continue; // Skip if already tried larger radius
+          
+          const expandedBounds = this.createSearchBounds(userLocation, radius);
+          console.log(`🔍 Searching within ${radius}km of user location...`);
+          
+          // STEP 1: Try Firestore first
+          const firestoreResults = await firestoreSearchService.searchRestaurants(expandedBounds, {
+            foodType: filters.cuisineType !== 'all' ? filters.cuisineType : 'all',
+            minRating: filters.minRating || 0,
+            halalOnly: filters.halalStatus === 'halal',
+            openNow: filters.openNow || false
+          });
+          
+          // For progressive search, filter Firestore results by food item query
+          // Use lenient filtering to catch restaurants with food items in name, foodItems array, or menu database
+          let filteredFirestoreResults = this.filterByTextQuery(firestoreResults, foodFromQuery || searchQuery, true); // lenient mode
+          console.log(`📊 Firestore: Found ${filteredFirestoreResults.length} relevant results (filtered from ${firestoreResults.length} raw) within ${radius}km (target: ${minResults})`);
+          
+          // STEP 2: If Firestore doesn't have enough RELEVANT results, try Google Places API at same radius
+          if (filteredFirestoreResults.length < minResults) {
+            console.log(`🔄 Firestore has insufficient results (${filteredFirestoreResults.length} < ${minResults}), trying Google Places API at ${radius}km...`);
+            
+            try {
+              const googleResults = await firestoreSearchService.searchRestaurants(
+                expandedBounds,
+                {
+                  foodType: filters.cuisineType !== 'all' ? filters.cuisineType : 'all',
+                  minRating: filters.minRating || 0,
+                  halalOnly: filters.halalStatus === 'halal',
+                  openNow: filters.openNow || false
+                },
+                true, // forceGooglePlaces = true
+                `${foodFromQuery || searchQuery} restaurant` // Custom text query
+              );
+              
+              // For Google Places results, apply light text filtering (partial match, not strict)
+              // This keeps restaurants that likely serve the food item even if not in name
+              let filteredGoogleResults = this.filterByTextQuery(googleResults, foodFromQuery || searchQuery, true); // true = lenient mode
+              console.log(`📊 Google Places: Found ${filteredGoogleResults.length} results within ${radius}km (after lenient filtering)`);
+              
+              // Combine results: Use Google Places if it has good matches, otherwise use Firestore
+              // Prefer Google Places when it has at least 5 results (likely good matches)
+              if (filteredGoogleResults.length >= 5) {
+                results = filteredGoogleResults;
+                console.log(`✅ Using Google Places results (${filteredGoogleResults.length} good matches)`);
+              } else if (filteredFirestoreResults.length > filteredGoogleResults.length) {
+                results = filteredFirestoreResults;
+                console.log(`✅ Using Firestore results (${filteredFirestoreResults.length} > ${filteredGoogleResults.length})`);
+              } else {
+                results = filteredGoogleResults.length > 0 ? filteredGoogleResults : filteredFirestoreResults;
+                console.log(`✅ Using best available results: ${results.length} total`);
+              }
+            } catch (error) {
+              console.warn(`⚠️ Google Places API failed at ${radius}km, using Firestore results:`, error);
+              results = filteredFirestoreResults;
+            }
+          } else {
+            // Firestore has enough RELEVANT results (filtered by food item)
+            results = filteredFirestoreResults;
+            console.log(`✅ Found ${filteredFirestoreResults.length} relevant results within ${radius}km from Firestore - stopping expansion`);
+            finalRadius = radius;
+            break;
+          }
+          
+          // STEP 3: Check if we have enough RELEVANT results now (after trying both Firestore and Places)
+          // Only count results that match the food item query
+          if (results.length >= minResults) {
+            console.log(`✅ Found ${results.length} relevant results within ${radius}km (after Firestore + Places) - stopping expansion`);
+            finalRadius = radius;
+            break;
+          } else {
+            console.log(`📊 Total relevant results at ${radius}km: ${results.length} (target: ${minResults}) - expanding radius...`);
+            finalRadius = radius;
+            // Continue to next radius
+          }
+        }
+        
+        // If we still don't have enough results after all radii, mark for Google Places fallback
+        if (results.length < minResults) {
+          console.log(`⚠️ Only found ${results.length} results after all radius expansions - will use Google Places fallback`);
+          shouldFallbackToGoogle = true;
+        }
+      } else {
+        // Non-food-item search or Near Me: Use single radius search
+        results = await firestoreSearchService.searchRestaurants(searchBounds, {
+          foodType: filters.cuisineType !== 'all' ? filters.cuisineType : 'all',
+          minRating: filters.minRating || 0,
+          halalOnly: filters.halalStatus === 'halal',
+          openNow: filters.openNow || false
+        });
+      }
 
       // Check if this is a location query (geocoded successfully AND not a cuisine/food item)
       // Don't treat cuisine queries or empty queries with userLocation as location queries
@@ -300,10 +417,10 @@ class EnhancedSearchService {
       }
 
       // Apply text-based filtering if search query is provided
+      // Note: For progressive food item searches, filtering is already done above
       let filteredResults = results;
-      let shouldFallbackToGoogle = false;
       
-      // Determine what to filter by:
+      // Determine what to filter by (define these outside conditional for use later):
       // - If compound query has food item, filter by food item
       // - If compound query has location, don't filter (location already correct)
       // - Otherwise, use full query for text filtering
@@ -311,14 +428,19 @@ class EnhancedSearchService {
       const isFoodItem = foodFromQuery || (searchQuery && this.isCuisineType(searchQuery));
       const isLocationOnly = locationFromQuery && !foodFromQuery && !cuisineFromQuery;
       
-      if (textFilterQuery && !isLocationOnly) {
-        console.log('🔍 Applying text-based filtering for query:', textFilterQuery);
-        const beforeFilter = results.length;
-        filteredResults = this.filterByTextQuery(results, textFilterQuery);
-        console.log(`📊 Text filtering: ${beforeFilter} → ${filteredResults.length} results`);
+      // Skip text filtering if we already did progressive search (filtering already applied)
+      const didProgressiveSearch = isFoodItemSearch && userLocation && !filters.nearMe;
+      
+      if (!didProgressiveSearch) {
         
-        // If text filtering removed all results, check if it's a food item or location
-        if (filteredResults.length === 0 && beforeFilter > 0) {
+        if (textFilterQuery && !isLocationOnly) {
+          console.log('🔍 Applying text-based filtering for query:', textFilterQuery);
+          const beforeFilter = results.length;
+          filteredResults = this.filterByTextQuery(results, textFilterQuery);
+          console.log(`📊 Text filtering: ${beforeFilter} → ${filteredResults.length} results`);
+          
+          // If text filtering removed all results, check if it's a food item or location
+          if (filteredResults.length === 0 && beforeFilter > 0) {
           // Don't geocode if it's a known food item/cuisine type
           if (isFoodItem) {
             console.log(`🍽️ Query "${searchQuery}" is a food item - will search for restaurants serving this`);
@@ -413,6 +535,7 @@ class EnhancedSearchService {
           }
         }
       }
+      } // End of if (!didProgressiveSearch) block
       
       // If we should fallback to Google Places (location query with no matching results)
       // This happens when:
@@ -435,9 +558,13 @@ class EnhancedSearchService {
           console.log('💡 This ensures we get restaurants from the correct location');
         }
         
-        // Use the best available bounds (geocoded > predefined > original)
+        // Use the best available bounds (user location > geocoded > predefined > original)
         let locationBounds = searchBounds;
-        if (searchCenter) {
+        if (isFoodItemSearch && userLocation) {
+          // Food item search: Use user location with final radius (from progressive expansion)
+          locationBounds = this.createSearchBounds(userLocation, finalRadius || filters.distance || 25);
+          console.log(`📍 Using user location bounds (${finalRadius || filters.distance || 25}km):`, userLocation);
+        } else if (searchCenter) {
           // Already have geocoded center, use it
           locationBounds = this.createSearchBounds(searchCenter, filters.distance || 25);
           console.log('📍 Using geocoded location bounds:', searchCenter);
@@ -505,10 +632,11 @@ class EnhancedSearchService {
           filteredResults = this.filterByTextQuery(googleResults, filterBy);
           console.log(`🔍 Filtering compound query results by "${filterBy}": ${beforeTextFilter} → ${filteredResults.length}`);
         } else if (foodFromQuery && googleResults.length > 0) {
-          // Food item only - filter by food item
+          // Food item only - use lenient filtering (partial match, not strict)
+          // This keeps restaurants that likely serve the food item even if not in name
           const beforeTextFilter = googleResults.length;
-          filteredResults = this.filterByTextQuery(googleResults, foodFromQuery);
-          console.log(`🍽️ Text filtering food item results: ${beforeTextFilter} → ${filteredResults.length}`);
+          filteredResults = this.filterByTextQuery(googleResults, foodFromQuery, true); // true = lenient mode
+          console.log(`🍽️ Text filtering food item results (lenient): ${beforeTextFilter} → ${filteredResults.length}`);
         } else if (searchQuery && googleResults.length > 0) {
           // Fallback: filter by full query
           const beforeTextFilter = googleResults.length;
@@ -542,16 +670,48 @@ class EnhancedSearchService {
       filteredResults = this.applyFilters(filteredResults, filtersToApply);
       console.log(`📊 After applyFilters: ${filteredResults.length} results`);
 
-      // Calculate distances if user location is available
-      if (searchCenter) {
-        filteredResults = filteredResults.map(restaurant => ({
-          ...restaurant,
-          distanceFromUser: this.calculateDistance(searchCenter, restaurant.location)
-        }));
+      // Calculate distances - prioritize user location over search center for better UX
+      const locationForDistance = userLocation || searchCenter;
+      if (locationForDistance) {
+        filteredResults = filteredResults.map(restaurant => {
+          const restaurantLocation = restaurant.location || restaurant.geometry?.location;
+          const distance = restaurantLocation ? this.calculateDistance(locationForDistance, restaurantLocation) : null;
+          return {
+            ...restaurant,
+            distanceFromUser: distance
+          };
+        });
       }
 
-      // Sort results
-      filteredResults = this.sortResults(filteredResults, filters.sortBy || 'rating');
+      // Sort results - for food item searches, ALWAYS prioritize distance if user location available
+      // This ensures results are shown from closest to farthest (e.g., Johor → Melaka → NS → KL)
+      // Detect food items: parsed food, cuisine type, or common food keywords
+      const commonFoodKeywords = ['nasi', 'roti', 'mee', 'laksa', 'char', 'kuey', 'teow', 'rendang', 'satay', 'curry', 'tomyam', 'pad thai', 'pho', 'ramen', 'sushi', 'burger', 'pizza', 'pasta'];
+      const queryLower = (searchQuery || '').toLowerCase();
+      const hasFoodKeyword = commonFoodKeywords.some(keyword => queryLower.includes(keyword));
+      const hasFoodItem = foodFromQuery || (searchQuery && this.isCuisineType(searchQuery)) || hasFoodKeyword;
+      
+      if (hasFoodItem && userLocation) {
+        // Food item search: Always sort by distance first (closer restaurants), then rating
+        // Filter out restaurants without distance first, then sort by distance
+        const withDistance = filteredResults.filter(r => r.distanceFromUser !== null && r.distanceFromUser !== undefined);
+        const withoutDistance = filteredResults.filter(r => r.distanceFromUser === null || r.distanceFromUser === undefined);
+        
+        // Sort by distance (closest first)
+        withDistance.sort((a, b) => a.distanceFromUser - b.distanceFromUser);
+        
+        // Sort without distance by rating
+        withoutDistance.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+        
+        // Combine: with distance first, then without distance
+        filteredResults = [...withDistance, ...withoutDistance];
+        
+        console.log(`📍 Sorted ${filteredResults.length} food item results by distance from user location (${withDistance.length} with distance, ${withoutDistance.length} without)`);
+        console.log(`📍 First 5 distances:`, filteredResults.slice(0, 5).map(r => ({ name: r.name, distance: r.distanceFromUser })));
+      } else {
+        // Non-food-item searches: use configured sort
+        filteredResults = this.sortResults(filteredResults, filters.sortBy || 'rating');
+      }
 
       // Save to search history
       this.saveSearchToHistory(searchQuery, filters);
@@ -718,7 +878,9 @@ class EnhancedSearchService {
   }
 
   // Filter results by text query (case-insensitive, partial matching)
-  filterByTextQuery(results, searchQuery) {
+  // lenientMode: if true, uses partial word matching (e.g., "nasi" matches "nasilemak")
+  //              if false, requires all words to be present (strict matching)
+  filterByTextQuery(results, searchQuery, lenientMode = false) {
     const query = searchQuery.toLowerCase().trim();
     
     // If query is empty, return all results
@@ -731,6 +893,16 @@ class EnhancedSearchService {
     
     return results.filter(restaurant => {
       // Build searchable text from all restaurant fields
+      // IMPORTANT: Include foodItems array AND menu database if available (enables accurate food item searches)
+      const foodItemsText = Array.isArray(restaurant.foodItems) 
+        ? restaurant.foodItems.join(' ') 
+        : '';
+      
+      // Include menu items from structured menu database (user-submitted menu photos)
+      const menuItemsText = restaurant.menu && Array.isArray(restaurant.menu.allItems)
+        ? restaurant.menu.allItems.join(' ')
+        : '';
+      
       const searchableText = [
         restaurant.name || '',
         restaurant.displayName || '',
@@ -738,7 +910,9 @@ class EnhancedSearchService {
         restaurant.formattedAddress || '',
         restaurant.cuisineType || '',
         restaurant.types ? restaurant.types.join(' ') : '',
-        restaurant.vicinity || ''
+        restaurant.vicinity || '',
+        foodItemsText, // Food items extracted from name
+        menuItemsText // Menu items from user-submitted menu photos
       ].join(' ').toLowerCase();
       
       // Strategy 1: Check if full query matches anywhere (for partial matches like "mc" → "mcdonald's")
@@ -746,15 +920,28 @@ class EnhancedSearchService {
         return true;
       }
       
-      // Strategy 2: Check if all query words are found (for multi-word queries like "nasi lemak")
+      // Strategy 2: Check if query words are found
       if (queryWords.length > 0) {
-        return queryWords.every(word => {
-          // Each word must be at least 2 characters to avoid matching single letters
-          if (word.length < 2) {
-            return true; // Skip single character words
+        if (lenientMode) {
+          // Lenient mode: Match if ANY significant word is found (for food items)
+          // This keeps restaurants that likely serve the food even if not in name
+          const significantWords = queryWords.filter(word => word.length >= 3); // Words with 3+ chars
+          if (significantWords.length === 0) {
+            // If no significant words, use first word
+            return searchableText.includes(queryWords[0]);
           }
-          return searchableText.includes(word);
-        });
+          // Match if at least one significant word is found
+          return significantWords.some(word => searchableText.includes(word));
+        } else {
+          // Strict mode: All words must be found (original behavior)
+          return queryWords.every(word => {
+            // Each word must be at least 2 characters to avoid matching single letters
+            if (word.length < 2) {
+              return true; // Skip single character words
+            }
+            return searchableText.includes(word);
+          });
+        }
       }
       
       return false;

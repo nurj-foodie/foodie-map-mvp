@@ -836,7 +836,7 @@
   padding: 8px;
   border: 1px solid #e0e0e0;
   border-top: none;
-  border-radius: 0 0 8px 8px;
+  border-radius: 0;
   font-size: 12px;
   background: #f8f9fa;
 }
@@ -845,6 +845,28 @@
   outline: none;
   border-color: #CC0001;
   background: white;
+}
+
+.meal-time-select {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid #e0e0e0;
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  font-size: 11px;
+  background: #f8f9fa;
+  color: #333;
+  cursor: pointer;
+}
+
+.meal-time-select:focus {
+  outline: none;
+  border-color: #CC0001;
+  background: white;
+}
+
+.meal-time-select:hover {
+  background: #f0f0f0;
 }
 
 .review-menu-photos {
