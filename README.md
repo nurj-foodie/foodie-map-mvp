@@ -1,6 +1,6 @@
 # 🗺️ Kawan Makan — Food Discovery App
 
-**Current Version:** v0.6.8 | [📋 View Changelog](./CHANGELOG.md)
+**Current Version:** v0.6.9 | [📋 View Changelog](./CHANGELOG.md)
 
 A cost-effective food discovery app that helps users find restaurants along their routes with 95% API cost reduction. Built for Peninsular Malaysia with route planning, restaurant discovery, and user contributions.
 
@@ -48,6 +48,7 @@ A cost-effective food discovery app that helps users find restaurants along thei
   - Review and approve restaurant submissions
   - Review and approve restaurant edits (photos, hours, name, closed status)
   - Moderate user reviews (verify/delete)
+  - Duplicate detection for submissions (Firestore-only, 3-strategy detection)
   - Manage user accounts (suspend, activate, ban, unban)
   - View analytics (overview, cost, user behavior, system performance)
 

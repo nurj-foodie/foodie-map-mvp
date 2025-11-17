@@ -1,8 +1,56 @@
 # 🗺️ KAWAN MAKAN — CHANGELOG.md
 
-*Project timeline: 3 Oct – 14 Nov 2025*  
+*Project timeline: 3 Oct – 17 Nov 2025*  
 
 *Core Stack: React, Firebase Firestore, Google Maps Platform, @react-google-maps/api, TailwindCSS, Netlify/Firebase Hosting*
+
+---
+
+## v0.6.9 — Add Restaurant Tab Mobile Fixes & Admin Duplicate Detection (17 Nov 2025)
+
+**Milestone:** Add Restaurant tab mobile UX improvements, Admin submission review fixes, duplicate detection feature.  
+**Objective:** Fix mobile testing bugs in Add Restaurant tab, ensure admin can review submissions, add duplicate detection for admin review process.
+
+### 🐛 Bug Fixes
+
+- **Admin Tab Query** – Fixed restaurant submissions not appearing in Admin tab
+  - Changed from `limit(200)` to fetching all documents
+  - Improved filtering logic to handle documents without status field
+  - Added prioritization for pending_review submissions
+  - Increased limit to 100 filtered results
+- **Add Restaurant Tab Mobile** – Fixed UI overflow issues
+  - Removed `min-width: 150px` on mobile for photo upload buttons
+  - Added `overflow-x: hidden` to containers
+  - Added `box-sizing: border-box` to form inputs
+  - Made buttons full width on mobile
+- **Admin Modal Overlap** – Fixed action buttons overlapping bottom navigation
+  - Added `padding-bottom: 80px` to modal overlay
+  - Made modal flexbox with sticky action buttons
+  - Improved mobile-specific positioning
+  - Action buttons now visible above bottom navigation
+
+### 🚀 Enhancements
+
+- **Admin Duplicate Detection** – Firestore-only duplicate checking for admin review
+  - Three-strategy detection: name matching, address matching, location proximity (100m)
+  - Similarity scoring (0-100%) with color-coded badges
+  - Match type indicators (name/address/location)
+  - Detailed duplicate information display
+  - Automatic detection when opening submission modal
+  - Excludes current submission from results
+  - Shows top 10 most similar matches
+
+### 📊 Technical Changes
+
+- **RestaurantReviewDashboard.js** – Enhanced query logic, duplicate detection functions
+- **RestaurantReviewDashboard.css** – Modal positioning fixes, duplicate section styles
+- **AddRestaurantTab.css** – Mobile overflow fixes, responsive button styles
+
+### 🔍 Error Explanations
+
+- **Firestore WebChannelConnection Warning** – Explained as network/connection issue, not Firestore rules problem
+  - Automatic retry mechanism handles transient failures
+  - No action needed unless operations consistently fail
 
 ---
 

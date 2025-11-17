@@ -185,6 +185,8 @@
   justify-content: center;
   z-index: 1000;
   padding: 20px;
+  padding-bottom: 80px; /* Account for bottom navigation on mobile */
+  overflow-y: auto;
 }
 
 .submission-modal {
@@ -192,9 +194,11 @@
   border-radius: 12px;
   max-width: 800px;
   width: 100%;
-  max-height: 90vh;
+  max-height: calc(100vh - 100px); /* Account for padding and bottom nav */
   overflow-y: auto;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
 }
 
 .modal-header {
@@ -233,6 +237,9 @@
 
 .modal-content {
   padding: 20px;
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0; /* Allow flex shrinking */
 }
 
 .submission-info h4 {
@@ -330,6 +337,10 @@
   padding: 20px;
   border-top: 1px solid #e0e0e0;
   background: #f8f9fa;
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  flex-shrink: 0; /* Prevent flex shrinking */
 }
 
 .btn-approve,
@@ -386,22 +397,42 @@
     grid-template-columns: 1fr;
   }
   
+  .submission-modal-overlay {
+    padding: 10px;
+    padding-bottom: 90px; /* Extra space for bottom navigation */
+    align-items: flex-end; /* Align modal to bottom on mobile */
+  }
+  
   .submission-modal {
-    margin: 10px;
-    max-height: 95vh;
+    margin: 0;
+    max-height: calc(100vh - 100px); /* Account for bottom nav */
+    width: 100%;
+    border-radius: 12px 12px 0 0; /* Rounded top corners only */
   }
   
   .modal-header {
     padding: 15px;
+    position: sticky;
+    top: 0;
+    background: white;
+    z-index: 10;
+    border-bottom: 1px solid #e0e0e0;
   }
   
   .modal-content {
     padding: 15px;
+    max-height: calc(100vh - 250px); /* Leave space for header and actions */
+    overflow-y: auto;
   }
   
   .modal-actions {
     padding: 15px;
     flex-direction: column;
+    position: sticky;
+    bottom: 0;
+    background: #f8f9fa;
+    border-top: 1px solid #e0e0e0;
+    margin-top: auto; /* Push to bottom */
   }
   
   .btn-approve,
@@ -420,6 +451,120 @@
   
   .submission-photo {
     height: 120px;
+  }
+}
+
+/* Duplicates Section */
+.duplicates-section {
+  margin: 20px 0;
+  padding: 15px;
+  background: #fff3cd;
+  border: 2px solid #ffc107;
+  border-radius: 8px;
+}
+
+.duplicates-section h4 {
+  color: #856404;
+  margin: 0 0 10px 0;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.checking-indicator {
+  font-size: 14px;
+  font-weight: normal;
+  color: #666;
+  font-style: italic;
+}
+
+.duplicates-warning {
+  margin-top: 10px;
+}
+
+.warning-text {
+  color: #856404;
+  font-weight: 600;
+  margin-bottom: 15px;
+  padding: 10px;
+  background: white;
+  border-radius: 6px;
+  border-left: 4px solid #ffc107;
+}
+
+.duplicates-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.duplicate-item {
+  background: white;
+  padding: 12px;
+  border-radius: 6px;
+  border: 1px solid #ffeaa7;
+}
+
+.duplicate-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.duplicate-header strong {
+  color: #333;
+  font-size: 16px;
+}
+
+.match-badge {
+  padding: 4px 8px;
+  border-radius: 4px;
+  color: white;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.duplicate-details {
+  font-size: 13px;
+  color: #666;
+}
+
+.duplicate-details div {
+  margin: 4px 0;
+}
+
+.status-badge-small {
+  padding: 2px 6px;
+  border-radius: 3px;
+  color: white;
+  font-size: 10px;
+  font-weight: 600;
+  margin-left: 5px;
+  text-transform: uppercase;
+}
+
+.no-duplicates {
+  color: #28a745;
+  font-weight: 600;
+  padding: 10px;
+  background: white;
+  border-radius: 6px;
+  text-align: center;
+}
+
+@media (max-width: 768px) {
+  .duplicate-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .match-badge {
+    font-size: 10px;
   }
 }
 

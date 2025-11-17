@@ -934,9 +934,13 @@ const AddRestaurantTab = () => {
         }
       };
 
-      await addDoc(collection(db, 'eateries'), cleanFormData);
+      const docRef = await addDoc(collection(db, 'eateries'), cleanFormData);
       
       console.log('✅ Restaurant submitted successfully:', formData.name);
+      console.log('📝 Document ID:', docRef.id);
+      console.log('📊 Submission status:', cleanFormData.status);
+      console.log('📅 Created at:', cleanFormData.createdAt);
+      console.log('👤 Created by:', cleanFormData.createdBy);
       
       setSubmissionStatus({
         type: 'success',
