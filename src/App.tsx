@@ -912,7 +912,7 @@ const AppWithAuth: React.FC = () => {
       return (
         <div className="App">
           <header className="App-header">
-            <h1>🍽️ Foodie Map - Simple</h1>
+            <h1>Kawan Makan</h1>
             
             
             <RouteInputForm

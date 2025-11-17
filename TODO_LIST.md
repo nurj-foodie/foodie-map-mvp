@@ -1,8 +1,8 @@
 # ✅ TODO LIST
 
 **Date:** 17 November 2025  
-**Status:** Add Restaurant Tab Mobile Fixes Complete - Admin Duplicate Detection Added  
-**Last Updated:** 17 November 2025, 10:03 (Add Restaurant Tab Mobile Fixes & Admin Features Completed)
+**Status:** Pre-Beta Finalization Complete - Ready for Beta Phase  
+**Last Updated:** 17 November 2025, 14:42 (Discover Tab Adjustments & Branding Updates Completed)
 
 ---
 
@@ -36,13 +36,18 @@
   - [x] Modal action buttons overlap fixed ✅
   - [x] Duplicate detection feature added ✅
 
-- [x] **Fix founder feedback issues - Add Restaurant Tab** - Priority: High (Completed: Nov 17, 2025)
+- [x] **Fix founder feedback issues - Add Restaurant Tab** - Priority: High (Completed: Nov 17, 2025 - Session 1)
   - [x] Restaurant submissions not appearing in Admin tab ✅
   - [x] UI overflow issues on mobile ✅
   - [x] Modal action buttons overlap ✅
   - [x] Duplicate detection for admin review ✅
 
-- [ ] **Fix remaining founder feedback issues** - Priority: High
+- [x] **Fix founder feedback issues - Discover Tab** - Priority: High (Completed: Nov 17, 2025 - Session 2)
+  - [x] Header branding update (Foodie Map → Kawan Makan) ✅
+  - [x] Favorite button overflow fix ✅
+  - [x] Favorite button borderless icon-only design ✅
+
+- [ ] **Fix remaining founder feedback issues** - Priority: Medium
   - [ ] Document all founder feedback
   - [ ] Prioritize issues
   - [ ] Fix high-priority issues

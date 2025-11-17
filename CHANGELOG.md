@@ -6,6 +6,29 @@
 
 ---
 
+## v0.7.0 — Pre-Beta Finalization: Discover Tab & Branding Updates (17 Nov 2025)
+
+**Milestone:** Pre-Beta finalization - Discover tab adjustments and branding updates.  
+**Objective:** Final UI/UX adjustments before beta phase launch, update branding to "Kawan Makan", improve Discover tab favorite button UX.
+
+### 🎨 UI/UX Improvements
+
+- **Branding Update** – Changed header from "🍽️ Foodie Map - Simple" to "Kawan Makan"
+  - Updated Discover tab header
+  - Consistent branding across app
+- **Discover Tab Favorite Button** – Improved favorite button UX in restaurant result cards
+  - Removed border around favorite button (icon-only display)
+  - Fixed overflow issues on mobile
+  - Transparent background with scale animation on hover
+  - Better mobile responsiveness with flex-shrink prevention
+
+### 📊 Technical Changes
+
+- **App.tsx** – Updated Discover tab header text
+- **RouteResults.css** – Favorite button styling improvements, overflow fixes
+
+---
+
 ## v0.6.9 — Add Restaurant Tab Mobile Fixes & Admin Duplicate Detection (17 Nov 2025)
 
 **Milestone:** Add Restaurant tab mobile UX improvements, Admin submission review fixes, duplicate detection feature.  

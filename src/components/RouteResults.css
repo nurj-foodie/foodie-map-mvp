@@ -211,6 +211,40 @@
   display: flex;
   gap: 8px;
   align-items: center;
+  flex-wrap: wrap;
+}
+
+/* Favorite button styling in restaurant cards - borderless icon only */
+.restaurant-card .restaurant-actions .favorite-button {
+  display: flex;
+  align-items: center;
+  overflow: visible;
+}
+
+.restaurant-card .restaurant-actions .favorite-btn {
+  background: transparent !important;
+  border: none !important;
+  padding: 4px !important;
+  min-width: auto;
+  width: auto;
+  overflow: visible;
+}
+
+.restaurant-card .restaurant-actions .favorite-btn:hover {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  transform: scale(1.1);
+}
+
+.restaurant-card .restaurant-actions .favorite-btn--active {
+  background: transparent !important;
+  border: none !important;
+}
+
+.restaurant-card .restaurant-actions .favorite-btn__icon {
+  font-size: 20px;
+  line-height: 1;
 }
 
 .select-btn {
@@ -397,6 +431,11 @@
   
   .restaurant-actions {
     width: 100%;
+    justify-content: flex-start;
+  }
+  
+  .restaurant-card .restaurant-actions .favorite-btn {
+    flex-shrink: 0;
   }
   
   .select-btn {
