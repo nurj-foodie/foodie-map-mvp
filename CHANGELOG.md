@@ -6,6 +6,55 @@
 
 ---
 
+## v0.7.1 — Pre-Beta Initialization: Phase 0 Foundation Setup (18 Nov 2025)
+
+**Milestone:** Beta Phase Foundation Setup - Firestore & Storage rules, environment configuration.  
+**Objective:** Set up infrastructure for beta phase features (waitlist, referrals, K-Coins, email drips).
+
+### 🏗️ Infrastructure Setup
+
+- **Firestore Collections** – Added 8 beta phase collections with security rules
+  - `waitlist` – Waitlist signups and beta access tracking
+  - `referrals` – Referral tracking and rewards
+  - `kcoins_transactions` – K-Coins transaction history
+  - `survey_responses` – Survey completion data
+  - `travel_draws` – Monthly travel package draws
+  - `beta_reports` – Bug reports and feedback
+  - `email_drips` – Email drip sequence tracking
+  - `community_updates` – Community email updates
+- **Firebase Storage** – Configured beta reports screenshot storage
+  - `beta-reports/{userId}/` folder with user-specific permissions
+  - Admin read access for all beta report screenshots
+  - ASIA region bucket: `foodie-map-23842.firebasestorage.app`
+- **Environment Variables** – Documented SendGrid and beta phase configuration
+  - SendGrid API key setup guide
+  - Landing page URL configuration
+  - Beta phase settings (wave sizes, targets)
+
+### 📚 Documentation
+
+- **BETA_PHASE_ENV_SETUP.md** – Complete environment variables setup guide
+- **SENDGRID_SENDER_SETUP_GUIDE.md** – Step-by-step SendGrid sender verification guide
+- **SENDGRID_INTEGRATION_GUIDE.md** – Node.js Web API integration guide
+- **WHERE_TO_PUT_SENDGRID_KEYS.md** – Quick reference for API key placement
+- **FIREBASE_STORAGE_SETUP.md** – Firebase Storage bucket selection guide
+- **PHASE_0_COMPLETION_SUMMARY.md** – Phase 0 completion documentation
+- **BETA_PHASE_INITIALIZATION_REVIEW.md** – Updated with Phase 0 completion status
+
+### 📊 Technical Changes
+
+- **firestore.rules** – Added 8 beta phase collection rules
+- **storage.rules** – Added beta-reports folder rules
+- **firebase.json** – Updated storage configuration
+
+### ✅ Deployment
+
+- Firestore rules deployed successfully
+- Storage rules deployed successfully
+- All beta phase collections active and ready
+
+---
+
 ## v0.7.0 — Pre-Beta Finalization: Discover Tab & Branding Updates (17 Nov 2025)
 
 **Milestone:** Pre-Beta finalization - Discover tab adjustments and branding updates.  

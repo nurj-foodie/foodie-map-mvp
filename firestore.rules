@@ -274,5 +274,102 @@ service cloud.firestore {
       allow create, update: if true; // Public write for development
       // In production, consider: if request.auth != null;
     }
+    
+    // ============================================
+    // BETA PHASE COLLECTIONS
+    // ============================================
+    
+    // Waitlist collection - users can create/read own, admins read/write all
+    match /waitlist/{waitlistId} {
+      allow read: if request.auth != null && (
+        resource.data.email == request.auth.token.email ||
+        isAdmin()
+      );
+      allow create: if true; // Public create for waitlist signup (can be anonymous)
+      allow update: if request.auth != null && (
+        resource.data.email == request.auth.token.email ||
+        isAdmin()
+      );
+      allow delete: if isAdmin();
+    }
+    
+    // Referrals collection - users can create/read own, admins read/write all
+    match /referrals/{referralId} {
+      allow read: if request.auth != null && (
+        resource.data.referrerId == request.auth.uid ||
+        resource.data.referredEmail == request.auth.token.email ||
+        isAdmin()
+      );
+      allow create: if true; // Public create for referral tracking (can be anonymous)
+      allow update: if request.auth != null && (
+        resource.data.referrerId == request.auth.uid ||
+        isAdmin()
+      );
+      allow delete: if isAdmin();
+    }
+    
+    // K-Coins transactions - users can read own, system/admins write
+    match /kcoins_transactions/{transactionId} {
+      allow read: if request.auth != null && (
+        resource.data.userId == request.auth.uid ||
+        isAdmin()
+      );
+      // Only system (server-side) or admins can create transactions
+      allow create: if request.auth != null && (
+        request.resource.data.userId == request.auth.uid ||
+        isAdmin()
+      );
+      allow update, delete: if isAdmin();
+    }
+    
+    // Survey responses - users can create/read own, admins read/write all
+    match /survey_responses/{responseId} {
+      allow read: if request.auth != null && (
+        resource.data.email == request.auth.token.email ||
+        isAdmin()
+      );
+      allow create: if request.auth != null && (
+        request.resource.data.email == request.auth.token.email ||
+        isAdmin()
+      );
+      allow update, delete: if isAdmin();
+    }
+    
+    // Travel package draws - public read, admin write
+    match /travel_draws/{drawId} {
+      allow read: if true; // Public read for transparency
+      allow create, update, delete: if isAdmin();
+    }
+    
+    // Beta reports - users can create/read own, admins read/write all
+    match /beta_reports/{reportId} {
+      allow read: if request.auth != null && (
+        resource.data.userId == request.auth.uid ||
+        isAdmin()
+      );
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+    
+    // Email drips - system write, users read own, admins read/write all
+    match /email_drips/{dripId} {
+      allow read: if request.auth != null && (
+        resource.data.email == request.auth.token.email ||
+        isAdmin()
+      );
+      // System can create (via Firebase Functions or server-side)
+      allow create: if true; // Allow system to create email drip records
+      allow update: if request.auth != null && (
+        resource.data.email == request.auth.token.email ||
+        isAdmin()
+      );
+      allow delete: if isAdmin();
+    }
+    
+    // Community updates - public read, system/admin write
+    match /community_updates/{updateId} {
+      allow read: if true; // Public read for community updates
+      allow create, update, delete: if isAdmin();
+    }
   }
 }

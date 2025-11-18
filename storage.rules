@@ -13,6 +13,18 @@ service firebase.storage {
       allow write: if request.auth != null;
     }
     
+    // Beta reports screenshots - users can upload own, admins can read all
+    match /beta-reports/{userId}/{allPaths=**} {
+      allow read: if request.auth != null && (
+        request.auth.uid == userId ||
+        // Admin check (same emails as Firestore rules)
+        request.auth.token.email == 'nurj.media@gmail.com' ||
+        request.auth.token.email == 'nurj.get@gmail.com' ||
+        request.auth.token.email == 'nurj.ariffin@gmail.com'
+      );
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+    
     // Default: deny all other access
     match /{allPaths=**} {
       allow read, write: if false;
