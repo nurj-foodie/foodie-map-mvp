@@ -10,6 +10,7 @@ import {
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebaseConfig';
+import { checkBetaAccess } from '../utils/betaAccess';
 
 const AuthContext = createContext();
 
@@ -24,6 +25,8 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [betaAccess, setBetaAccess] = useState(null); // null = not checked, true/false = has/doesn't have access
+  const [betaAccessLoading, setBetaAccessLoading] = useState(false);
 
   // Google Auth Provider
   const googleProvider = new GoogleAuthProvider();
@@ -145,15 +148,47 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Check beta access for a user
+  const checkUserBetaAccess = async (user) => {
+    if (!user || !user.email) {
+      setBetaAccess(false);
+      setBetaAccessLoading(false);
+      return;
+    }
+
+    try {
+      setBetaAccessLoading(true);
+      const result = await checkBetaAccess(user.email);
+      
+      if (result.success) {
+        setBetaAccess(result.hasAccess || false);
+        console.log(`🔐 Beta access check: ${user.email} - ${result.hasAccess ? 'Granted' : 'Not granted'}`);
+      } else {
+        // On error, default to no access (safer)
+        setBetaAccess(false);
+        console.warn('⚠️ Beta access check failed, defaulting to no access:', result.error);
+      }
+    } catch (error) {
+      console.error('❌ Error checking beta access:', error);
+      setBetaAccess(false);
+    } finally {
+      setBetaAccessLoading(false);
+    }
+  };
+
   // Listen for auth state changes
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         console.log('👤 User signed in:', user.uid);
         setUser(user);
+        // Check beta access when user signs in
+        await checkUserBetaAccess(user);
       } else {
         console.log('👤 User signed out');
         setUser(null);
+        setBetaAccess(null);
+        setBetaAccessLoading(false);
       }
       setLoading(false);
     });
@@ -164,6 +199,9 @@ export const AuthProvider = ({ children }) => {
   const value = {
     user,
     loading,
+    betaAccess, // null = not checked, true = has access, false = no access
+    betaAccessLoading,
+    checkUserBetaAccess, // Manual refresh function
     registerWithEmail,
     loginWithEmail,
     loginWithGoogle,

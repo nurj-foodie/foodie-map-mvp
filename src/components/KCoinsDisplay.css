@@ -1,0 +1,304 @@
+/* K-Coins Display Component Styles */
+
+/* Compact View (Header/Navigation) */
+.kcoins-display-compact {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+  border-radius: 20px;
+  color: #333;
+  font-weight: 600;
+  font-size: 14px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.kcoins-display-compact:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.kcoins-display-compact .kcoins-icon {
+  font-size: 18px;
+}
+
+.kcoins-display-compact .kcoins-balance {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.kcoins-display-compact .kcoins-label {
+  font-size: 12px;
+  opacity: 0.9;
+}
+
+.kcoins-display-compact .kcoins-loading {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+/* Full View (User Dashboard) */
+.kcoins-display {
+  background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.kcoins-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.kcoins-balance-section {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.kcoins-icon-large {
+  font-size: 48px;
+  line-height: 1;
+}
+
+.kcoins-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.kcoins-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.7);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.kcoins-balance-large {
+  font-size: 36px;
+  font-weight: 700;
+  color: #333;
+  line-height: 1.2;
+  margin-top: 4px;
+}
+
+.kcoins-loading {
+  color: rgba(0, 0, 0, 0.6);
+  font-size: 14px;
+}
+
+.kcoins-history-btn {
+  padding: 10px 20px;
+  background: rgba(255, 255, 255, 0.9);
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.kcoins-history-btn:hover {
+  background: #fff;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.kcoins-history-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Modal Styles */
+.kcoins-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.kcoins-modal {
+  background: #fff;
+  border-radius: 12px;
+  max-width: 600px;
+  width: 100%;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+.kcoins-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.kcoins-modal-header h3 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: #333;
+}
+
+.kcoins-modal-close {
+  background: none;
+  border: none;
+  font-size: 28px;
+  color: #666;
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.kcoins-modal-close:hover {
+  background: #f0f0f0;
+  color: #333;
+}
+
+.kcoins-modal-content {
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.kcoins-empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: #666;
+}
+
+.kcoins-empty p {
+  margin: 8px 0;
+}
+
+.kcoins-empty-hint {
+  font-size: 14px;
+  color: #999;
+  font-style: italic;
+}
+
+/* Transactions List */
+.kcoins-transactions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.kcoins-transaction-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background: #f9f9f9;
+  border-radius: 8px;
+  transition: background 0.2s;
+}
+
+.kcoins-transaction-item:hover {
+  background: #f0f0f0;
+}
+
+.kcoins-transaction-icon {
+  font-size: 32px;
+  flex-shrink: 0;
+}
+
+.kcoins-transaction-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.kcoins-transaction-type {
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 4px;
+}
+
+.kcoins-transaction-description {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 4px;
+}
+
+.kcoins-transaction-date {
+  font-size: 12px;
+  color: #999;
+}
+
+.kcoins-transaction-amount {
+  font-size: 20px;
+  font-weight: 700;
+  color: #28a745;
+  flex-shrink: 0;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .kcoins-display {
+    padding: 16px;
+  }
+
+  .kcoins-balance-large {
+    font-size: 28px;
+  }
+
+  .kcoins-icon-large {
+    font-size: 40px;
+  }
+
+  .kcoins-history-btn {
+    padding: 8px 16px;
+    font-size: 13px;
+  }
+
+  .kcoins-modal {
+    max-height: 90vh;
+    margin: 10px;
+  }
+
+  .kcoins-modal-header {
+    padding: 16px;
+  }
+
+  .kcoins-modal-content {
+    padding: 16px;
+  }
+
+  .kcoins-transaction-item {
+    padding: 12px;
+  }
+
+  .kcoins-transaction-icon {
+    font-size: 28px;
+  }
+
+  .kcoins-transaction-amount {
+    font-size: 18px;
+  }
+}
+

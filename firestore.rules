@@ -8,7 +8,8 @@ service cloud.firestore {
       return request.auth != null && (
         request.auth.token.email == 'nurj.media@gmail.com' ||
         request.auth.token.email == 'nurj.get@gmail.com' ||
-        request.auth.token.email == 'nurj.ariffin@gmail.com'
+        request.auth.token.email == 'nurj.ariffin@gmail.com' ||
+        request.auth.token.email == 'jihad.ariffin@gmail.com' // Testing admin
       );
     }
     

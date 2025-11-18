@@ -1,6 +1,6 @@
 # 🗺️ Kawan Makan — Food Discovery App
 
-**Current Version:** v0.7.1 | [📋 View Changelog](./CHANGELOG.md)
+**Current Version:** v0.7.2 | [📋 View Changelog](./CHANGELOG.md)
 
 A cost-effective food discovery app that helps users find restaurants along their routes with 95% API cost reduction. Built for Peninsular Malaysia with route planning, restaurant discovery, and user contributions.
 
@@ -52,17 +52,34 @@ A cost-effective food discovery app that helps users find restaurants along thei
   - Manage user accounts (suspend, activate, ban, unban)
   - View analytics (overview, cost, user behavior, system performance)
 
-### ✅ Gamification System (Designed)
+### ✅ Gamification System (Designed & Implemented)
 - **🎮 Beta System (v0.7)** - Simplified XP-based progression for testing
 - **🏆 Badge System** - Multi-tier progression (Explorer I-VII, Memory Keeper, Food Critic, Local Hero, Treasure Hunter)
-- **💰 K-Coins System** - Reward currency for beta phase (accumulation only)
+- **💰 K-Coins System** - Reward currency for beta phase (✅ Implemented v0.7.2)
   - Earn: Waitlist signup (+25), Referrals (+100), Survey (+50)
+  - Balance tracking and transaction history
+  - Display in User Dashboard
   - Post-beta: Convert to premium features, tokens, in-app purchases
 - **💎 Special Perks** - Founder Tier and Beta Tester exclusive perks
 - **🎁 Tangible Rewards** - Physical merchandise, events, and future discounts
 - **💰 Founder Pass** - RM100 pricing (500 lots) with complete perk structure
 - **🎯 Token System** - Four token types (Food, Photo, Review, Explorer)
 - **⚡ Energy System** - Separate energy system for API cost control
+
+### ✅ Beta Phase Systems (v0.7.2)
+- **📋 Waitlist System** - User signup and beta access management
+  - Join waitlist with email and name
+  - Referral code generation (format: KM-XXXXXX)
+  - Beta access checking and granting
+  - Signup order tracking
+- **👥 Referral System** - Referral tracking and rewards
+  - Referral code validation
+  - Automatic K-Coins rewards (+100 referrer, +25 new user)
+  - Referral statistics tracking
+- **🔐 Beta Access Control** - Access management utilities
+  - Check beta access on login
+  - Grant/revoke beta access (admin)
+  - Batch access granting for waves
 
 ### ✅ Cost Optimization
 - **Firestore-First Search** - 95% reduction in Google Places API costs

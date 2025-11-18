@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { gamificationService } from '../services/gamificationService';
 import GamificationDashboard from './GamificationDashboard';
+import KCoinsDisplay from './KCoinsDisplay';
+import BetaPhaseTestPanel from './BetaPhaseTestPanel';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../config/firebaseConfig';
 import './UserDashboard.css';
@@ -243,6 +245,9 @@ const UserDashboard = () => {
               </div>
             ) : (
               <>
+                {/* K-Coins Display */}
+                {user?.uid && <KCoinsDisplay userId={user.uid} showHistory={true} />}
+                
                 <div className="stats-grid">
                   <div className="stat-card">
                     <div className="stat-number">{stats.routesCount}</div>
@@ -308,6 +313,13 @@ const UserDashboard = () => {
 
       case 'gamification':
         return <GamificationDashboard />;
+
+      case 'beta-test':
+        return (
+          <div className="dashboard-tab">
+            <BetaPhaseTestPanel />
+          </div>
+        );
 
       case 'settings':
         return (
@@ -455,6 +467,12 @@ const UserDashboard = () => {
           onClick={() => setActiveTab('gamification')}
         >
           Gamification
+        </button>
+        <button 
+          className={`tab-btn ${activeTab === 'beta-test' ? 'active' : ''}`}
+          onClick={() => setActiveTab('beta-test')}
+        >
+          🧪 Beta Test
         </button>
         <button 
           className={`tab-btn ${activeTab === 'settings' ? 'active' : ''}`}
