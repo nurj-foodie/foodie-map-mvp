@@ -280,12 +280,10 @@ service cloud.firestore {
     // BETA PHASE COLLECTIONS
     // ============================================
     
-    // Waitlist collection - users can create/read own, admins read/write all
+    // Waitlist collection - public read for landing page count, users can create/update own, admins read/write all
     match /waitlist/{waitlistId} {
-      allow read: if request.auth != null && (
-        resource.data.email == request.auth.token.email ||
-        isAdmin()
-      );
+      // Allow public read for landing page count display (anonymous access)
+      allow read: if true;
       allow create: if true; // Public create for waitlist signup (can be anonymous)
       allow update: if request.auth != null && (
         resource.data.email == request.auth.token.email ||
@@ -309,17 +307,14 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
     
-    // K-Coins transactions - users can read own, system/admins write
+    // K-Coins transactions - users can read own, public create for waitlist, system/admins write
     match /kcoins_transactions/{transactionId} {
       allow read: if request.auth != null && (
         resource.data.userId == request.auth.uid ||
         isAdmin()
       );
-      // Only system (server-side) or admins can create transactions
-      allow create: if request.auth != null && (
-        request.resource.data.userId == request.auth.uid ||
-        isAdmin()
-      );
+      // Allow public create for waitlist signups (anonymous access)
+      allow create: if true;
       allow update, delete: if isAdmin();
     }
     

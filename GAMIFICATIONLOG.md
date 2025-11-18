@@ -2,7 +2,7 @@
 
 **Version:** 0.1 (Concept Phase)  
 
-**Last Updated:** 13 November 2025  
+**Last Updated:** 18 November 2025 (Phase 2 Complete)  
 **Note:** This document has been updated to reflect new token naming conventions (straightforward) and separate Energy/Explorer token systems. See `GAMIFICATION_NAMING_DISCUSSION.md` for details.  
 **Beta Phase Update:** K-Coins system added for beta phase (accumulation only). See `GAMIFICATION_BETA_v0.7.md` Section 4 and `BETA_PHASE_FLOW_PLAN_INTEGRATED.md` for details.
 
@@ -69,12 +69,12 @@ K-Coins are a reward currency introduced during beta phase. During beta, K-Coins
 
 ### Beta Phase Earning
 
-| Action | K-Coins Reward | Notes |
-|--------|---------------|-------|
-| Join waitlist | +25 K-Coins | Automatic on signup |
-| Refer a friend (waitlist) | +100 K-Coins | When referred user joins waitlist |
-| Complete survey | +50 K-Coins | 30-second survey (device, frequency, corridor) |
-| Travel package draw | Variable | Monthly winner (top referrers) |
+| Action | K-Coins Reward | Notes | Status |
+|--------|---------------|-------|--------|
+| Join waitlist | +25 K-Coins | Automatic on signup | ✅ Implemented (Landing Page v0.7.3) |
+| Refer a friend (waitlist) | +100 K-Coins | When referred user joins waitlist | ✅ Implemented (Landing Page v0.7.3) |
+| Complete survey | +50 K-Coins | 30-second survey (device, frequency, corridor) | 🕐 Phase 3 |
+| Travel package draw | Variable | Monthly winner (top referrers) | 🕐 Phase 9 |
 
 ### Post-Beta Conversion
 

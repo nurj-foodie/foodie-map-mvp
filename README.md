@@ -1,6 +1,6 @@
 # 🗺️ Kawan Makan — Food Discovery App
 
-**Current Version:** v0.7.2 | [📋 View Changelog](./CHANGELOG.md)
+**Current Version:** v0.7.3 | [📋 View Changelog](./CHANGELOG.md)
 
 A cost-effective food discovery app that helps users find restaurants along their routes with 95% API cost reduction. Built for Peninsular Malaysia with route planning, restaurant discovery, and user contributions.
 
@@ -66,7 +66,7 @@ A cost-effective food discovery app that helps users find restaurants along thei
 - **🎯 Token System** - Four token types (Food, Photo, Review, Explorer)
 - **⚡ Energy System** - Separate energy system for API cost control
 
-### ✅ Beta Phase Systems (v0.7.2)
+### ✅ Beta Phase Systems (v0.7.2 - v0.7.3)
 - **📋 Waitlist System** - User signup and beta access management
   - Join waitlist with email and name
   - Referral code generation (format: KM-XXXXXX)
@@ -80,6 +80,14 @@ A cost-effective food discovery app that helps users find restaurants along thei
   - Check beta access on login
   - Grant/revoke beta access (admin)
   - Batch access granting for waves
+- **🌐 Landing Page (v0.7.3)** - Standalone React app for beta waitlist
+  - Bilingual support (EN/BM)
+  - Waitlist signup form with validation
+  - Referral code pre-fill from URL (`?ref=CODE`)
+  - Social sharing (WhatsApp, Telegram, Facebook, Twitter)
+  - Live waitlist count display
+  - Mobile-first responsive design
+  - Deployed to: `https://waitlist-foodie-map-23842.web.app`
 
 ### ✅ Cost Optimization
 - **Firestore-First Search** - 95% reduction in Google Places API costs
