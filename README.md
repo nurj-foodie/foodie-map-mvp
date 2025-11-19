@@ -1,8 +1,8 @@
 # 🗺️ Kawan Makan — Food Discovery App
 
-**Current Version:** v0.7.3 | [📋 View Changelog](./CHANGELOG.md)  
-**Last Updated:** 18 November 2025, 18:06 PM  
-**Status:** Phases 0, 1 & 2 Complete ✅ | Production Ready 🚀
+**Current Version:** v0.7.5 | [📋 View Changelog](./CHANGELOG.md)  
+**Last Updated:** 19 November 2025  
+**Status:** Phases 0, 1, 2, 3.1, 3.2 & 3.3 Complete ✅ | Production Ready 🚀
 
 A cost-effective food discovery app that helps users find restaurants along their routes with 95% API cost reduction. Built for Peninsular Malaysia with route planning, restaurant discovery, and user contributions.
 
@@ -58,7 +58,13 @@ A cost-effective food discovery app that helps users find restaurants along thei
 - **🎮 Beta System (v0.7)** - Simplified XP-based progression for testing
 - **🏆 Badge System** - Multi-tier progression (Explorer I-VII, Memory Keeper, Food Critic, Local Hero, Treasure Hunter)
 - **💰 K-Coins System** - Reward currency for beta phase (✅ Implemented v0.7.2)
-  - Earn: Waitlist signup (+25), Referrals (+100), Survey (+50)
+  - Earn: Waitlist signup (+25), Referrals (+100), Survey (+50) ✅
+- **📋 Survey System** - Travel habit survey for beta users (✅ Implemented v0.7.4)
+  - Device preference (iOS/Android)
+  - Drive frequency (Weekly/Monthly/Occasional)
+  - Usual corridor input
+  - Awards +50 K-Coins on completion
+  - Updates cohort score based on drive frequency
   - Balance tracking and transaction history
   - Display in User Dashboard
   - Post-beta: Convert to premium features, tokens, in-app purchases
@@ -68,7 +74,7 @@ A cost-effective food discovery app that helps users find restaurants along thei
 - **🎯 Token System** - Four token types (Food, Photo, Review, Explorer)
 - **⚡ Energy System** - Separate energy system for API cost control
 
-### ✅ Beta Phase Systems (v0.7.2 - v0.7.3)
+### ✅ Beta Phase Systems (v0.7.2 - v0.7.5)
 - **📋 Waitlist System** - User signup and beta access management
   - Join waitlist with email and name
   - Referral code generation (format: KM-XXXXXX)
@@ -90,6 +96,14 @@ A cost-effective food discovery app that helps users find restaurants along thei
   - Live waitlist count display
   - Mobile-first responsive design
   - Deployed to: `https://waitlist-foodie-map-23842.web.app`
+- **📧 Email Drip Automation (v0.7.5)** - Automated email sequence via Firebase Functions
+  - T+2 Survey Email (2 days after signup)
+  - T+5 Community Email (5 days after signup)
+  - T+8 Referral Reminder (8 days after signup)
+  - T+7 Feedback Email (7 days after beta access)
+  - Scheduled functions run daily at 9:00 AM (Asia/Kuala_Lumpur)
+  - HTTP test functions for manual testing
+  - Email tracking in Firestore (`email_drips` collection)
 
 ### ✅ Cost Optimization
 - **Firestore-First Search** - 95% reduction in Google Places API costs
@@ -328,7 +342,7 @@ See comprehensive gamification documentation:
 
 See [CHANGELOG.md](./CHANGELOG.md) for detailed version history and release notes.
 
-**Current Version:** v0.6.3 (Add Restaurant Tab Review & UX Enhancements) - 10 November 2025
+**Current Version:** v0.7.4 (Phase 3.2 Survey System Complete) - 19 November 2025
 
 ## 🔒 Security
 

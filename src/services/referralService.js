@@ -145,10 +145,10 @@ class ReferralService {
       }
 
       // Query referrals by referrer email
+      // Note: Removed orderBy to avoid index requirement, will sort client-side
       const referralsQuery = query(
         collection(db, this.referralsCollection),
-        where('referrerEmail', '==', referrerEmail.toLowerCase().trim()),
-        orderBy('createdAt', 'desc')
+        where('referrerEmail', '==', referrerEmail.toLowerCase().trim())
       );
 
       const snapshot = await getDocs(referralsQuery);
@@ -165,6 +165,13 @@ class ReferralService {
           createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt),
           betaAccessDate: data.betaAccessDate?.toDate ? data.betaAccessDate.toDate() : null
         });
+      });
+
+      // Sort by createdAt descending (newest first) - client-side sorting
+      referrals.sort((a, b) => {
+        const dateA = a.createdAt instanceof Date ? a.createdAt : new Date(a.createdAt);
+        const dateB = b.createdAt instanceof Date ? b.createdAt : new Date(b.createdAt);
+        return dateB - dateA; // Descending order
       });
 
       return {

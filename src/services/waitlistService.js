@@ -14,6 +14,7 @@ import {
 import { db } from '../config/firebaseConfig';
 import { kCoinsService } from './kCoinsService';
 import { referralService } from './referralService';
+import { emailService } from './emailService';
 
 /**
  * Waitlist Service
@@ -134,6 +135,14 @@ class WaitlistService {
       // Handle referral if referral code provided
       if (referralCode) {
         await this._handleReferral(referralCode, email, waitlistRef.id, userReferralCode);
+      }
+
+      // Send welcome email (T+0)
+      try {
+        await emailService.sendWelcomeEmail(email, name, userReferralCode, waitlistRef.id);
+      } catch (emailError) {
+        console.error('Error sending welcome email:', emailError);
+        // Don't fail the waitlist signup if email fails
       }
 
       return {

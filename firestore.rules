@@ -296,12 +296,14 @@ service cloud.firestore {
     match /referrals/{referralId} {
       allow read: if request.auth != null && (
         resource.data.referrerId == request.auth.uid ||
+        resource.data.referrerEmail == request.auth.token.email ||
         resource.data.referredEmail == request.auth.token.email ||
         isAdmin()
       );
       allow create: if true; // Public create for referral tracking (can be anonymous)
       allow update: if request.auth != null && (
         resource.data.referrerId == request.auth.uid ||
+        resource.data.referrerEmail == request.auth.token.email ||
         isAdmin()
       );
       allow delete: if isAdmin();
@@ -311,6 +313,7 @@ service cloud.firestore {
     match /kcoins_transactions/{transactionId} {
       allow read: if request.auth != null && (
         resource.data.userId == request.auth.uid ||
+        resource.data.email == request.auth.token.email ||
         isAdmin()
       );
       // Allow public create for waitlist signups (anonymous access)

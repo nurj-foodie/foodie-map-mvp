@@ -4,13 +4,20 @@ import { gamificationService } from '../services/gamificationService';
 import GamificationDashboard from './GamificationDashboard';
 import KCoinsDisplay from './KCoinsDisplay';
 import BetaPhaseTestPanel from './BetaPhaseTestPanel';
+import EmailTestPanel from './EmailTestPanel';
+import SurveyModal from './SurveyModal';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../config/firebaseConfig';
+import { waitlistService } from '../services/waitlistService';
 import './UserDashboard.css';
 
 const UserDashboard = () => {
   const { user, logout, updateUserProfile } = useAuth();
   const [activeTab, setActiveTab] = useState('overview');
+  const [showSurveyModal, setShowSurveyModal] = useState(false);
+  const [waitlistId, setWaitlistId] = useState(null);
+  const [surveyCompleted, setSurveyCompleted] = useState(false);
+  const [waitlistEmail, setWaitlistEmail] = useState(null);
   const [stats, setStats] = useState({
     routesCount: 0,
     favoritesCount: 0,
@@ -34,8 +41,60 @@ const UserDashboard = () => {
       loadUserStats();
       loadUserPhoto();
       setDisplayName(user.displayName || '');
+      checkSurveyParam();
+      loadWaitlistId();
     }
   }, [user?.uid, user?.displayName]);
+
+  // Listen for survey completion event
+  useEffect(() => {
+    const handleSurveyCompleted = () => {
+      setSurveyCompleted(true);
+      loadWaitlistId(); // Reload to get updated status
+      // Trigger K-Coins balance refresh by dispatching custom event
+      window.dispatchEvent(new CustomEvent('kcoinsRefresh'));
+    };
+    window.addEventListener('surveyCompleted', handleSurveyCompleted);
+    return () => window.removeEventListener('surveyCompleted', handleSurveyCompleted);
+  }, []);
+
+  /**
+   * Check URL for survey parameter
+   */
+  const checkSurveyParam = () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('survey') === 'true') {
+      setShowSurveyModal(true);
+      // Clean URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  };
+
+  /**
+   * Load waitlist ID for current user
+   */
+  const loadWaitlistId = async () => {
+    if (!user?.email) return;
+
+    try {
+      const accessResult = await waitlistService.checkBetaAccess(user.email);
+      if (accessResult.success && accessResult.waitlistData) {
+        const id = accessResult.waitlistData.id;
+        const email = accessResult.waitlistData.email;
+        setWaitlistId(id);
+        setWaitlistEmail(email);
+        
+        // Check survey status
+        const { surveyService } = await import('../services/surveyService');
+        const surveyStatus = await surveyService.getSurveyStatus(id);
+        if (surveyStatus.success) {
+          setSurveyCompleted(surveyStatus.completed || false);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading waitlist ID:', error);
+    }
+  };
 
   // Load user photo from Firestore (supports base64)
   const loadUserPhoto = async () => {
@@ -246,7 +305,44 @@ const UserDashboard = () => {
             ) : (
               <>
                 {/* K-Coins Display */}
-                {user?.uid && <KCoinsDisplay userId={user.uid} showHistory={true} />}
+                {user?.uid && (
+                  <KCoinsDisplay 
+                    userId={waitlistEmail ? `waitlist:${waitlistEmail}` : user.uid} 
+                    showHistory={true} 
+                  />
+                )}
+                
+                {/* Survey Prompt (if not completed) */}
+                {waitlistId && !surveyCompleted && (
+                  <div className="survey-prompt-card" style={{
+                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    color: 'white',
+                    padding: '20px',
+                    borderRadius: '12px',
+                    marginBottom: '20px',
+                    textAlign: 'center'
+                  }}>
+                    <h3 style={{ margin: '0 0 10px 0', fontSize: '18px' }}>📋 Complete Survey & Earn +50 K-Coins</h3>
+                    <p style={{ margin: '0 0 15px 0', fontSize: '14px', opacity: 0.9 }}>
+                      Help us understand your travel habits (30 seconds)
+                    </p>
+                    <button
+                      onClick={() => setShowSurveyModal(true)}
+                      style={{
+                        background: 'white',
+                        color: '#667eea',
+                        border: 'none',
+                        padding: '10px 20px',
+                        borderRadius: '8px',
+                        fontWeight: '600',
+                        cursor: 'pointer',
+                        fontSize: '14px'
+                      }}
+                    >
+                      Take Survey →
+                    </button>
+                  </div>
+                )}
                 
                 <div className="stats-grid">
                   <div className="stat-card">
@@ -318,6 +414,42 @@ const UserDashboard = () => {
         return (
           <div className="dashboard-tab">
             <BetaPhaseTestPanel />
+            <div style={{ marginTop: '40px', borderTop: '2px solid #eee', paddingTop: '20px' }}>
+              <EmailTestPanel />
+            </div>
+            {/* Survey Test Section */}
+            {waitlistId && (
+              <div style={{ marginTop: '40px', borderTop: '2px solid #eee', paddingTop: '20px' }}>
+                <h3 style={{ marginBottom: '16px' }}>📋 Survey Test</h3>
+                <div style={{ 
+                  background: '#f9f9f9', 
+                  padding: '16px', 
+                  borderRadius: '8px',
+                  marginBottom: '16px'
+                }}>
+                  <p style={{ margin: '0 0 12px 0', fontSize: '14px', color: '#666' }}>
+                    {surveyCompleted 
+                      ? '✅ Survey already completed. Click below to view or test again.'
+                      : 'Survey not yet completed. Click below to take the survey.'}
+                  </p>
+                  <button
+                    onClick={() => setShowSurveyModal(true)}
+                    style={{
+                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      color: 'white',
+                      border: 'none',
+                      padding: '12px 24px',
+                      borderRadius: '8px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      fontSize: '14px'
+                    }}
+                  >
+                    {surveyCompleted ? '📋 View/Test Survey Again' : '📋 Take Survey'}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         );
 
@@ -489,6 +621,21 @@ const UserDashboard = () => {
       <div className="dashboard-content">
         {renderTabContent()}
       </div>
+
+      {/* Survey Modal */}
+      {waitlistId && (
+        <SurveyModal
+          isOpen={showSurveyModal}
+          onClose={() => {
+            setShowSurveyModal(false);
+            // Reload survey status when modal closes
+            loadWaitlistId();
+          }}
+          waitlistId={waitlistId}
+          userEmail={user?.email}
+          userName={user?.displayName || user?.email}
+        />
+      )}
     </div>
   );
 };

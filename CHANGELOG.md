@@ -1,8 +1,130 @@
 # 🗺️ KAWAN MAKAN — CHANGELOG.md
 
-*Project timeline: 3 Oct – 17 Nov 2025*  
+*Project timeline: 3 Oct – 19 Nov 2025*  
 
 *Core Stack: React, Firebase Firestore, Google Maps Platform, @react-google-maps/api, TailwindCSS, Netlify/Firebase Hosting*
+
+---
+
+## v0.7.5 — Beta Phase: Phase 3.3 Email Drip Automation Complete (19 Nov 2025)
+
+**Milestone:** Phase 3.3 Email Drip Automation Implementation & Testing Complete.  
+**Objective:** Implement automated email drip sequence using Firebase Functions scheduled triggers.
+
+### 📧 Email Drip Automation Implementation
+
+- **Scheduled Functions** (`functions/index.js`)
+  - `sendSurveyEmailsT2` - T+2 Survey Email (daily 9:00 AM)
+  - `sendCommunityEmailsT5` - T+5 Community Email (daily 9:00 AM)
+  - `sendReferralReminderEmailsT8` - T+8 Referral Reminder (daily 9:00 AM)
+  - `sendFeedbackEmailsT7` - T+7 Feedback Email post-invite (daily 9:00 AM)
+
+- **Email Drip Module** (`functions/emailDrip.js`)
+  - Email templates for server-side use
+  - SendGrid integration helper functions
+  - Duplicate prevention logic
+  - Email tracking in Firestore
+
+- **HTTP Test Functions** (`functions/index.js`)
+  - `testSendSurveyEmailsT2` - Manual testing
+  - `testSendCommunityEmailsT5` - Manual testing
+  - `testSendReferralReminderEmailsT8` - Manual testing
+  - `testSendFeedbackEmailsT7` - Manual testing
+
+- **Firestore Indexes** (`firestore.indexes.json`)
+  - Composite index for `waitlist` collection: `signupDate` queries
+  - Composite index for `waitlist` collection: `betaAccessGranted` + `betaAccessDate` queries
+
+### 🧪 Testing Results
+
+- ✅ All 4 test functions deployed successfully
+- ✅ All 4 test functions tested and working
+- ✅ Firestore indexes created and active
+- ✅ Functions return correct JSON responses
+- ✅ Ready for production testing with real data
+
+### 📚 Documentation Created
+
+- `PHASE_3_3_SETUP_GUIDE.md` - Setup and deployment guide
+- `PHASE_3_3_TESTING_GUIDE.md` - Comprehensive testing guide
+- `PHASE_3_3_TEST_DATA_GUIDE.md` - Test data creation methods
+- `PHASE_3_3_TEST_RESULTS.md` - Test results documentation
+- `PHASE_3_3_QUICK_TEST.md` - Quick reference card
+- `BROWSER_CONSOLE_EASY.md` - Browser console method guide
+- `create-test-waitlist-entries.js` - Node.js script for test data
+- `SESSION_SUMMARY_PHASE_3_20251119.md` - Session summary
+
+### 🔧 Technical Changes
+
+- Added 4 scheduled Firebase Functions for automated email sending
+- Added 4 HTTP test functions for manual testing
+- Created `functions/emailDrip.js` module for email templates and helpers
+- Updated `firestore.indexes.json` with composite indexes
+- Configured Firebase Functions environment variables
+
+### 📝 Next Steps
+
+- Test with real data (create test waitlist entries)
+- Deploy scheduled functions for production use
+- Monitor function logs and email delivery
+
+---
+
+## v0.7.4 — Beta Phase: Phase 3.2 Survey System Complete (19 Nov 2025)
+
+**Milestone:** Phase 3.2 Survey System Implementation & Testing Complete.  
+**Objective:** Implement survey system for beta phase users to provide travel habit information and earn +50 K-Coins.
+
+### 📋 Survey System Implementation
+
+- **Survey Service** (`src/services/surveyService.js`)
+  - Survey submission with validation
+  - K-Coins award (+50 on completion)
+  - Cohort score update based on drive frequency
+  - Survey status tracking
+  - Email integration (T+2 trigger ready)
+
+- **Survey Modal Component** (`src/components/SurveyModal.js`)
+  - Device selector (iOS/Android)
+  - Drive frequency selector (Weekly/Monthly/Occasional)
+  - Corridor input (free text)
+  - Form validation
+  - Success state with auto-close
+  - Pre-fills if already completed
+
+- **Integration**
+  - Survey prompt card in Overview tab (conditional)
+  - Survey Test section in Beta Test tab
+  - URL parameter support (`?survey=true`)
+  - Auto-refresh K-Coins after completion
+
+### 🐛 Bug Fixes
+
+- Fixed Firestore permission errors for referrals and K-Coins
+- Fixed survey modal and K-Coins history modal bottom nav overlap
+- Fixed cohort score update bug (`getDoc` API)
+- Fixed K-Coins email extraction for waitlist users
+- Fixed survey transaction not appearing in history
+- Fixed transaction sorting order
+- Added Survey Test section for repeated testing
+
+### 🧪 Testing Results
+
+- ✅ All core functionality working
+- ✅ K-Coins awarded correctly (+50)
+- ✅ Cohort score updates correctly
+- ✅ Survey status tracking works
+- ✅ UI/UX improvements complete
+- ✅ Mobile responsive
+- ✅ Zero critical issues
+
+### 📊 Technical Changes
+
+- Updated Firestore rules for referrals and K-Coins collections
+- Modified K-Coins service to support waitlist users (email-based queries)
+- Improved transaction sorting logic
+- Added auto-refresh events for K-Coins balance/history
+- Enhanced debug logging
 
 ---
 

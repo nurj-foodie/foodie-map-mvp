@@ -24,6 +24,22 @@ const KCoinsDisplay = ({ userId, compact = false, showHistory = false }) => {
     }
   }, [userId, showHistory]);
 
+  // Listen for K-Coins refresh event (e.g., after survey completion)
+  useEffect(() => {
+    const handleRefresh = () => {
+      if (userId) {
+        console.log('🔄 Refreshing K-Coins balance and history...');
+        loadBalance();
+        // Always reload history if modal is open or history is shown
+        if (showHistoryModal || showHistory) {
+          loadHistory();
+        }
+      }
+    };
+    window.addEventListener('kcoinsRefresh', handleRefresh);
+    return () => window.removeEventListener('kcoinsRefresh', handleRefresh);
+  }, [userId, showHistoryModal, showHistory]);
+
   const loadBalance = async () => {
     try {
       setLoading(true);
@@ -54,9 +70,8 @@ const KCoinsDisplay = ({ userId, compact = false, showHistory = false }) => {
 
   const handleShowHistory = () => {
     setShowHistoryModal(true);
-    if (transactions.length === 0) {
-      loadHistory();
-    }
+    // Always reload history when opening modal to get latest data
+    loadHistory();
   };
 
   const formatDate = (date) => {

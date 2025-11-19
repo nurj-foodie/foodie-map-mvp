@@ -12,6 +12,30 @@ export const useFavorites = () => {
   return context;
 };
 
+// Helper function: Extract restaurant ID consistently
+const extractRestaurantId = (restaurant) => {
+  if (!restaurant) return null;
+  
+  // Prioritize place_id over id to avoid Firestore document ID conflicts
+  let restaurantId = restaurant.place_id || restaurant.placeId;
+  
+  // Only use restaurant.id if it looks like a Google Place ID or temp ID
+  if (!restaurantId && restaurant.id) {
+    if (restaurant.id.startsWith('ChIJ') || restaurant.id.startsWith('temp_')) {
+      restaurantId = restaurant.id;
+    }
+  }
+  
+  // If no ID exists, generate a temporary one based on name and location
+  if (!restaurantId && restaurant.name) {
+    const lat = restaurant.geometry?.location?.lat || restaurant.location?.lat || restaurant.lat || 0;
+    const lng = restaurant.geometry?.location?.lng || restaurant.location?.lng || restaurant.lng || 0;
+    restaurantId = `temp_${restaurant.name.replace(/\s+/g, '_').toLowerCase()}_${lat.toFixed(4)}_${lng.toFixed(4)}`;
+  }
+  
+  return restaurantId;
+};
+
 export const FavoritesProvider = ({ children }) => {
   const authContext = useAuth();
   const user = authContext?.user;
@@ -20,6 +44,7 @@ export const FavoritesProvider = ({ children }) => {
   const [removedFavorites, setRemovedFavorites] = useState([]);
   const [loading, setLoading] = useState(false);
   const [favoriteIds, setFavoriteIds] = useState(new Set());
+  const [pendingOperations, setPendingOperations] = useState(new Set()); // Prevent double-clicks
 
   const loadFavorites = useCallback(async () => {
     if (!user) return;
@@ -155,40 +180,285 @@ export const FavoritesProvider = ({ children }) => {
     }
   };
 
+  // ✨ OPTIMISTIC UI: Toggle favorite with instant feedback
   const toggleFavorite = async (restaurant) => {
     if (!user) {
       return { success: false, error: 'Please sign in to manage favorites' };
     }
 
+    // Extract restaurant ID
+    const restaurantId = extractRestaurantId(restaurant);
+    
+    if (!restaurantId) {
+      console.error('❌ No valid restaurant ID found:', restaurant);
+      return { success: false, error: 'Invalid restaurant data' };
+    }
+
+    // Prevent concurrent operations on same restaurant (double-click protection)
+    if (pendingOperations.has(restaurantId)) {
+      console.log('⏳ Operation already in progress for:', restaurantId);
+      return { success: false, error: 'Operation in progress' };
+    }
+
+    // Mark operation as pending
+    setPendingOperations(prev => new Set(prev).add(restaurantId));
+
+    // Check current state
+    const isCurrentlyLiked = favoriteIds.has(restaurantId);
+    
+    // Find the favorite data if it exists
+    const existingFavorite = favorites.find(
+      f => (f.restaurantId || f.eateryId) === restaurantId
+    );
+
     try {
-      const result = await favoritesService.toggleFavorite(user.uid, restaurant);
-      if (result.success) {
-        // Reload favorites to get the latest data
-        await loadFavorites();
+      // ===== OPTIMISTIC UPDATE (INSTANT - 0ms) =====
+      if (isCurrentlyLiked) {
+        // UNLIKING: Move to recently removed (soft delete)
+        console.log('🔽 Optimistically unliking:', restaurant.name || restaurant.displayName);
+        
+        // Remove from active favorites
+        setFavoriteIds(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(restaurantId);
+          return newSet;
+        });
+        
+        setFavorites(prev => 
+          prev.filter(f => (f.restaurantId || f.eateryId) !== restaurantId)
+        );
+        
+        // Add to recently removed (preserve soft delete functionality)
+        const favoriteToRemove = existingFavorite || {
+          restaurantId: restaurantId,
+          restaurantData: restaurant,
+          restaurantName: restaurant.name || restaurant.displayName,
+          restaurantAddress: restaurant.vicinity || restaurant.formatted_address,
+          restaurantRating: restaurant.rating,
+          restaurantLocation: {
+            lat: restaurant.geometry?.location?.lat || restaurant.location?.lat || restaurant.lat || 0,
+            lng: restaurant.geometry?.location?.lng || restaurant.location?.lng || restaurant.lng || 0,
+          }
+        };
+        
+        setRemovedFavorites(prev => [...prev, {
+          ...favoriteToRemove,
+          id: favoriteToRemove.id || `temp-${restaurantId}`,
+          removedAt: new Date(), // Optimistic timestamp
+        }]);
+        
+      } else {
+        // LIKING: Add to active favorites or restore from recently removed
+        console.log('🔼 Optimistically liking:', restaurant.name || restaurant.displayName);
+        
+        // Check if restoring from recently removed
+        const wasRecentlyRemoved = removedFavorites.find(
+          f => (f.restaurantId || f.eateryId) === restaurantId
+        );
+        
+        if (wasRecentlyRemoved) {
+          // Remove from recently removed
+          setRemovedFavorites(prev => 
+            prev.filter(f => (f.restaurantId || f.eateryId) !== restaurantId)
+          );
+        }
+        
+        // Add to active favorites
+        setFavoriteIds(prev => new Set(prev).add(restaurantId));
+        
+        setFavorites(prev => [...prev, {
+          id: `temp-${restaurantId}`, // Temporary until Firebase confirms
+          restaurantId: restaurantId,
+          restaurantData: restaurant,
+          addedAt: wasRecentlyRemoved?.addedAt || new Date(),
+          restaurantName: restaurant.name || restaurant.displayName,
+          restaurantAddress: restaurant.vicinity || restaurant.formatted_address,
+          restaurantRating: restaurant.rating,
+          restaurantLocation: {
+            lat: restaurant.geometry?.location?.lat || restaurant.location?.lat || restaurant.lat || 0,
+            lng: restaurant.geometry?.location?.lng || restaurant.location?.lng || restaurant.lng || 0,
+          },
+          restaurantTypes: restaurant.types || [],
+          restaurantPriceLevel: restaurant.price_level || restaurant.priceLevel || null,
+          restaurantPhoto: restaurant.photos?.[0]?.photo_reference || null,
+        }]);
       }
-      return result;
+      
+      // ← AT THIS POINT: USER ALREADY SEES THE CHANGE (instant UI update)
+      
+      // ===== FIREBASE SYNC (background - user doesn't wait) =====
+      console.log('🔄 Syncing to Firebase in background...');
+      
+      const syncPromise = favoritesService.toggleFavorite(user.uid, restaurant);
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Firebase operation timeout')), 10000)
+      );
+      
+      const result = await Promise.race([syncPromise, timeoutPromise]);
+      
+      if (!result.success) {
+        // ===== ROLLBACK ON FAILURE =====
+        console.error('❌ Firebase sync failed, reverting optimistic update');
+        
+        if (isCurrentlyLiked) {
+          // Restore to active favorites
+          setFavoriteIds(prev => new Set(prev).add(restaurantId));
+          setFavorites(prev => [...prev, existingFavorite || {
+            restaurantId: restaurantId,
+            restaurantData: restaurant,
+          }]);
+          setRemovedFavorites(prev => 
+            prev.filter(f => (f.restaurantId || f.eateryId) !== restaurantId)
+          );
+        } else {
+          // Remove from active favorites
+          setFavoriteIds(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(restaurantId);
+            return newSet;
+          });
+          setFavorites(prev => 
+            prev.filter(f => (f.restaurantId || f.eateryId) !== restaurantId)
+          );
+        }
+        
+        return { success: false, error: result.error };
+      }
+      
+      // ===== SUCCESS =====
+      console.log('✅ Firebase sync successful, local state already updated');
+      
+      return { 
+        success: true, 
+        message: isCurrentlyLiked ? 'Removed from favorites' : 'Added to favorites' 
+      };
+      
     } catch (error) {
-      console.error('❌ Error toggling favorite:', error);
-      return { success: false, error: error.message };
+      // ===== ERROR HANDLING - Rollback optimistic update =====
+      console.error('❌ Error syncing to Firebase:', error);
+      
+      if (isCurrentlyLiked) {
+        // Restore to active favorites
+        setFavoriteIds(prev => new Set(prev).add(restaurantId));
+        setFavorites(prev => [...prev, existingFavorite || {
+          restaurantId: restaurantId,
+          restaurantData: restaurant,
+        }]);
+        setRemovedFavorites(prev => 
+          prev.filter(f => (f.restaurantId || f.eateryId) !== restaurantId)
+        );
+      } else {
+        // Remove from active favorites
+        setFavoriteIds(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(restaurantId);
+          return newSet;
+        });
+        setFavorites(prev => 
+          prev.filter(f => (f.restaurantId || f.eateryId) !== restaurantId)
+        );
+      }
+      
+      return { 
+        success: false, 
+        error: error.message === 'Firebase operation timeout' 
+          ? 'Operation timeout. Check your connection.' 
+          : error.message 
+      };
+    } finally {
+      // Always remove from pending operations
+      setPendingOperations(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(restaurantId);
+        return newSet;
+      });
     }
   };
 
+  // ✨ OPTIMISTIC UI: Restore favorite with instant feedback
   const restoreFavorite = async (favoriteId) => {
     if (!user) {
       return { success: false, error: 'Please sign in to restore favorites' };
     }
 
+    // Find the favorite in removedFavorites
+    const favoriteToRestore = removedFavorites.find(f => f.id === favoriteId);
+    
+    if (!favoriteToRestore) {
+      console.error('❌ Favorite not found in recently removed:', favoriteId);
+      return { success: false, error: 'Favorite not found' };
+    }
+
+    const restaurantId = favoriteToRestore.restaurantId || favoriteToRestore.eateryId;
+
+    // Prevent concurrent operations
+    if (pendingOperations.has(restaurantId)) {
+      console.log('⏳ Operation already in progress for:', restaurantId);
+      return { success: false, error: 'Operation in progress' };
+    }
+
+    setPendingOperations(prev => new Set(prev).add(restaurantId));
+
     try {
+      // ===== OPTIMISTIC UPDATE (INSTANT) =====
+      console.log('🔼 Optimistically restoring:', favoriteToRestore.restaurantName || 'restaurant');
+      
+      // Remove from removedFavorites
+      setRemovedFavorites(prev => prev.filter(f => f.id !== favoriteId));
+      
+      // Add to active favorites
+      setFavoriteIds(prev => new Set(prev).add(restaurantId));
+      setFavorites(prev => [...prev, {
+        ...favoriteToRestore,
+        removedAt: null, // Remove the removedAt timestamp
+      }]);
+      
+      // ← USER ALREADY SEES THE CHANGE
+      
+      // ===== FIREBASE SYNC (background) =====
+      console.log('🔄 Syncing restore to Firebase in background...');
+      
       const result = await favoritesService.restoreFavorite(user.uid, favoriteId);
       
-      if (result.success) {
-        // Reload favorites to get the latest data
-        await loadFavorites();
+      if (!result.success) {
+        // ===== ROLLBACK ON FAILURE =====
+        console.error('❌ Firebase restore failed, reverting optimistic update');
+        
+        setRemovedFavorites(prev => [...prev, favoriteToRestore]);
+        setFavoriteIds(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(restaurantId);
+          return newSet;
+        });
+        setFavorites(prev => prev.filter(f => (f.restaurantId || f.eateryId) !== restaurantId));
+        
+        return { success: false, error: result.error };
       }
-      return result;
+      
+      // ===== SUCCESS =====
+      console.log('✅ Firebase restore successful');
+      
+      return { success: true, message: 'Favorite restored' };
+      
     } catch (error) {
+      // ===== ERROR HANDLING - Rollback =====
       console.error('❌ Error restoring favorite:', error);
+      
+      setRemovedFavorites(prev => [...prev, favoriteToRestore]);
+      setFavoriteIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(restaurantId);
+        return newSet;
+      });
+      setFavorites(prev => prev.filter(f => (f.restaurantId || f.eateryId) !== restaurantId));
+      
       return { success: false, error: error.message };
+    } finally {
+      setPendingOperations(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(restaurantId);
+        return newSet;
+      });
     }
   };
 
@@ -354,3 +624,4 @@ export const FavoritesProvider = ({ children }) => {
     </FavoritesContext.Provider>
   );
 };
+

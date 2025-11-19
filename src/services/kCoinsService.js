@@ -60,14 +60,21 @@ class KCoinsService {
 
       // Get user email (for transaction record)
       let userEmail = '';
-      try {
-        const userRef = doc(db, 'users', userId);
-        const userSnap = await getDoc(userRef);
-        if (userSnap.exists()) {
-          userEmail = userSnap.data().email || '';
+      
+      // Check if userId is a waitlist user (format: "waitlist:email")
+      if (userId.startsWith('waitlist:')) {
+        userEmail = userId.replace('waitlist:', '');
+      } else {
+        // Regular user - try to get email from users collection
+        try {
+          const userRef = doc(db, 'users', userId);
+          const userSnap = await getDoc(userRef);
+          if (userSnap.exists()) {
+            userEmail = userSnap.data().email || '';
+          }
+        } catch (error) {
+          console.warn('Could not fetch user email:', error);
         }
-      } catch (error) {
-        console.warn('Could not fetch user email:', error);
       }
 
       // Create transaction record
@@ -117,11 +124,21 @@ class KCoinsService {
         return { success: false, error: 'User ID is required', balance: 0 };
       }
 
-      // Query all transactions for this user
-      const transactionsQuery = query(
-        collection(db, this.transactionsCollection),
-        where('userId', '==', userId)
-      );
+      // For waitlist users, query by email instead of userId
+      // This allows Firestore rules to check email field
+      let transactionsQuery;
+      if (userId.startsWith('waitlist:')) {
+        const email = userId.replace('waitlist:', '');
+        transactionsQuery = query(
+          collection(db, this.transactionsCollection),
+          where('email', '==', email)
+        );
+      } else {
+        transactionsQuery = query(
+          collection(db, this.transactionsCollection),
+          where('userId', '==', userId)
+        );
+      }
 
       const querySnapshot = await getDocs(transactionsQuery);
       
@@ -158,12 +175,23 @@ class KCoinsService {
         return { success: false, error: 'User ID is required', transactions: [] };
       }
 
-      // Query transactions (without orderBy to avoid index requirement)
-      // We'll sort client-side instead
-      const transactionsQuery = query(
-        collection(db, this.transactionsCollection),
-        where('userId', '==', userId)
-      );
+      // For waitlist users, query by email instead of userId
+      // This allows Firestore rules to check email field
+      let transactionsQuery;
+      if (userId.startsWith('waitlist:')) {
+        const email = userId.replace('waitlist:', '');
+        transactionsQuery = query(
+          collection(db, this.transactionsCollection),
+          where('email', '==', email)
+        );
+      } else {
+        // Query transactions (without orderBy to avoid index requirement)
+        // We'll sort client-side instead
+        transactionsQuery = query(
+          collection(db, this.transactionsCollection),
+          where('userId', '==', userId)
+        );
+      }
 
       const querySnapshot = await getDocs(transactionsQuery);
       
@@ -177,12 +205,30 @@ class KCoinsService {
           amount: data.amount,
           description: data.description,
           relatedId: data.relatedId || null,
-          createdAt
+          createdAt,
+          email: data.email || null // Include email for debugging
         });
       });
-
+      
       // Sort by createdAt descending (newest first) client-side
-      transactions.sort((a, b) => b.createdAt - a.createdAt);
+      transactions.sort((a, b) => {
+        const dateA = a.createdAt instanceof Date ? a.createdAt : new Date(a.createdAt);
+        const dateB = b.createdAt instanceof Date ? b.createdAt : new Date(b.createdAt);
+        return dateB.getTime() - dateA.getTime(); // Descending order (newest first)
+      });
+      
+      // Debug log for waitlist users (after sorting)
+      if (userId.startsWith('waitlist:')) {
+        const email = userId.replace('waitlist:', '');
+        console.log(`📊 K-Coins history query for waitlist user: ${email}`);
+        console.log(`📊 Found ${transactions.length} transactions (sorted by date, newest first)`);
+        transactions.forEach((t, i) => {
+          const dateStr = t.createdAt instanceof Date 
+            ? t.createdAt.toISOString() 
+            : new Date(t.createdAt).toISOString();
+          console.log(`  ${i + 1}. ${t.type} - ${t.amount} K-Coins (${dateStr})`);
+        });
+      }
 
       // Limit to requested count
       const limitedTransactions = transactions.slice(0, limitCount);
