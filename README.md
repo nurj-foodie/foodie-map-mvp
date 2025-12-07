@@ -1,8 +1,8 @@
 # 🗺️ Kawan Makan — Food Discovery App
 
-**Current Version:** v0.7.5 | [📋 View Changelog](./CHANGELOG.md)  
-**Last Updated:** 19 November 2025  
-**Status:** Phases 0, 1, 2, 3.1, 3.2 & 3.3 Complete ✅ | Production Ready 🚀
+**Current Version:** v0.7.6 | [📋 View Changelog](./CHANGELOG.md)  
+**Last Updated:** 7 December 2025  
+**Status:** Phases 0, 1, 2, 3.1, 3.2 & 3.3 Complete ✅ | UI/UX Improvements Complete ✅ | Production Ready 🚀
 
 A cost-effective food discovery app that helps users find restaurants along their routes with 95% API cost reduction. Built for Peninsular Malaysia with route planning, restaurant discovery, and user contributions.
 
@@ -342,7 +342,7 @@ See comprehensive gamification documentation:
 
 See [CHANGELOG.md](./CHANGELOG.md) for detailed version history and release notes.
 
-**Current Version:** v0.7.5 (Phase 3.3 Email Drip Automation Complete) - 19 November 2025
+**Current Version:** v0.7.6 (UI/UX Improvements: SearchTab & BottomNavigation) - 7 December 2025
 
 ## 🔒 Security
 

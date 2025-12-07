@@ -160,18 +160,24 @@ const ExpandableRestaurantCard = ({ restaurant, onViewDetails, onAddReview, onSh
 
   // Navigate to restaurant - Opens Google Maps
   const handleNavigateToRestaurant = () => {
-    if (restaurant.place_id) {
-      // Use Google Maps with place ID for better accuracy
-      const url = `https://www.google.com/maps/place/?q=place_id:${restaurant.place_id}`;
+    if (restaurant.location && restaurant.location.lat && restaurant.location.lng) {
+      // Use coordinates for direct navigation (opens Google Maps app in navigation mode)
+      const lat = typeof restaurant.location.lat === 'function' ? restaurant.location.lat() : restaurant.location.lat;
+      const lng = typeof restaurant.location.lng === 'function' ? restaurant.location.lng() : restaurant.location.lng;
+      const url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`;
       window.open(url, '_blank');
-    } else if (restaurant.location && restaurant.location.lat && restaurant.location.lng) {
-      // Use coordinates as fallback
-      const url = `https://www.google.com/maps/search/?api=1&query=${restaurant.location.lat},${restaurant.location.lng}`;
+    } else if (restaurant.lat && restaurant.lng) {
+      // Fallback: use lat/lng directly from restaurant object
+      const url = `https://www.google.com/maps/dir/?api=1&destination=${restaurant.lat},${restaurant.lng}&travelmode=driving`;
+      window.open(url, '_blank');
+    } else if (restaurant.place_id) {
+      // Use place ID - Google Maps will handle navigation
+      const url = `https://www.google.com/maps/dir/?api=1&destination_place_id=${restaurant.place_id}&travelmode=driving`;
       window.open(url, '_blank');
     } else {
       // Use restaurant name and address as last resort
       const query = encodeURIComponent(`${restaurant.name} ${restaurant.address}`);
-      const url = `https://www.google.com/maps/search/?api=1&query=${query}`;
+      const url = `https://www.google.com/maps/dir/?api=1&destination=${query}&travelmode=driving`;
       window.open(url, '_blank');
     }
   };

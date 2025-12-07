@@ -6,33 +6,28 @@ const BottomNavigation = ({ activeTab, onTabChange, isAdmin = false }) => {
     {
       id: 'discover',
       icon: '🧭',
-      label: 'Discover',
-      color: '#CC0001'
+      label: 'Discover'
     },
     {
       id: 'search',
       icon: '🔍',
-      label: 'Search',
-      color: '#9E9E9E'
+      label: 'Search'
     },
     {
       id: 'add',
       icon: '➕',
       label: 'Add',
-      color: '#CC0001',
       isElevated: true
     },
     {
       id: 'favorites',
       icon: '⭐',
-      label: 'Favorites',
-      color: '#9E9E9E'
+      label: 'Favorites'
     },
     {
       id: 'user',
       icon: '👤',
-      label: 'User',
-      color: '#9E9E9E'
+      label: 'User'
     }
   ];
 
@@ -40,8 +35,7 @@ const BottomNavigation = ({ activeTab, onTabChange, isAdmin = false }) => {
   const adminTab = {
     id: 'admin',
     icon: '📊',
-    label: 'Admin',
-    color: '#9E9E9E'
+    label: 'Admin'
   };
 
   const tabs = isAdmin ? [...baseTabs, adminTab] : baseTabs;
@@ -53,16 +47,15 @@ const BottomNavigation = ({ activeTab, onTabChange, isAdmin = false }) => {
           key={tab.id}
           className={`nav-tab ${tab.isElevated ? 'elevated' : ''} ${activeTab === tab.id ? 'active' : ''}`}
           onClick={() => onTabChange(tab.id)}
-          style={{
-            color: activeTab === tab.id ? tab.color : '#9E9E9E'
-          }}
         >
           <div className="nav-icon">
             {tab.icon}
           </div>
-          <div className="nav-label">
-            {tab.label}
-          </div>
+          {tab.id !== 'add' && (
+            <div className="nav-label">
+              {tab.label}
+            </div>
+          )}
         </button>
       ))}
     </div>

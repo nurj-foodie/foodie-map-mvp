@@ -1,456 +1,494 @@
-.route-results {
-  padding: 20px;
-  min-height: 100vh;
-  background: #f8f9fa;
+/* V2 Refinements */
+.route-results-container {
+  padding: 0;
+  background-color: transparent;
+  /* Let bottom-sheet bg show through */
+  /* Ensure it fills the parent .bottom-sheet-section (which is flex col) */
+  height: 100%;
+  width: 100%;
+  flex: 1;
+  /* Grow to fill parent */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  /* Prevent double scrollbars */
+  min-height: 0;
+  /* Critical for flex children to shrink properly */
 }
 
 .results-header {
-  text-align: center;
-  margin-bottom: 30px;
-  background: white;
-  padding: 20px;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  display: flex;
-  align-items: center;
-  gap: 10px;
+  padding: 6px 16px;
+  /* Minimal padding - compact header (~5% of page) */
+  background-color: #1E1E1E;
+  /* Match sheet bg */
+  /* Sticky header at the top of the flex container */
+  position: relative;
+  z-index: 20;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  /* Subtle separator */
+  flex-shrink: 0;
+  /* Don't shrink header */
 }
 
 .results-header h2 {
-  color: #333;
-  margin: 0 0 12px 0;
-  font-size: 24px;
+  margin: 0;
+  font-size: 16px;
+  /* Reduced from default */
+  font-weight: 600;
+  color: var(--primary-gold);
+  line-height: 1.2;
 }
 
-.route-info {
+.results-header .route-info {
+  margin-top: 4px;
+  font-size: 11px;
+  /* Small font for route info */
+  color: #aaa;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 12px;
-  color: #666;
-  font-size: 16px;
+  gap: 6px;
+  flex-wrap: wrap;
+  line-height: 1.3;
 }
 
+.results-header .route-info span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 45%;
+  /* Limit width to prevent overflow */
+}
+
+.user-greeting h2 {
+  color: var(--primary-gold);
+  margin: 0 0 4px 0;
+  font-family: 'Outfit', sans-serif;
+  font-size: 20px;
+}
+
+.user-greeting p {
+  color: #aaa;
+  font-size: 14px;
+}
+
+/* Scrollable Content Area - FIX FOR SCROLLING */
+.route-results-content {
+  flex: 1 1 auto;
+  /* Grow to fill ALL available space - CRITICAL */
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0;
+  /* Allow shrinking - CRITICAL for flex scrolling */
+  padding: 16px 20px;
+  width: 100%;
+  box-sizing: border-box;
+  /* Include padding in width calculation */
+
+  /* Premium Scrollbar */
+  scrollbar-width: thin;
+  scrollbar-color: #444 transparent;
+}
+
+.route-results-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.route-results-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.route-results-content::-webkit-scrollbar-thumb {
+  background-color: #444;
+  border-radius: 3px;
+}
+
+/* Filter Chips with Gold Active Border */
+.category-tabs {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.category-tab {
+  padding: 8px 16px;
+  background: #2A2A2A;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  color: #aaa;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.category-tab.active {
+  background: rgba(212, 175, 55, 0.1);
+  /* Gold tint */
+  color: var(--primary-gold);
+  border-color: var(--primary-gold);
+  /* Gold border requested */
+  box-shadow: 0 2px 8px rgba(212, 175, 55, 0.2);
+}
+
+.category-tab:hover:not(.active) {
+  background: #333;
+  color: white;
+}
+
+/* Route Selection Styling */
 .route-selection {
-  background: white;
-  padding: 20px;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  background: #2A2A2A;
+  padding: 16px;
+  border-radius: 16px;
   margin-bottom: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  position: relative;
+  z-index: 1;
 }
 
 .route-selection h3 {
-  color: #333;
-  margin: 0 0 16px 0;
-  font-size: 18px;
+  color: #ddd;
+  margin: 0 0 12px 0;
+  font-size: 16px;
 }
 
 .route-options {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
 }
 
 .route-option {
-  padding: 16px;
-  border: 2px solid #e0e0e0;
-  border-radius: 8px;
-  background: white;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  background: #222;
   cursor: pointer;
   transition: all 0.2s ease;
-  text-align: left;
+  color: #ccc;
 }
 
 .route-option:hover {
-  border-color: #CC0001;
-  background: #f8f9fa;
+  border-color: var(--primary-gold);
+  background: #2A2A2A;
 }
 
 .route-option.selected {
-  border-color: #CC0001;
-  background: #fff5f5;
-}
-
-.route-summary {
-  font-weight: 600;
-  color: #333;
-  margin-bottom: 8px;
+  border-color: var(--primary-gold);
+  background: rgba(212, 175, 55, 0.1);
+  color: white;
 }
 
 .route-details {
   display: flex;
-  gap: 16px;
-  color: #666;
-  font-size: 14px;
-}
-
-.map-container {
-  margin-bottom: 20px;
-}
-
-.place-type-tabs {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 20px;
-  background: white;
-  padding: 12px;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  flex-wrap: wrap;
-}
-
-.tab-btn {
-  flex: 1;
-  min-width: 120px;
-  padding: 10px 16px;
-  border: 2px solid #e0e0e0;
-  border-radius: 8px;
-  background: white;
-  color: #666;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  transition: all 0.2s ease;
-  text-align: center;
-}
-
-.tab-btn:hover {
-  border-color: #CC0001;
-  background: #f8f9fa;
-}
-
-.tab-btn.active {
-  border-color: #CC0001;
-  background: #CC0001;
-  color: white;
-}
-
-.restaurant-selection {
-  background: white;
-  padding: 20px;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  margin-bottom: 20px;
-}
-
-.restaurant-selection h3 {
-  color: #333;
-  margin: 0 0 16px 0;
-  font-size: 18px;
+  gap: 12px;
+  font-size: 13px;
+  opacity: 0.8;
 }
 
 .restaurant-list {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  position: relative;
+  z-index: 1;
 }
 
+.restaurant-selection {
+  position: relative;
+  z-index: 1;
+}
+
+/* Horizontal Card Implementation V2 */
 .restaurant-card {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px;
-  border: 2px solid #e0e0e0;
-  border-radius: 8px;
-  background: white;
-  cursor: pointer;
+  flex-direction: row;
+  /* Horizontal layout */
+  height: 112px;
+  /* h-28 */
+  background: #1E1E1E;
+  /* Surface */
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  /* border-white/5 */
+  border-radius: 12px;
+  /* rounded-xl */
+  margin-bottom: 8px;
+  /* Slightly tighter spacing for density */
+  overflow: hidden;
   transition: all 0.2s ease;
+  padding: 0;
 }
 
 .restaurant-card:hover {
-  border-color: #CC0001;
-  background: #f8f9fa;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  border-color: rgba(212, 175, 55, 0.5);
+  /* Subtle gold hover */
 }
 
 .restaurant-card.selected {
-  border-color: #CC0001;
-  background: #fff5f5;
+  border-color: var(--primary-gold);
+  /* Gold border for selected */
+  background: #252525;
 }
 
-.restaurant-info {
-  flex: 1;
+/* Left: Image Section */
+.card-image-section {
+  width: 112px;
+  /* w-28 */
+  height: 100%;
+  flex-shrink: 0;
+  background-color: #333;
+  position: relative;
 }
 
-.restaurant-info h4 {
-  color: #333;
-  margin: 0 0 8px 0;
-  font-size: 16px;
+.card-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 12px 0 0 12px;
+  /* rounded-l-xl */
 }
 
-.restaurant-info p {
-  color: #666;
-  margin: 0 0 8px 0;
-  font-size: 14px;
-}
-
-.restaurant-details {
+.card-image-placeholder {
+  width: 100%;
+  height: 100%;
   display: flex;
-  gap: 12px;
-  color: #666;
-  font-size: 12px;
-  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  color: rgba(255, 255, 255, 0.2);
+  background: linear-gradient(135deg, #2A2A2A, #1A1A1A);
+  border-radius: 12px 0 0 12px;
+  /* rounded-l-xl */
 }
 
-.restaurant-details span {
+/* Middle: Details Section */
+.card-details-section {
+  flex: 1;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+  /* Enable truncation */
+}
+
+.card-title {
+  color: #D4AF37;
+  /* Gold (#D4AF37) for Title */
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 4px 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: 'Outfit', sans-serif;
+}
+
+.card-info-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+  font-size: 13px;
+  color: #9CA3AF;
+  /* Grey (#9CA3AF) for details */
+}
+
+.rating-badge {
   display: flex;
   align-items: center;
   gap: 4px;
+  color: #FFF;
 }
 
-/* Detour information styling */
-.restaurant-details .detour-info {
-  background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
-  padding: 4px 8px;
-  border-radius: 8px;
-  border: 1px solid #e1bee7;
-  font-weight: 600;
-  color: #5e35b1;
+.rating-star {
+  color: #D4AF37;
+  /* Gold Star */
 }
 
-.restaurant-card .restaurant-actions {
+.detour-badge {
+  background: rgba(255, 255, 255, 0.05);
+  /* Subtle background */
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  color: #9CA3AF;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Right: Action Section */
+.card-action-section {
+  width: 56px;
+  /* w-14 */
+  height: 100%;
+  flex-shrink: 0;
+  background: #252525;
+  border-left: 1px solid rgba(255, 255, 255, 0.05);
+  /* border-l border-white/5 */
+  border-radius: 0 12px 12px 0;
+  /* rounded-r-xl */
   display: flex;
-  gap: 8px;
   align-items: center;
-  flex-wrap: wrap;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
-/* Favorite button styling in restaurant cards - borderless icon only */
-.restaurant-card .restaurant-actions .favorite-button {
-  display: flex;
-  align-items: center;
-  overflow: visible;
+.card-action-section:hover {
+  background: #333;
 }
 
-.restaurant-card .restaurant-actions .favorite-btn {
-  background: transparent !important;
-  border: none !important;
-  padding: 4px !important;
-  min-width: auto;
-  width: auto;
-  overflow: visible;
+.card-action-section.selected {
+  background: #2A2A2A;
+  /* Slightly lighter */
 }
 
-.restaurant-card .restaurant-actions .favorite-btn:hover {
-  background: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
+.action-icon {
+  font-size: 24px;
+  color: #9CA3AF;
+  /* Default grey */
+  transition: all 0.2s ease;
+}
+
+.card-action-section:hover .action-icon {
+  color: white;
   transform: scale(1.1);
 }
 
-.restaurant-card .restaurant-actions .favorite-btn--active {
-  background: transparent !important;
-  border: none !important;
+/* Icon turns Gold when selected */
+.card-action-section.selected .action-icon {
+  color: #D4AF37;
+  transform: scale(1.1);
 }
 
-.restaurant-card .restaurant-actions .favorite-btn__icon {
-  font-size: 20px;
-  line-height: 1;
-}
-
-.select-btn {
-  padding: 8px 16px;
-  border: 1px solid #CC0001;
-  border-radius: 6px;
-  background: white;
-  color: #CC0001;
-  cursor: pointer;
-  font-size: 12px;
-  transition: all 0.2s ease;
-}
-
-.select-btn:hover {
-  background: #CC0001;
-  color: white;
-}
-
-.select-btn.selected {
-  background: #CC0001;
-  color: white;
+/* Sticky Footer Implementation */
+.results-footer {
+  background-color: #1E1E1E;
+  /* Match sheet bg */
+  padding: 6px 16px;
+  /* Minimal padding - compact footer */
+  padding-bottom: calc(6px + 80px);
+  /* Add space for bottom navigation (80px height) */
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.2);
+  /* Minimal shadow */
+  position: sticky;
+  bottom: 0;
+  z-index: 30;
+  /* Lower than bottom-navigation z-index: 1000 */
+  flex-shrink: 0;
+  /* Don't shrink footer */
 }
 
 .action-buttons {
-  background: white;
-  padding: 20px;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  margin-bottom: 20px;
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  box-shadow: none;
+  margin-bottom: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  /* Minimal gap */
 }
 
-.navigation-btn {
-  width: 100%;
-  padding: 16px;
-  background: #4CAF50;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-size: 16px;
-  font-weight: 600;
-  cursor: pointer;
-  margin-bottom: 16px;
-  transition: all 0.2s ease;
-}
-
-.navigation-btn:hover {
-  background: #45a049;
-  transform: translateY(-2px);
-}
-
+/* Primary Action: Gold Gradient */
 .start-journey-btn {
   width: 100%;
-  padding: 18px;
-  background: linear-gradient(135deg, #CC0001, #FF4444);
-  color: white;
+  padding: 8px 12px;
+  /* Minimal padding - compact button */
+  background: linear-gradient(135deg, #D4AF37, #B4941F);
+  /* Gold Gradient */
+  color: #121212;
+  /* Dark text for contrast */
   border: none;
-  border-radius: 12px;
-  font-size: 18px;
+  border-radius: 8px;
+  /* Smaller radius */
+  font-size: 12px;
+  /* Smaller font size */
   font-weight: 700;
   cursor: pointer;
-  margin-bottom: 16px;
+  margin-bottom: 0;
+  /* Handled by flex gap */
   transition: all 0.3s ease;
-  box-shadow: 0 4px 15px rgba(204, 0, 1, 0.3);
+  box-shadow: 0 1px 6px rgba(212, 175, 55, 0.3);
+  /* Minimal shadow */
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.2px;
+  /* Minimal letter spacing */
+  font-family: 'Outfit', sans-serif;
+  line-height: 1.2;
+  /* Tighter line height */
 }
 
 .start-journey-btn:hover {
-  background: linear-gradient(135deg, #B30000, #E63939);
-  transform: translateY(-3px);
-  box-shadow: 0 6px 20px rgba(204, 0, 1, 0.4);
+  background: linear-gradient(135deg, #ECC54D, #C6A325);
+  /* Lighter Gold */
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(212, 175, 55, 0.4);
 }
 
 .start-journey-btn:active {
   transform: translateY(-1px);
-  box-shadow: 0 2px 10px rgba(204, 0, 1, 0.3);
 }
 
+/* Secondary Actions: Dark Outline */
 .secondary-actions {
   display: flex;
-  gap: 12px;
+  gap: 6px;
+  /* Minimal gap */
 }
 
-.save-btn, .load-btn {
+.save-btn,
+.load-btn {
   flex: 1;
-  padding: 12px;
-  border: 1px solid #CC0001;
+  padding: 5px 8px;
+  /* Minimal padding - compact buttons */
+  border: 1px solid rgba(212, 175, 55, 0.5);
+  /* Gold border */
   border-radius: 6px;
-  background: white;
-  color: #CC0001;
+  /* Smaller radius */
+  background: rgba(255, 255, 255, 0.03);
+  /* Subtle glass */
+  color: #D4AF37;
+  /* Gold text */
   cursor: pointer;
-  font-size: 14px;
+  font-size: 11px;
+  /* Smaller font size */
+  font-weight: 600;
   transition: all 0.2s ease;
-}
-
-.save-btn:hover, .load-btn:hover {
-  background: #CC0001;
-  color: white;
-}
-
-.status-info {
-  background: white;
-  padding: 20px;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  margin-bottom: 20px;
-}
-
-.status-info p {
-  margin: 4px 0;
-  font-size: 14px;
-  color: #666;
-}
-
-.user-actions {
-  margin-top: 16px;
-  padding-top: 16px;
-  border-top: 1px solid #e0e0e0;
-}
-
-.user-actions p {
-  color: #2196F3;
-  font-size: 12px;
-  margin: 0 0 12px 0;
-}
-
-.user-buttons {
+  font-family: 'Outfit', sans-serif;
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  /* Minimal gap */
+  line-height: 1.2;
+  /* Tighter line height */
 }
 
-.user-buttons button {
-  padding: 4px 8px;
-  border: none;
-  border-radius: 4px;
-  font-size: 10px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.user-buttons button:nth-child(1) { background: #f44336; color: white; }
-.user-buttons button:nth-child(2) { background: #2196F3; color: white; }
-.user-buttons button:nth-child(3) { background: #9C27B0; color: white; }
-.user-buttons button:nth-child(4) { background: #FF9800; color: white; }
-.user-buttons button:nth-child(5) { background: #FF9800; color: white; }
-
-.user-buttons button:hover {
-  opacity: 0.8;
+.save-btn:hover,
+.load-btn:hover {
+  background: rgba(212, 175, 55, 0.15);
+  /* Gold tint on hover */
+  border-color: #D4AF37;
+  color: #FFF;
   transform: translateY(-1px);
 }
 
-/* Mobile optimizations */
-@media (max-width: 480px) {
-  .route-results {
-    padding: 16px;
-  }
-  
-  .results-header h2 {
-    font-size: 20px;
-  }
-  
-  .route-info {
-    font-size: 14px;
-    flex-direction: column;
-    gap: 8px;
-  }
-  
-  .place-type-tabs {
-    flex-direction: column;
-    gap: 8px;
-  }
-  
-  .tab-btn {
-    width: 100%;
-    min-width: auto;
-  }
-  
-  .restaurant-card {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
-  }
-  
-  .restaurant-actions {
-    width: 100%;
-    justify-content: flex-start;
-  }
-  
-  .restaurant-card .restaurant-actions .favorite-btn {
-    flex-shrink: 0;
-  }
-  
-  .select-btn {
-    width: 100%;
-  }
-  
-  .secondary-actions {
-    flex-direction: column;
-  }
-  
-  .user-buttons {
-    flex-direction: column;
-  }
-  
-  .user-buttons button {
-    width: 100%;
-  }
+.user-actions-footer {
+  margin-top: 6px;
+  /* Reduced margin */
+  text-align: center;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  padding-top: 4px;
+  /* Reduced padding */
+  font-size: 10px;
+  /* Smaller font */
+  color: #666;
 }

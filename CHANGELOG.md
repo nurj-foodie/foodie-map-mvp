@@ -1,8 +1,88 @@
 # 🗺️ KAWAN MAKAN — CHANGELOG.md
 
-*Project timeline: 3 Oct – 19 Nov 2025*  
+*Project timeline: 3 Oct – 7 Dec 2025*  
 
 *Core Stack: React, Firebase Firestore, Google Maps Platform, @react-google-maps/api, TailwindCSS, Netlify/Firebase Hosting*
+
+---
+
+## v0.7.6 — UI/UX Improvements: SearchTab & BottomNavigation (7 Dec 2025)
+
+**Session:** 6-7 December 2025, 03:43 PM  
+**Milestone:** SearchTab UI/UX Refinement & BottomNavigation Enhancement  
+**Objective:** Fix persistent layout issues in SearchTab and improve Add button design.
+
+### 🎨 SearchTab UI Improvements
+
+- **Fixed Layout Spacing Issues**
+  - Eliminated blank vertical space between quick filters and results header
+  - Implemented fixed viewport container (`position: fixed`, `height: 100dvh`)
+  - Quick filters now float without pushing content down
+  - Results scroll independently within container
+  - Proper bottom navigation clearance with safe area insets
+
+- **Quick Filters Redesign**
+  - Minimalist horizontal scrollable filter chips
+  - Transparent background, subtle borders
+  - Removed bulky box styling
+  - Improved mobile responsiveness
+
+- **Results Header Optimization**
+  - Hidden results header to save vertical space
+  - Improved results list scrolling with proper padding
+  - Better mobile touch scrolling support
+
+- **Layout Architecture**
+  - Fixed container prevents body scroll
+  - Flex column layout with `flex-grow: 1` on results
+  - Zero-gap policy for minimal spacing
+  - Internal scrolling for results list
+
+### ➕ BottomNavigation Enhancement
+
+- **Add Button Redesign**
+  - Removed "Add" text label (icon-only)
+  - Square button shape (56px × 56px desktop, 50px × 50px mobile)
+  - Larger plus icon (32px desktop, 28px mobile)
+  - Improved hover and active states with scale effects
+  - Better visual hierarchy
+
+### 🔧 Technical Changes
+
+- **SearchTab.css**
+  - Updated `.search-tab` to fixed positioning with viewport height
+  - Redesigned `.quick-filters-wrapper` and `.quick-filters` for floating behavior
+  - Hidden `.results-header` to save space
+  - Improved `.results-list` scrolling with proper padding
+  - Enhanced mobile responsiveness
+
+- **BottomNavigation.js**
+  - Conditionally hide label for "add" tab
+  - Updated button rendering logic
+
+- **BottomNavigation.css**
+  - Square button styling for elevated tab
+  - Improved icon sizing and centering
+  - Enhanced hover/active states with scale transforms
+  - Mobile responsive adjustments
+
+### 📚 Documentation
+
+- Created comprehensive SearchTab UI summary
+- Documented layout solution architecture
+- Updated component structure documentation
+
+### ✅ Testing
+
+- ✅ SearchTab layout issues resolved
+- ✅ Quick filters no longer push content down
+- ✅ Results scroll properly without blank space
+- ✅ Add button displays correctly as square icon-only
+- ✅ Mobile responsive across all screen sizes
+
+### 📝 Next Steps
+
+- Continue with Beta Phase Initialization Review from Cohort (Phase 4)
 
 ---
 

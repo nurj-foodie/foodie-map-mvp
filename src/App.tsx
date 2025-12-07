@@ -15,7 +15,7 @@ import { calculateRouteBounds } from './utils/distanceUtils';
 import { inspectFirestoreData } from './utils/inspectFirestoreData';
 import RestaurantModal from './components/RestaurantModal';
 import BottomNavigation from './components/BottomNavigation';
-import SearchTab from './components/SearchTab';
+import SearchTabNew from './components/SearchTabNew';
 import FavoritesTab from './components/FavoritesTab';
 import UserTab from './components/UserTab';
 import AdminDashboard from './components/AdminDashboard';
@@ -92,7 +92,7 @@ const AppWithAuth: React.FC = () => {
     startName: string;
   } | null>(null);
   // const [rateLimitStats, setRateLimitStats] = useState<any>(null); // Unused for now
-  
+
   // Autocomplete state for route search inputs
   const [startSuggestions, setStartSuggestions] = useState<string[]>([]);
   const [endSuggestions, setEndSuggestions] = useState<string[]>([]);
@@ -156,31 +156,31 @@ const AppWithAuth: React.FC = () => {
         collection(db, 'saved_routes'),
         where('userId', '==', targetUserId)
       );
-      
+
       const snapshot = await getDocs(q);
       const routes: any[] = [];
-      
+
       snapshot.forEach(doc => {
         routes.push({
           id: doc.id,
           ...doc.data()
         });
       });
-      
+
       // Sort by createdAt in JavaScript instead of Firestore
       routes.sort((a, b) => {
         const aTime = a.createdAt?.toDate?.() || new Date(0);
         const bTime = b.createdAt?.toDate?.() || new Date(0);
         return bTime.getTime() - aTime.getTime(); // Descending order
       });
-      
+
       setSavedRoutes(routes);
       console.log(`📚 Loaded ${routes.length} saved routes for user: ${targetUserId}`);
-      
+
     } catch (error) {
       console.error('❌ Error loading saved routes:', error);
       console.error('Error details:', error instanceof Error ? error.message : String(error));
-      
+
       // If Firestore is not accessible, just continue without saved routes
       console.log('⚠️ Continuing without saved routes feature');
       setSavedRoutes([]);
@@ -209,10 +209,10 @@ const AppWithAuth: React.FC = () => {
     const initializeApp = async () => {
       const userId = getOrCreateUserId();
       setCurrentUserId(userId);
-      
+
       // Update rate limit stats
       // updateRateLimitStats(); // Unused for now
-      
+
       // Initialize keyword learning system (the "brain")
       // Run in background to avoid blocking app startup
       // The brain will start learning 2 seconds after app loads
@@ -226,7 +226,7 @@ const AppWithAuth: React.FC = () => {
           console.log('💡 App will work without automatic keyword learning');
         }
       }, 2000);
-      
+
       // Try to load saved routes
       console.log('🔄 Attempting to load saved routes...');
       try {
@@ -238,7 +238,7 @@ const AppWithAuth: React.FC = () => {
         console.log('🔧 This might be due to Firebase configuration - check console for details');
       }
     };
-    
+
     initializeApp();
   }, [loadSavedRoutes]); // updateRateLimitStats removed
 
@@ -277,21 +277,21 @@ const AppWithAuth: React.FC = () => {
     // If not found, wait for it to appear (React might still be rendering)
     console.log('⏳ Map element not found immediately, waiting for DOM to render...');
     el = await waitForElement('map', 20, 50); // Try 20 times with 50ms delay = 1 second max
-    
+
     if (!el) {
       console.error('❌ Map element not found in DOM after waiting');
       setError('Map element not found. Please refresh the page.');
       setIsLoading(false);
       return null;
     }
-    
+
     console.log('✅ Map element found after waiting');
     return el as HTMLElement;
   };
 
   const handleFindRoute = async () => {
     console.log('🚀 handleFindRoute called!', { startLocation, endLocation, isLoading, googleMapsLoaded });
-    
+
     // Check rate limits
     if (currentUserId) {
       const routeLimit = rateLimitService.checkRateLimit(currentUserId, 'route');
@@ -299,14 +299,14 @@ const AppWithAuth: React.FC = () => {
         setError(`Rate limit exceeded: ${routeLimit.reason}. Try again after ${routeLimit.resetTime?.toLocaleTimeString() || 'later'}`);
         return;
       }
-      
+
       const apiLimit = rateLimitService.checkRateLimit(currentUserId, 'apiCall');
       if (!apiLimit.allowed) {
         setError(`API rate limit exceeded: ${apiLimit.reason}. Try again after ${apiLimit.resetTime?.toLocaleTimeString() || 'later'}`);
         return;
       }
     }
-    
+
     // Trigger geolocation immediately on user action (best chance to show prompt)
     if (!hasRequestedGeolocation) {
       setHasRequestedGeolocation(true);
@@ -338,10 +338,10 @@ const AppWithAuth: React.FC = () => {
       // 1. Check route index first
       console.log('🔍 Checking route index...');
       const indexedRoutes = await routeIndexService.getIndexedRoute(startLocation, endLocation);
-      
+
       if (indexedRoutes && indexedRoutes.length > 0) {
         console.log('💰 Route index hit! No API call needed - SAVING MONEY!');
-        
+
         // Track cache hit
         await analyticsService.trackApiUsage({
           apiType: 'google_directions',
@@ -351,25 +351,25 @@ const AppWithAuth: React.FC = () => {
           endLocation: endLocation.name,
           responseTime: Date.now() - Date.now()
         });
-        
+
         await analyticsService.trackCachePerformance({
           cacheType: 'route_index',
           hit: true,
           userId: currentUserId,
           responseTime: Date.now() - Date.now()
         });
-        
+
         // Reconstruct Google Maps route objects from indexed data
-        const reconstructedResponses = indexedRoutes.map(route => 
+        const reconstructedResponses = indexedRoutes.map(route =>
           routeIndexService.reconstructGoogleMapsRoute(route)
         );
-        
+
         // Extract routes from the reconstructed responses
         const reconstructedRoutes = reconstructedResponses.map(response => response.routes[0]);
-        
+
         setAvailableRoutes(reconstructedRoutes);
         setSelectedRoute(reconstructedRoutes[0]);
-        
+
         // Ensure results view (with #map) is rendered before accessing the map element
         setShowRouteResults(true);
         await waitForNextFrame();
@@ -389,13 +389,13 @@ const AppWithAuth: React.FC = () => {
           zoom: 12,
           mapId: process.env.REACT_APP_GOOGLE_MAPS_MAP_ID || 'DEMO_MAP_ID'
         });
-        
+
         // Store map instance for route switching
         setCurrentMapInstance(map);
         console.log('🗺️ Map created for cached route');
-        
+
         // No longer need DirectionsRenderer with direct polyline approach
-        
+
         // Display first route from index using direct polyline rendering
         const firstRoute = reconstructedRoutes[0];
         console.log('🔍 Rendering polyline directly from indexed route:', {
@@ -404,17 +404,17 @@ const AppWithAuth: React.FC = () => {
           polylineLength: firstRoute?.overview_polyline?.encoded_path?.length || 0,
           polylinePreview: firstRoute?.overview_polyline?.encoded_path?.substring(0, 50) + '...'
         });
-        
+
         // Create polylines for ALL routes at once
         const { Polyline } = await window.google.maps.importLibrary("maps");
         const { encoding } = await window.google.maps.importLibrary("geometry");
-        
+
         const polylines: any[] = [];
-        
+
         reconstructedRoutes.forEach((route, index) => {
           // Handle polyline - check for corrupted format (string converted to object with numeric keys)
           let encodedPath = null;
-          
+
           if (route?.overview_polyline?.encoded_path) {
             // Normal format: { encoded_path: "..." }
             encodedPath = route.overview_polyline.encoded_path;
@@ -431,11 +431,11 @@ const AppWithAuth: React.FC = () => {
               }
             }
           }
-          
+
           if (encodedPath && typeof encodedPath === 'string') {
             try {
               const decodedPath = encoding.decodePath(encodedPath);
-              
+
               const polyline = new Polyline({
                 path: decodedPath,
                 strokeColor: '#4285F4',
@@ -444,19 +444,19 @@ const AppWithAuth: React.FC = () => {
                 geodesic: true,
                 map: map
               });
-              
+
               polylines.push(polyline);
             } catch (error) {
               console.error(`❌ Error decoding polyline for cached route ${index + 1}:`, error);
             }
           }
         });
-        
+
         // Store all polylines
         setRoutePolylines(polylines);
-        
+
         console.log(`✅ Created ${polylines.length} polylines for all routes`);
-        
+
         // Fit map to show the first route using global Google Maps API
         if (polylines.length > 0 && firstRoute?.overview_polyline) {
           try {
@@ -473,7 +473,7 @@ const AppWithAuth: React.FC = () => {
                 }
               }
             }
-            
+
             if (encodedPath && typeof encodedPath === 'string') {
               const decodedPath = encoding.decodePath(encodedPath);
               const bounds = new (window.google.maps as any).LatLngBounds();
@@ -485,7 +485,7 @@ const AppWithAuth: React.FC = () => {
             console.error('❌ Error fitting bounds for cached route:', error);
           }
         }
-        
+
         // Find restaurants for indexed routes
         console.log('🔍 Starting restaurant discovery for indexed routes...');
         findRestaurantsForAllRoutes(reconstructedRoutes, map);
@@ -500,10 +500,10 @@ const AppWithAuth: React.FC = () => {
             setHasRequestedGeolocation(true);
           }
         }
-        
+
         // Update rate limit stats
         // updateRateLimitStats(); // Unused for now
-        
+
         setIsLoading(false);
         return;
       }
@@ -519,18 +519,24 @@ const AppWithAuth: React.FC = () => {
         startLocation: startLocation.name,
         endLocation: endLocation.name
       });
-      
+
       const { Map } = await window.google.maps.importLibrary("maps");
       const { DirectionsService } = await window.google.maps.importLibrary("routes");
 
       // Ensure results view (with #map) is rendered before accessing the map element
       setShowRouteResults(true);
+      // Wait for React to render the component and DOM to update
       await waitForNextFrame();
+      await new Promise(resolve => setTimeout(resolve, 150)); // Additional delay for DOM rendering
 
       // Create map - wait for element to appear in DOM
       const mapElement = await getMapElementOrAbort();
-      if (!mapElement) return;
-      
+      if (!mapElement) {
+        console.error('❌ Cannot proceed without map element');
+        setIsLoading(false);
+        return;
+      }
+
       console.log('🗺️ Map element found:', mapElement);
 
       const map = new Map(mapElement, {
@@ -541,10 +547,10 @@ const AppWithAuth: React.FC = () => {
         zoom: 12,
         mapId: process.env.REACT_APP_GOOGLE_MAPS_MAP_ID || 'DEMO_MAP_ID'
       });
-      
+
       // Store map instance for route switching
       setCurrentMapInstance(map);
-      
+
       console.log('🗺️ Map created for new route:', {
         center: { lat: (startLocation.lat + endLocation.lat) / 2, lng: (startLocation.lng + endLocation.lng) / 2 },
         start: startLocation.name,
@@ -553,7 +559,7 @@ const AppWithAuth: React.FC = () => {
 
       // Calculate route
       const directionsService = new DirectionsService();
-      
+
       console.log('🗺️ Directions service initialized');
 
       const request = {
@@ -580,7 +586,7 @@ const AppWithAuth: React.FC = () => {
           console.log('🔍 Route warnings:', result.routes.map((r: any) => r.warnings));
           console.log('🔍 Route distances:', result.routes.map((r: any) => r.legs?.[0]?.distance?.text || 'Unknown'));
           console.log('🔍 Route durations:', result.routes.map((r: any) => r.legs?.[0]?.duration?.text || 'Unknown'));
-          
+
           // Track API usage
           await analyticsService.trackApiUsage({
             apiType: 'google_directions',
@@ -591,7 +597,7 @@ const AppWithAuth: React.FC = () => {
             responseTime: Date.now() - Date.now(),
             routesFound: result.routes.length
           });
-          
+
           // Check if we got alternative routes
           if (result.routes.length === 1) {
             console.log('⚠️ Only 1 route returned. This might be because:');
@@ -602,14 +608,14 @@ const AppWithAuth: React.FC = () => {
           } else {
             console.log('🎉 Multiple routes found! Showing route selection UI');
           }
-          
+
           // Store all available routes
           setAvailableRoutes(result.routes);
-          
+
           // Index the routes for future use (don't await - let it run in background)
           routeIndexService.indexRoute(result.routes, startLocation, endLocation).then(async () => {
             console.log('✅ Route cached successfully - future searches will be FREE!');
-            
+
             // Track successful indexing
             await analyticsService.trackCachePerformance({
               cacheType: 'route_index',
@@ -625,45 +631,45 @@ const AppWithAuth: React.FC = () => {
           // Track user activity (don't await - let it run in background)
           if (currentUserId) {
             userActivityService.trackRouteSearch(
-              currentUserId, 
-              startLocation, 
-              endLocation, 
+              currentUserId,
+              startLocation,
+              endLocation,
               result.routes.length,
               result.routes
             ).catch(error => {
               console.error('❌ Activity tracking failed (non-critical):', error);
             });
           }
-          
+
           // Select the first route by default
           const firstRoute = result.routes[0];
           setSelectedRoute(firstRoute);
-          
+
           // Route data is now handled by our polyline system
           console.log('🗺️ Route data processed for polyline rendering:', firstRoute.summary);
-          
+
           // Render polylines for all routes (using Google Maps geometry library)
           const { encoding } = await window.google.maps.importLibrary("geometry");
-          
+
           // Helper function to validate LatLng coordinates
           const isValidLatLng = (point: any): boolean => {
             if (!point || typeof point !== 'object') return false;
             const lat = typeof point.lat === 'function' ? point.lat() : point.lat;
             const lng = typeof point.lng === 'function' ? point.lng() : point.lng;
-            return typeof lat === 'number' && typeof lng === 'number' && 
-                   !isNaN(lat) && !isNaN(lng) && 
-                   isFinite(lat) && isFinite(lng) &&
-                   lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+            return typeof lat === 'number' && typeof lng === 'number' &&
+              !isNaN(lat) && !isNaN(lng) &&
+              isFinite(lat) && isFinite(lng) &&
+              lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
           };
-          
+
           // Helper function to normalize LatLng to {lat, lng}
-          const normalizeLatLng = (point: any): {lat: number, lng: number} | null => {
+          const normalizeLatLng = (point: any): { lat: number, lng: number } | null => {
             if (!isValidLatLng(point)) return null;
             const lat = typeof point.lat === 'function' ? point.lat() : point.lat;
             const lng = typeof point.lng === 'function' ? point.lng() : point.lng;
             return { lat, lng };
           };
-          
+
           const polylines: any[] = [];
           result.routes.forEach((route: any, index: number) => {
             console.log(`🔍 Route ${index + 1} structure:`, {
@@ -672,56 +678,56 @@ const AppWithAuth: React.FC = () => {
               hasOverviewPath: !!(route.overview_polyline?.overview_path),
               overviewPolylineKeys: route.overview_polyline ? Object.keys(route.overview_polyline) : []
             });
-            
-      // Try different possible polyline data structures
-      let encodedPath = null;
-      if (route.overview_polyline?.encoded_path) {
-        encodedPath = route.overview_polyline.encoded_path;
-      } else if (route.overview_polyline?.overview_path) {
-        // If it's already decoded, use it directly
-        encodedPath = route.overview_polyline.overview_path;
-      } else if (route.overview_polyline) {
-        // Check for other possible keys
-        const keys = Object.keys(route.overview_polyline);
-        console.log(`🔍 Available keys in overview_polyline:`, keys);
-        
-        // Handle array-like structure with numeric string keys
-        if (keys.length > 0 && keys.every(key => /^\d+$/.test(key))) {
-          const firstValue = route.overview_polyline[keys[0]];
-          
-          // Check if values are single characters (corrupted encoded string)
-          if (typeof firstValue === 'string' && firstValue.length === 1) {
-            // Reconstruct the encoded string from numeric keys
-            encodedPath = Object.values(route.overview_polyline).join('');
-            console.log('✅ Reconstructed encoded polyline from corrupted numeric keys (fresh route)');
-          } else {
-            // Original logic: numeric keys with LatLng objects
-            const maxIndex = Math.max(...keys.map(k => parseInt(k)));
-            const pathArray = [];
-            for (let i = 0; i <= maxIndex; i++) {
-              const point = route.overview_polyline[i.toString()];
-              if (point) {
-                // Validate the point before adding
-                const normalized = normalizeLatLng(point);
-                if (normalized) {
-                  pathArray.push(normalized);
+
+            // Try different possible polyline data structures
+            let encodedPath = null;
+            if (route.overview_polyline?.encoded_path) {
+              encodedPath = route.overview_polyline.encoded_path;
+            } else if (route.overview_polyline?.overview_path) {
+              // If it's already decoded, use it directly
+              encodedPath = route.overview_polyline.overview_path;
+            } else if (route.overview_polyline) {
+              // Check for other possible keys
+              const keys = Object.keys(route.overview_polyline);
+              console.log(`🔍 Available keys in overview_polyline:`, keys);
+
+              // Handle array-like structure with numeric string keys
+              if (keys.length > 0 && keys.every(key => /^\d+$/.test(key))) {
+                const firstValue = route.overview_polyline[keys[0]];
+
+                // Check if values are single characters (corrupted encoded string)
+                if (typeof firstValue === 'string' && firstValue.length === 1) {
+                  // Reconstruct the encoded string from numeric keys
+                  encodedPath = Object.values(route.overview_polyline).join('');
+                  console.log('✅ Reconstructed encoded polyline from corrupted numeric keys (fresh route)');
                 } else {
-                  console.warn(`⚠️ Invalid coordinate at index ${i}:`, point);
+                  // Original logic: numeric keys with LatLng objects
+                  const maxIndex = Math.max(...keys.map(k => parseInt(k)));
+                  const pathArray = [];
+                  for (let i = 0; i <= maxIndex; i++) {
+                    const point = route.overview_polyline[i.toString()];
+                    if (point) {
+                      // Validate the point before adding
+                      const normalized = normalizeLatLng(point);
+                      if (normalized) {
+                        pathArray.push(normalized);
+                      } else {
+                        console.warn(`⚠️ Invalid coordinate at index ${i}:`, point);
+                      }
+                    }
+                  }
+                  if (pathArray.length > 0) {
+                    encodedPath = pathArray;
+                    console.log(`🔍 Converted numeric keys to array with ${pathArray.length} valid points`);
+                  } else {
+                    console.warn('⚠️ No valid coordinates found in numeric keys structure');
+                  }
                 }
+              } else if (keys.length > 0) {
+                encodedPath = route.overview_polyline[keys[0]];
               }
             }
-            if (pathArray.length > 0) {
-              encodedPath = pathArray;
-              console.log(`🔍 Converted numeric keys to array with ${pathArray.length} valid points`);
-            } else {
-              console.warn('⚠️ No valid coordinates found in numeric keys structure');
-            }
-          }
-        } else if (keys.length > 0) {
-          encodedPath = route.overview_polyline[keys[0]];
-        }
-      }
-            
+
             if (encodedPath) {
               try {
                 let path;
@@ -737,7 +743,7 @@ const AppWithAuth: React.FC = () => {
                   console.warn(`⚠️ Unknown polyline format for route ${index + 1}:`, typeof encodedPath);
                   return;
                 }
-                
+
                 // Only create polyline if we have valid points
                 if (path.length > 0) {
                   const polyline = new (window.google.maps as any).Polyline({
@@ -748,7 +754,7 @@ const AppWithAuth: React.FC = () => {
                     strokeWeight: index === 0 ? 4 : 3,
                     map: map
                   });
-                  
+
                   polylines.push(polyline);
                   console.log(`✅ Created polyline for route ${index + 1} with ${path.length} valid points`);
                 } else {
@@ -761,12 +767,12 @@ const AppWithAuth: React.FC = () => {
               console.warn(`⚠️ No polyline data found for route ${index + 1}`);
             }
           });
-          
+
           // Store all polylines
           setRoutePolylines(polylines);
-          
+
           console.log(`✅ Created ${polylines.length} polylines for all routes`);
-          
+
           // Fit map to show the first route
           if (polylines.length > 0 && firstRoute?.overview_polyline) {
             try {
@@ -811,11 +817,11 @@ const AppWithAuth: React.FC = () => {
                   }
                 }
               }
-              
+
               if (decodedPath && Array.isArray(decodedPath)) {
                 // Validate all points before extending bounds
                 const validPoints = decodedPath.map((point: any) => normalizeLatLng(point)).filter((p: any) => p !== null);
-                
+
                 if (validPoints.length > 0) {
                   const bounds = new (window.google.maps as any).LatLngBounds();
                   validPoints.forEach((point: any) => {
@@ -857,7 +863,7 @@ const AppWithAuth: React.FC = () => {
               console.error('❌ Error fitting map bounds:', error);
             }
           }
-          
+
           // Find restaurants for ALL routes at once (more efficient)
           findRestaurantsForAllRoutes(result.routes, map);
           // One-time location permission prompt after route is ready
@@ -874,7 +880,7 @@ const AppWithAuth: React.FC = () => {
         } else {
           console.error('❌ Google Directions API failed:', status);
           setError(`Route calculation failed: ${status}`);
-          
+
           // Track API error
           await analyticsService.trackSystemPerformance({
             endpoint: 'google_directions_api',
@@ -889,7 +895,7 @@ const AppWithAuth: React.FC = () => {
 
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
-      
+
       // Track system error
       await analyticsService.trackSystemPerformance({
         endpoint: 'route_finding',
@@ -898,7 +904,7 @@ const AppWithAuth: React.FC = () => {
         userId: currentUserId,
         responseTime: Date.now() - Date.now()
       });
-      
+
       setIsLoading(false);
     }
   };
@@ -913,8 +919,8 @@ const AppWithAuth: React.FC = () => {
         <div className="App">
           <header className="App-header">
             <h1>Kawan Makan</h1>
-            
-            
+
+
             <RouteInputForm
               startLocation={startLocation}
               endLocation={endLocation}
@@ -940,44 +946,84 @@ const AppWithAuth: React.FC = () => {
     }
 
     return (
-      <RouteResultsAny
-        startLocation={startLocation}
-        endLocation={endLocation}
-        availableRoutes={availableRoutes}
-        selectedRouteIndex={availableRoutes.findIndex(r => r === selectedRoute)}
-        onRouteSelect={handleRouteSelect}
-        filteredRestaurants={filteredRestaurants}
-        filteredRNRStops={filteredRNRStops}
-        filteredPetrolStations={filteredPetrolStations}
-        selectedEateries={selectedEateries}
-        onEaterySelect={handleEaterySelect}
-        onViewDetails={(restaurant: any) => { setSelectedRestaurant(restaurant); setShowRestaurantModal(true); }}
-        onBack={() => setShowRouteResults(false)}
-        onStartNavigation={handleNavigateToEateries}
-        onSaveRoute={() => setShowSaveRouteForm(true)}
-        onLoadSavedRoutes={() => setShowSavedRoutes(true)}
-        savedRoutes={savedRoutes}
-        onLoadRoute={handleLoadRoute}
-        onDeleteRoute={handleDeleteRoute}
-        showSaveRouteForm={showSaveRouteForm}
-        showSavedRoutes={showSavedRoutes}
-        routeName={routeName}
-        onRouteNameChange={setRouteName}
-        onShowSaveForm={() => setShowSaveRouteForm(true)}
-        onShowSavedRoutes={() => setShowSavedRoutes(true)}
-        onCloseModals={() => { setShowSaveRouteForm(false); setShowSavedRoutes(false); }}
-        onSaveRouteSubmit={handleSaveRoute}
-        currentUserId={currentUserId}
-        onClearUserData={handleClearUserData}
-        onInspectData={async () => { try { await inspectFirestoreData(); } catch {} }}
-        onGetUserStats={async () => { try { await userActivityService.getUserActivitySummary(currentUserId, '30d'); } catch {} }}
-        onTestMultiRoute={() => {
-          setStartLocation({ name: 'Kuala Lumpur, Malaysia', lat: 3.1390, lng: 101.6869 });
-          setEndLocation({ name: 'Penang, Malaysia', lat: 5.4164, lng: 100.3327 });
-        }}
-        onClearRouteCache={handleClearRouteCache}
-        googleMapsLoaded={googleMapsLoaded}
-      />
+      <div className="app-split-layout">
+        {/* Top Map Section (Fixed/Sticky) */}
+        <div className="top-map-section">
+          <div id="map"></div>
+
+          <button
+            className="back-button"
+            onClick={() => {
+              setShowRouteResults(false);
+              setAvailableRoutes([]);
+              setRoutePolylines([]);
+            }}
+          >
+            ←
+          </button>
+
+          {/* Route Selection Circles - FOB style on middle left */}
+          {availableRoutes && availableRoutes.length > 1 && (
+            <div className="route-selection-circles">
+              <div className="route-label">Route</div>
+              {availableRoutes.map((route, index) => {
+                const isSelected = route === selectedRoute;
+                return (
+                  <button
+                    key={index}
+                    className={`route-circle ${isSelected ? 'selected' : ''}`}
+                    onClick={() => handleRouteSelect(index)}
+                  >
+                    {index + 1}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Bottom Sheet Section (Scrollable) */}
+        <div className="bottom-sheet-section">
+          <RouteResultsAny
+            startLocation={startLocation}
+            endLocation={endLocation}
+            availableRoutes={availableRoutes}
+            selectedRouteIndex={availableRoutes.findIndex(r => r === selectedRoute)}
+            onRouteSelect={handleRouteSelect}
+            filteredRestaurants={filteredRestaurants}
+            filteredRNRStops={filteredRNRStops}
+            filteredPetrolStations={filteredPetrolStations}
+            selectedEateries={selectedEateries}
+            onEaterySelect={handleEaterySelect}
+            onViewDetails={(restaurant: any) => { setSelectedRestaurant(restaurant); setShowRestaurantModal(true); }}
+            onBack={() => setShowRouteResults(false)}
+            onStartNavigation={handleNavigateToEateries}
+            onSaveRoute={() => setShowSaveRouteForm(true)}
+            onLoadSavedRoutes={() => setShowSavedRoutes(true)}
+            savedRoutes={savedRoutes}
+            onLoadRoute={handleLoadRoute}
+            onDeleteRoute={handleDeleteRoute}
+            showSaveRouteForm={showSaveRouteForm}
+            showSavedRoutes={showSavedRoutes}
+            routeName={routeName}
+            onRouteNameChange={setRouteName}
+            onShowSaveForm={() => setShowSaveRouteForm(true)}
+            onShowSavedRoutes={() => setShowSavedRoutes(true)}
+            onCloseModals={() => { setShowSaveRouteForm(false); setShowSavedRoutes(false); }}
+            onSaveRouteSubmit={handleSaveRoute}
+            currentUserId={currentUserId}
+            onClearUserData={handleClearUserData}
+            onInspectData={async () => { try { await inspectFirestoreData(); } catch { } }}
+            onGetUserStats={async () => { try { await userActivityService.getUserActivitySummary(currentUserId, '30d'); } catch { } }}
+            onTestMultiRoute={() => {
+              setStartLocation({ name: 'Kuala Lumpur, Malaysia', lat: 3.1390, lng: 101.6869 });
+              setEndLocation({ name: 'Penang, Malaysia', lat: 5.4164, lng: 100.3327 });
+            }}
+            onClearRouteCache={handleClearRouteCache}
+            googleMapsLoaded={googleMapsLoaded}
+          />
+        </div>
+      </div>
     );
   };
 
@@ -986,12 +1032,12 @@ const AppWithAuth: React.FC = () => {
       case 'discover':
         return renderDiscover();
       case 'search':
-        return <SearchTab />;
+        return <SearchTabNew />;
       case 'add':
         return <AddRestaurantTab />;
       case 'favorites':
         return (
-          <FavoritesTab 
+          <FavoritesTab
             savedRoutes={savedRoutes}
             onLoadRoute={handleLoadRoute}
             onDeleteRoute={handleDeleteRoute}
@@ -1009,16 +1055,16 @@ const AppWithAuth: React.FC = () => {
   // NEW: Fetch ALL places (restaurants, R&R, petrol) for ALL routes at once (more efficient)
   const findPlacesForAllRoutes = async (routes: any[], map: any) => {
     console.log('🔍 Fetching ALL places (restaurants, R&R, petrol) for ALL routes at once...');
-    
+
     try {
       // Calculate combined bounds for all routes
       const allBounds = routes.map(route => calculateRouteBounds(route)).filter(Boolean);
-      
+
       if (allBounds.length === 0) {
         console.error('❌ Could not calculate bounds for any route');
         return;
       }
-      
+
       // Create a combined search area that covers all routes
       const combinedBounds = {
         north: Math.max(...allBounds.map((b: any) => b.north)),
@@ -1026,9 +1072,9 @@ const AppWithAuth: React.FC = () => {
         east: Math.max(...allBounds.map((b: any) => b.east)),
         west: Math.min(...allBounds.map((b: any) => b.west))
       };
-      
+
       console.log('📍 Combined bounds for all routes:', combinedBounds);
-      
+
       // Fetch ALL place types in parallel
       const [allRestaurantsData, allRNRStopsData, allPetrolStationsData] = await Promise.all([
         firestoreSearchService.searchRestaurants(combinedBounds, {
@@ -1040,14 +1086,14 @@ const AppWithAuth: React.FC = () => {
         placeSearchService.searchRNRStops(combinedBounds, {}),
         placeSearchService.searchPetrolStations(combinedBounds, {})
       ]);
-      
+
       console.log(`🍽️ Found ${allRestaurantsData.length} restaurants in combined area`);
       console.log(`🛣️ Found ${allRNRStopsData.length} R&R stops in combined area`);
       console.log(`⛽ Found ${allPetrolStationsData.length} petrol stations in combined area`);
-      
+
       // CRITICAL FIX: Calculate detours for ALL places against ALL routes in parallel
       console.log('💰 Using Haversine formula first (FREE), Distance Matrix as fallback if needed');
-      
+
       const [restaurantsWithAllDetours, rnrStopsWithAllDetours, petrolStationsWithAllDetours] = await Promise.all([
         // Calculate detours for restaurants (5km/30min threshold)
         Promise.all(
@@ -1113,7 +1159,7 @@ const AppWithAuth: React.FC = () => {
           })
         )
       ]);
-      
+
       // Helper function to combine places with detours by route
       const combinePlacesWithDetours = (places: any[], detoursByRoute: any[], placeType: string) => {
         return places.map((place: any, placeIndex: number) => {
@@ -1127,7 +1173,7 @@ const AppWithAuth: React.FC = () => {
               } : { detourDistanceKm: Infinity, detourDurationMinutes: Infinity }
             };
           });
-          
+
           return {
             ...place,
             placeType, // Add type identifier
@@ -1137,52 +1183,52 @@ const AppWithAuth: React.FC = () => {
           };
         });
       };
-      
+
       // Combine all place types with their detours
       const combinedRestaurants = combinePlacesWithDetours(allRestaurantsData, restaurantsWithAllDetours, 'restaurant');
       const combinedRNRStops = combinePlacesWithDetours(allRNRStopsData, rnrStopsWithAllDetours, 'rnr');
       const combinedPetrolStations = combinePlacesWithDetours(allPetrolStationsData, petrolStationsWithAllDetours, 'petrol_station');
-      
+
       // Filter places that are within QUICK DETOUR range
       // Restaurants & R&R: 5km/30min, Petrol: 5km/15min
       const filterPlacesByThreshold = (places: any[], threshold: { distance: number, duration: number }) => {
         return places.filter((place: any) => {
           // Safety check: filter out places with clearly invalid distances (>100km)
-          const hasValidDistance = place.detoursByRoute.some((d: any) => 
-            d.detour.detourDistanceKm <= 100 && 
+          const hasValidDistance = place.detoursByRoute.some((d: any) =>
+            d.detour.detourDistanceKm <= 100 &&
             d.detour.detourDistanceKm !== Infinity &&
             !isNaN(d.detour.detourDistanceKm)
           );
-          
+
           if (!hasValidDistance) return false;
-          
+
           // Main filter: within threshold
-          return place.detoursByRoute.some((d: any) => 
-            (d.detour.detourDistanceKm <= threshold.distance && d.detour.detourDistanceKm <= 100) || 
+          return place.detoursByRoute.some((d: any) =>
+            (d.detour.detourDistanceKm <= threshold.distance && d.detour.detourDistanceKm <= 100) ||
             (d.detour.detourDurationMinutes <= threshold.duration && d.detour.detourDurationMinutes <= 180)
           );
         });
       };
-      
+
       const validRestaurants = filterPlacesByThreshold(combinedRestaurants, { distance: 5, duration: 30 });
       const validRNRStops = filterPlacesByThreshold(combinedRNRStops, { distance: 5, duration: 30 });
       const validPetrolStations = filterPlacesByThreshold(combinedPetrolStations, { distance: 5, duration: 15 });
-      
+
       console.log(`📍 ${validRestaurants.length} restaurants within range`);
       console.log(`📍 ${validRNRStops.length} R&R stops within range`);
       console.log(`📍 ${validPetrolStations.length} petrol stations within range`);
-      
+
       // Store all places (from ALL routes)
       setAllRestaurants(validRestaurants);
       setAllRNRStops(validRNRStops);
       setAllPetrolStations(validPetrolStations);
-      
+
       // INITIAL DISPLAY: Show ALL places from ALL routes (prioritize restaurants)
       console.log('📊 Initial display: Showing ALL places from ALL routes (restaurants prioritized)');
       setFilteredRestaurants(validRestaurants);
       setFilteredRNRStops(validRNRStops);
       setFilteredPetrolStations(validPetrolStations);
-      
+
       // Add ALL markers to map initially (from all routes)
       if (map) {
         const allPlacesToShow = [...validRestaurants, ...validRNRStops, ...validPetrolStations];
@@ -1191,11 +1237,11 @@ const AppWithAuth: React.FC = () => {
           addPlaceMarkers(allPlacesToShow, map);
         }
       }
-      
+
       // Cache places in route_index for future use (if start/end locations are available)
       if (startLocation && endLocation) {
         try {
-          await (routeIndexService.indexRoute as any)(routes, 
+          await (routeIndexService.indexRoute as any)(routes,
             { name: startLocation.name, lat: startLocation.lat, lng: startLocation.lng },
             { name: endLocation.name, lat: endLocation.lat, lng: endLocation.lng },
             {
@@ -1209,7 +1255,7 @@ const AppWithAuth: React.FC = () => {
           console.warn('⚠️ Failed to cache places:', cacheError);
         }
       }
-      
+
     } catch (error) {
       console.error('❌ Place search failed:', error);
       setAllRestaurants([]);
@@ -1220,7 +1266,7 @@ const AppWithAuth: React.FC = () => {
       setFilteredPetrolStations([]);
     }
   };
-  
+
   // Legacy function name for backward compatibility
   const findRestaurantsForAllRoutes = findPlacesForAllRoutes;
 
@@ -1234,7 +1280,7 @@ const AppWithAuth: React.FC = () => {
     });
     setRestaurantMarkers([]); // Clear marker array
   };
-  
+
   // Legacy function name for backward compatibility
   const clearRestaurantMarkers = clearPlaceMarkers;
 
@@ -1243,35 +1289,35 @@ const AppWithAuth: React.FC = () => {
   // When user selects a route: Show only places within threshold of THAT route (hide others)
   const filterPlacesForRoute = (route: any, routeIndex: number, mapInstance?: any) => {
     console.log(`🔄 Filtering places for Route ${routeIndex + 1} (quick detour only)...`);
-    
+
     // Filter each place type with appropriate thresholds
     const filterPlaces = (places: any[], threshold: { distance: number, duration: number }) => {
       return places.filter(place => {
         const routeDetour = place.detoursByRoute[routeIndex];
         if (!routeDetour) return false;
-        return routeDetour.detour.detourDistanceKm <= threshold.distance || 
-               routeDetour.detour.detourDurationMinutes <= threshold.duration;
+        return routeDetour.detour.detourDistanceKm <= threshold.distance ||
+          routeDetour.detour.detourDurationMinutes <= threshold.duration;
       }).map(place => ({
         ...place,
         detourDistanceKm: place.detoursByRoute[routeIndex].detour.detourDistanceKm,
         detourDurationMinutes: place.detoursByRoute[routeIndex].detour.detourDurationMinutes
       }));
     };
-    
+
     const filteredRestaurants = filterPlaces(allRestaurants, { distance: 5, duration: 30 });
     const filteredRNR = filterPlaces(allRNRStops, { distance: 5, duration: 30 });
     const filteredPetrol = filterPlaces(allPetrolStations, { distance: 5, duration: 15 });
-    
+
     console.log(`📍 ${filteredRestaurants.length} restaurants, ${filteredRNR.length} R&R, ${filteredPetrol.length} petrol visible for Route ${routeIndex + 1}`);
-    
+
     setFilteredRestaurants(filteredRestaurants);
     setFilteredRNRStops(filteredRNR);
     setFilteredPetrolStations(filteredPetrol);
-    
+
     // CRITICAL: Clear existing markers, then add only markers for selected route
     if (mapInstance) {
       clearPlaceMarkers();
-      
+
       const allFilteredPlaces = [...filteredRestaurants, ...filteredRNR, ...filteredPetrol];
       if (allFilteredPlaces.length > 0) {
         console.log(`🗺️ Adding ${allFilteredPlaces.length} place markers for Route ${routeIndex + 1}`);
@@ -1281,7 +1327,7 @@ const AppWithAuth: React.FC = () => {
       }
     }
   };
-  
+
   // Legacy function for backward compatibility
   const filterRestaurantsForRoute = (restaurants: any[], route: any, routeIndex: number, mapInstance?: any) => {
     // Just call the new unified function
@@ -1293,7 +1339,7 @@ const AppWithAuth: React.FC = () => {
   const addPlaceMarkers = async (places: any[], map: any) => {
     console.log(`🗺️ addPlaceMarkers called with ${places.length} places`);
     console.log('🗺️ Map instance:', map);
-    
+
     // Ensure marker library is loaded
     if (!(window.google.maps as any).marker?.AdvancedMarkerElement) {
       console.log('🗺️ Loading marker library...');
@@ -1321,12 +1367,12 @@ const AppWithAuth: React.FC = () => {
       const placeType = place.placeType || place.type || 'restaurant';
       const placeName = place.name || place.displayName || place.eateryName || 'Unknown';
       const emoji = placeType === 'restaurant' ? '🍽️' : placeType === 'rnr' ? '🛣️' : '⛽';
-      
+
       console.log(`🗺️ Creating marker ${index + 1} for: ${emoji} ${placeName}`);
       console.log(`🗺️ Place location:`, place.location);
-      
+
       const AdvancedMarkerElement = (window.google.maps as any).marker.AdvancedMarkerElement;
-      
+
       // Create emoji pin element with colored background for visibility
       const pinElement = document.createElement('div');
       pinElement.style.fontSize = '24px';
@@ -1337,7 +1383,7 @@ const AppWithAuth: React.FC = () => {
       pinElement.style.alignItems = 'center';
       pinElement.style.justifyContent = 'center';
       pinElement.style.borderRadius = '50%';
-      
+
       // Add colored background based on type for better visibility
       if (placeType === 'restaurant') {
         pinElement.style.background = '#FF6B6B'; // Red background for restaurants
@@ -1352,22 +1398,46 @@ const AppWithAuth: React.FC = () => {
         pinElement.style.border = '2px solid #fff';
         pinElement.style.boxShadow = '0 2px 4px rgba(0,0,0,0.3)';
       }
-      
+
       pinElement.textContent = emoji;
-      
+
       const marker = new AdvancedMarkerElement({
         position: place.location,
         map: map,
         title: placeName,
         content: pinElement
       });
-      
+
       console.log(`🗺️ Marker created for ${placeName}`);
 
       const placeId = place.place_id || place.id;
       const brand = place.brand ? ` (${place.brand})` : '';
       const typeLabel = placeType === 'restaurant' ? 'Restaurant' : placeType === 'rnr' ? 'R&R Stop' : 'Petrol Station';
-      
+
+      // Extract coordinates for Google Maps navigation
+      let lat, lng;
+      if (place.location && typeof place.location.lat === 'function') {
+        // Google Maps LatLng object
+        lat = place.location.lat();
+        lng = place.location.lng();
+      } else if (place.location && typeof place.location.lat === 'number') {
+        // Plain object with lat/lng properties
+        lat = place.location.lat;
+        lng = place.location.lng;
+      } else if (place.lat && place.lng) {
+        // Place object has lat/lng directly
+        lat = place.lat;
+        lng = place.lng;
+      } else {
+        lat = null;
+        lng = null;
+      }
+
+      // Create Google Maps navigation URL
+      const navUrl = lat && lng
+        ? `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`
+        : '#';
+
       const infoWindow = new google.maps.InfoWindow({
         content: `
           <div style="padding: 10px; color: #000000;">
@@ -1377,10 +1447,10 @@ const AppWithAuth: React.FC = () => {
             ${place.rating ? `<p style="color: #000000; margin: 4px 0;">Rating: ${place.rating}${place.userRatingCount ? ` (${place.userRatingCount} reviews)` : ''}</p>` : ''}
             ${place.detourDistanceKm ? `<p style="color: #000000; margin: 4px 0;">Detour: ${place.detourDistanceKm.toFixed(1)} km (${(place.detourDurationMinutes || 0).toFixed(0)} min)</p>` : ''}
             <p style="color: #000000; margin: 4px 0; font-size: 12px;">Source: ${place.source || 'unknown'}</p>
-            <button onclick="navigateToPlace('${placeId}')" 
-                    style="background: #CC0001; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin-top: 8px;">
+            <a href="${navUrl}" target="_blank" 
+               style="display: inline-block; background: #CC0001; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin-top: 8px; text-decoration: none; font-size: 14px; font-weight: 500;">
               Navigate Here
-            </button>
+            </a>
           </div>
         `
       });
@@ -1414,7 +1484,7 @@ const AppWithAuth: React.FC = () => {
   const handleLocationSelect = async (type: 'start' | 'end', location: Location) => {
     if (type === 'start') {
       setStartLocation(location);
-      
+
       // Do not prompt geolocation on every keystroke; only when route is found or explicitly needed
     } else {
       setEndLocation(location);
@@ -1425,10 +1495,10 @@ const AppWithAuth: React.FC = () => {
   const geocodeLocation = async (address: string, type: 'start' | 'end') => {
     try {
       console.log(`🔍 Geocoding ${type} location:`, address);
-      
+
       const { Geocoder } = await window.google.maps.importLibrary("geocoding");
       const geocoder = new Geocoder();
-      
+
       // Allow free typing: only append ", Malaysia" if user didn't type a country hint
       const query = /malaysia/i.test(address) ? address : `${address}, Malaysia`;
       geocoder.geocode({ address: query }, async (results: any, status: any) => {
@@ -1439,13 +1509,13 @@ const AppWithAuth: React.FC = () => {
             lat: location.lat(),
             lng: location.lng()
           };
-          
+
           // Index the location in Firestore for future autocomplete
           await locationIndexService.indexLocation(locationData.name, {
             lat: locationData.lat,
             lng: locationData.lng
           });
-          
+
           handleLocationSelect(type, locationData);
           console.log(`✅ Geocoded ${type} location:`, locationData.name);
         } else {
@@ -1466,7 +1536,7 @@ const AppWithAuth: React.FC = () => {
     try {
       // First, try Firestore location index
       const firestoreSuggestions = await locationIndexService.getLocationSuggestions(query, 8);
-      
+
       if (firestoreSuggestions.length >= 8) {
         // We have enough results from Firestore
         return firestoreSuggestions;
@@ -1479,31 +1549,31 @@ const AppWithAuth: React.FC = () => {
         'Johor Bahru', 'Ipoh', 'Penang', 'Malacca', 'Kuantan', 'Kota Kinabalu',
         'Kuching', 'Alor Setar', 'Kangar', 'Kuala Terengganu', 'Kota Bharu',
         'Seremban', 'Melaka', 'Miri', 'Sibu', 'Sandakan', 'Tawau',
-        
+
         // States (with major cities)
         'Selangor', 'Johor', 'Perak', 'Pulau Pinang', 'Melaka', 'Pahang',
         'Terengganu', 'Kelantan', 'Perlis', 'Kedah', 'Negeri Sembilan',
         'Sabah', 'Sarawak', 'Labuan',
-        
+
         // Popular areas in KL
         'KLCC', 'Bukit Bintang', 'Chinatown', 'Little India', 'Bangsar',
         'Mont Kiara', 'Damansara', 'Ampang', 'Cheras', 'Kepong', 'Gombak',
-        
+
         // Popular areas in other cities
         'Georgetown', 'Gurney Drive', 'Batu Ferringhi', 'Jonker Street',
         'Legoland', 'Desaru', 'Cameron Highlands', 'Genting Highlands',
         'Langkawi', 'Tioman', 'Redang', 'Perhentian',
-        
+
         // Common abbreviations
         'KL', 'JB', 'PJ', 'KK', 'PG',
-        
+
         // Additional locations (from user feedback)
         'Dungun', 'Pasir Puteh', 'Dungun District', 'Pasir Puteh District'
       ];
 
       const lowerQuery = query.toLowerCase();
       const hardcodedMatches = malaysianLocations
-        .filter(location => 
+        .filter(location =>
           location.toLowerCase().includes(lowerQuery) ||
           location.toLowerCase().startsWith(lowerQuery)
         )
@@ -1529,7 +1599,7 @@ const AppWithAuth: React.FC = () => {
       ];
       const lowerQuery = query.toLowerCase();
       return malaysianLocations
-        .filter(location => 
+        .filter(location =>
           location.toLowerCase().includes(lowerQuery) ||
           location.toLowerCase().startsWith(lowerQuery)
         )
@@ -1540,7 +1610,7 @@ const AppWithAuth: React.FC = () => {
   // Handle start location input change with autocomplete
   const handleStartLocationChange = (value: string) => {
     setStartQuery(value);
-    
+
     // If user clears the input, also clear the geocoded location
     if (!value || value.trim() === '') {
       setStartLocation(null);
@@ -1549,16 +1619,16 @@ const AppWithAuth: React.FC = () => {
       setStartSuggestions([]);
       return;
     }
-    
+
     // Generate suggestions (async)
     getLocationSuggestions(value).then(suggestions => {
       setStartSuggestions(suggestions);
       setShowStartSuggestions(suggestions.length > 0 && value.length >= 2);
     });
-    
+
     // Clear existing debounce
     if (startDebounceRef.current) clearTimeout(startDebounceRef.current);
-    
+
     // Debounced geocoding
     startDebounceRef.current = setTimeout(() => {
       if (value && value.length >= 3 && value !== lastGeocodedStart) {
@@ -1571,7 +1641,7 @@ const AppWithAuth: React.FC = () => {
   // Handle end location input change with autocomplete
   const handleEndLocationChange = (value: string) => {
     setEndQuery(value);
-    
+
     // If user clears the input, also clear the geocoded location
     if (!value || value.trim() === '') {
       setEndLocation(null);
@@ -1580,16 +1650,16 @@ const AppWithAuth: React.FC = () => {
       setEndSuggestions([]);
       return;
     }
-    
+
     // Generate suggestions (async)
     getLocationSuggestions(value).then(suggestions => {
       setEndSuggestions(suggestions);
       setShowEndSuggestions(suggestions.length > 0 && value.length >= 2);
     });
-    
+
     // Clear existing debounce
     if (endDebounceRef.current) clearTimeout(endDebounceRef.current);
-    
+
     // Debounced geocoding
     endDebounceRef.current = setTimeout(() => {
       if (value && value.length >= 3 && value !== lastGeocodedEnd) {
@@ -1619,10 +1689,10 @@ const AppWithAuth: React.FC = () => {
   const handleRouteSelect = async (routeIndex: number) => {
     const route = availableRoutes[routeIndex];
     setSelectedRoute(route);
-    
+
     try {
       console.log(`🔄 Switching to Route ${routeIndex + 1}: ${route.summary}`);
-      
+
       // Simply show/hide polylines - much simpler!
       routePolylines.forEach((polyline, index) => {
         if (index === routeIndex) {
@@ -1631,9 +1701,9 @@ const AppWithAuth: React.FC = () => {
           polyline.setOptions({ strokeOpacity: 0 }); // Hide other routes
         }
       });
-      
+
       console.log(`✅ Route ${routeIndex + 1} polyline shown, others hidden`);
-      
+
       // Filter existing restaurants for the selected route (NO API call!)
       // Clear markers from non-selected routes, show only markers for selected route
       if (allRestaurants.length > 0 && currentMapInstance) {
@@ -1642,7 +1712,7 @@ const AppWithAuth: React.FC = () => {
       } else if (allRestaurants.length > 0) {
         console.warn('⚠️ Map instance not available for route switching');
       }
-      
+
       console.log(`🔄 Switched to Route ${routeIndex + 1} - Filtered restaurants (no API call)`);
     } catch (error) {
       console.error('❌ Error switching route:', error);
@@ -1655,22 +1725,22 @@ const AppWithAuth: React.FC = () => {
       const getUniqueId = (eatery: any) => {
         return eatery.place_id || eatery.id || `${eatery.location.lat}_${eatery.location.lng}_${eatery.name}`;
       };
-      
+
       const restaurantUniqueId = getUniqueId(restaurant);
       const isSelected = prev.some(eatery => getUniqueId(eatery) === restaurantUniqueId);
-      
+
       console.log('Selection check:', {
         restaurant: restaurant.name,
         uniqueId: restaurantUniqueId,
         isSelected,
         currentSelection: prev.map(e => ({ name: e.name, uniqueId: getUniqueId(e) }))
       });
-      
+
       if (isSelected) {
         // Remove from selection
         const updated = prev.filter(eatery => getUniqueId(eatery) !== restaurantUniqueId);
         console.log('Removed eatery from selection:', restaurant.name);
-        
+
         // Track deselection activity
         if (currentUserId) {
           userActivityService.trackRestaurantSelection(
@@ -1683,13 +1753,13 @@ const AppWithAuth: React.FC = () => {
             console.error('❌ Activity tracking failed (non-critical):', error);
           });
         }
-        
+
         return updated;
       } else {
         // Add to selection
         const updated = [...prev, restaurant];
         console.log('Added eatery to selection:', restaurant.name);
-        
+
         // Track selection activity
         if (currentUserId) {
           userActivityService.trackRestaurantSelection(
@@ -1702,7 +1772,7 @@ const AppWithAuth: React.FC = () => {
             console.error('❌ Activity tracking failed (non-critical):', error);
           });
         }
-        
+
         return updated;
       }
     });
@@ -1713,13 +1783,13 @@ const AppWithAuth: React.FC = () => {
     const R = 6371; // Earth's radius in km
     const dLat = (point2.lat - point1.lat) * (Math.PI / 180);
     const dLng = (point2.lng - point1.lng) * (Math.PI / 180);
-    
-    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-              Math.cos(point1.lat * Math.PI / 180) * 
-              Math.cos(point2.lat * Math.PI / 180) *
-              Math.sin(dLng/2) * Math.sin(dLng/2);
-    
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(point1.lat * Math.PI / 180) *
+      Math.cos(point2.lat * Math.PI / 180) *
+      Math.sin(dLng / 2) * Math.sin(dLng / 2);
+
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c; // Distance in km
   };
 
@@ -1741,28 +1811,28 @@ const AppWithAuth: React.FC = () => {
             lat: position.coords.latitude,
             lng: position.coords.longitude
           };
-              console.log('✅ User location obtained:', location);
-              
-              // Track location permission activity
-              if (currentUserId) {
-                userActivityService.trackLocationPermission(
-                  currentUserId,
-                  true,
-                  {
-                    lat: position.coords.latitude,
-                    lng: position.coords.longitude,
-                    accuracy: position.coords.accuracy
-                  }
-                ).catch(error => {
-                  console.error('❌ Activity tracking failed (non-critical):', error);
-                });
+          console.log('✅ User location obtained:', location);
+
+          // Track location permission activity
+          if (currentUserId) {
+            userActivityService.trackLocationPermission(
+              currentUserId,
+              true,
+              {
+                lat: position.coords.latitude,
+                lng: position.coords.longitude,
+                accuracy: position.coords.accuracy
               }
-              
-              resolve(location);
+            ).catch(error => {
+              console.error('❌ Activity tracking failed (non-critical):', error);
+            });
+          }
+
+          resolve(location);
         },
         (error) => {
           console.log('❌ Geolocation error:', error);
-          
+
           // Track location permission denial
           if (currentUserId) {
             userActivityService.trackLocationPermission(
@@ -1773,7 +1843,7 @@ const AppWithAuth: React.FC = () => {
               console.error('❌ Activity tracking failed (non-critical):', trackError);
             });
           }
-          
+
           reject(error);
         },
         {
@@ -1791,10 +1861,10 @@ const AppWithAuth: React.FC = () => {
       console.log('📍 Getting user location for smart navigation...');
       const userLoc = await getUserLocation();
       setUserLocation(userLoc);
-      
+
       const distance = calculateHaversineDistance(userLoc, startLoc);
       const isNear = distance <= 0.1; // 100m threshold
-      
+
       if (isNear) {
         // User is close - auto-start navigation
         setNavigationMode('start');
@@ -1821,7 +1891,7 @@ const AppWithAuth: React.FC = () => {
   const handleNavigationChoice = (choice: 'start' | 'preview') => {
     setNavigationMode(choice);
     setShowNavigationChoice(false);
-    
+
     // Execute navigation with chosen mode
     executeNavigation(choice);
   };
@@ -1829,20 +1899,20 @@ const AppWithAuth: React.FC = () => {
   // Execute navigation with specified mode
   const executeNavigation = (mode: 'start' | 'preview') => {
     if (!startLocation || !endLocation) return;
-    
+
     const origin = mode === 'start' ? 'My Location' : `${startLocation.lat},${startLocation.lng}`;
     const destination = `${endLocation.lat},${endLocation.lng}`;
-    
+
     let url;
-    
+
     if (selectedEateries.length > 0) {
       // Create waypoint navigation: Start → Eatery1 → Eatery2 → ... → End
-      const waypoints = selectedEateries.map(eatery => 
+      const waypoints = selectedEateries.map(eatery =>
         `${eatery.location.lat},${eatery.location.lng}`
       ).join('|');
-      
+
       url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&waypoints=${waypoints}&travelmode=driving`;
-      
+
       console.log('🧭 Opening navigation with waypoints:', {
         mode,
         start: startLocation.name,
@@ -1852,14 +1922,14 @@ const AppWithAuth: React.FC = () => {
     } else {
       // Direct navigation: Start → End
       url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=driving`;
-      
+
       console.log('🧭 Opening direct navigation:', {
         mode,
         start: startLocation.name,
         end: endLocation.name
       });
     }
-    
+
     // Track navigation activity
     if (currentUserId) {
       userActivityService.trackNavigation(
@@ -1871,7 +1941,7 @@ const AppWithAuth: React.FC = () => {
         console.error('❌ Activity tracking failed (non-critical):', error);
       });
     }
-    
+
     window.open(url, '_blank');
   };
 
@@ -1879,7 +1949,7 @@ const AppWithAuth: React.FC = () => {
     if (startLocation && endLocation) {
       // Determine navigation mode based on user proximity
       const mode = await determineNavigationMode(startLocation);
-      
+
       if (mode === 'choice') {
         // Choice dialog will be shown, don't execute navigation yet
         return;
@@ -1912,14 +1982,14 @@ const AppWithAuth: React.FC = () => {
       };
 
       await addDoc(collection(db, 'saved_routes'), routeData);
-      
+
       console.log('✅ Route saved successfully (simplified):', routeName);
       alert(`Route "${routeName}" saved successfully!`);
-      
+
       // Reset form
       setRouteName('');
       setShowSaveRouteForm(false);
-      
+
       // Track route save activity
       if (currentUserId) {
         userActivityService.trackRouteSave(
@@ -1939,7 +2009,7 @@ const AppWithAuth: React.FC = () => {
 
       // Refresh saved routes
       loadSavedRoutes(currentUserId);
-      
+
     } catch (error) {
       console.error('❌ Error saving route:', error);
       alert('Failed to save route. Please try again.');
@@ -1949,29 +2019,29 @@ const AppWithAuth: React.FC = () => {
   // Load a saved route (simplified approach)
   const handleLoadRoute = async (savedRoute: any) => {
     console.log('🔄 Loading saved route:', savedRoute.name);
-    
+
     // Set only the essential data
     setStartLocation(savedRoute.startLocation);
     setEndLocation(savedRoute.endLocation);
     setSelectedEateries(savedRoute.selectedEateries || []);
-    
+
     // Clear any existing route data
     setAvailableRoutes([]);
     setSelectedRoute(null);
     setAllRestaurants([]);
     setFilteredRestaurants([]);
     setRoutePolylines([]);
-    
+
     // Switch to Discover tab to show the loaded route
     setActiveTab('discover');
-    
+
     // Close the saved routes modal
     setShowSavedRoutes(false);
-    
+
     // Automatically trigger route finding - no need for user to click another button!
     console.log('🚀 Auto-triggering route finding for saved route...');
     await handleFindRoute();
-    
+
     // Show success message
     alert(`Route "${savedRoute.name}" loaded and map is ready!`);
   };
@@ -2008,11 +2078,11 @@ const AppWithAuth: React.FC = () => {
         // Clear route cache collection
         const routeCacheRef = collection(db, 'route_cache');
         const snapshot = await getDocs(routeCacheRef);
-        
+
         for (const doc of snapshot.docs) {
           await deleteDoc(doc.ref);
         }
-        
+
         console.log('✅ Route cache cleared successfully');
         alert('Route cache cleared successfully!');
       } catch (error) {
@@ -2025,394 +2095,394 @@ const AppWithAuth: React.FC = () => {
   return (
     <FavoritesProvider>
       <div className="App">
-      {renderTabContent()}
-      
+        {renderTabContent()}
 
-      {/* Save Route Modal */}
-      {showSaveRouteForm && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-          padding: '20px'
-        }}>
+
+        {/* Save Route Modal */}
+        {showSaveRouteForm && (
           <div style={{
-            backgroundColor: 'white',
-            borderRadius: '8px',
-            padding: '20px',
-            maxWidth: '400px',
-            width: '100%',
-            position: 'relative'
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: '20px'
           }}>
-            <button
-              onClick={() => setShowSaveRouteForm(false)}
-              style={{
-                position: 'absolute',
-                top: '10px',
-                right: '10px',
-                background: 'none',
-                border: 'none',
-                fontSize: '24px',
-                cursor: 'pointer',
-                color: '#666'
-              }}
-            >
-              ×
-            </button>
-            
-            <h2 style={{ color: '#FF9800', marginBottom: '20px' }}>💾 Save Your Route</h2>
-            
-            <div style={{ marginBottom: '15px' }}>
-              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-                Route Name *
-              </label>
-              <input
-                type="text"
-                value={routeName}
-                onChange={(e) => setRouteName(e.target.value)}
-                placeholder="e.g., Weekend Food Tour, Family Dinner Route"
+            <div style={{
+              backgroundColor: 'white',
+              borderRadius: '8px',
+              padding: '20px',
+              maxWidth: '400px',
+              width: '100%',
+              position: 'relative'
+            }}>
+              <button
+                onClick={() => setShowSaveRouteForm(false)}
+                style={{
+                  position: 'absolute',
+                  top: '10px',
+                  right: '10px',
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '24px',
+                  cursor: 'pointer',
+                  color: '#666'
+                }}
+              >
+                ×
+              </button>
+
+              <h2 style={{ color: '#FF9800', marginBottom: '20px' }}>💾 Save Your Route</h2>
+
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+                  Route Name *
+                </label>
+                <input
+                  type="text"
+                  value={routeName}
+                  onChange={(e) => setRouteName(e.target.value)}
+                  placeholder="e.g., Weekend Food Tour, Family Dinner Route"
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    border: '1px solid #ccc',
+                    borderRadius: '4px',
+                    fontSize: '14px'
+                  }}
+                />
+              </div>
+
+              <div style={{
+                backgroundColor: '#f0f8ff',
+                padding: '15px',
+                borderRadius: '8px',
+                marginBottom: '15px',
+                border: '1px solid #2196F3'
+              }}>
+                <h4 style={{ margin: '0 0 10px 0', color: '#1976D2' }}>Route Summary:</h4>
+                <div style={{ fontSize: '14px', color: '#666' }}>
+                  <div>🚀 <strong>Start:</strong> {startLocation?.name}</div>
+                  <div>🏁 <strong>End:</strong> {endLocation?.name}</div>
+                  <div>🍽️ <strong>Stops:</strong> {selectedEateries.length} restaurant{selectedEateries.length > 1 ? 's' : ''} {selectedEateries.length === 0 ? '(Direct Route)' : ''}</div>
+                  <div>📏 <strong>Distance:</strong> {selectedRoute?.legs?.[0]?.distance?.text || 'Unknown'}</div>
+                  <div>⏱️ <strong>Duration:</strong> {selectedRoute?.legs?.[0]?.duration?.text || 'Unknown'}</div>
+                </div>
+              </div>
+
+              <button
+                onClick={handleSaveRoute}
                 style={{
                   width: '100%',
-                  padding: '10px',
-                  border: '1px solid #ccc',
+                  padding: '12px',
+                  backgroundColor: '#FF9800',
+                  color: 'white',
+                  border: 'none',
                   borderRadius: '4px',
-                  fontSize: '14px'
+                  fontSize: '16px',
+                  cursor: 'pointer',
+                  marginBottom: '10px'
                 }}
-              />
+              >
+                💾 Save Route
+              </button>
+
+              <button
+                onClick={() => setShowSaveRouteForm(false)}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  backgroundColor: '#666',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  fontSize: '16px',
+                  cursor: 'pointer'
+                }}
+              >
+                Cancel
+              </button>
             </div>
-
-                    <div style={{ 
-                      backgroundColor: '#f0f8ff', 
-                      padding: '15px', 
-                      borderRadius: '8px', 
-                      marginBottom: '15px',
-                      border: '1px solid #2196F3'
-                    }}>
-                      <h4 style={{ margin: '0 0 10px 0', color: '#1976D2' }}>Route Summary:</h4>
-                      <div style={{ fontSize: '14px', color: '#666' }}>
-                        <div>🚀 <strong>Start:</strong> {startLocation?.name}</div>
-                        <div>🏁 <strong>End:</strong> {endLocation?.name}</div>
-                        <div>🍽️ <strong>Stops:</strong> {selectedEateries.length} restaurant{selectedEateries.length > 1 ? 's' : ''} {selectedEateries.length === 0 ? '(Direct Route)' : ''}</div>
-                        <div>📏 <strong>Distance:</strong> {selectedRoute?.legs?.[0]?.distance?.text || 'Unknown'}</div>
-                        <div>⏱️ <strong>Duration:</strong> {selectedRoute?.legs?.[0]?.duration?.text || 'Unknown'}</div>
-                      </div>
-                    </div>
-
-            <button
-              onClick={handleSaveRoute}
-              style={{
-                width: '100%',
-                padding: '12px',
-                backgroundColor: '#FF9800',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                fontSize: '16px',
-                cursor: 'pointer',
-                marginBottom: '10px'
-              }}
-            >
-              💾 Save Route
-            </button>
-            
-            <button
-              onClick={() => setShowSaveRouteForm(false)}
-              style={{
-                width: '100%',
-                padding: '12px',
-                backgroundColor: '#666',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                fontSize: '16px',
-                cursor: 'pointer'
-              }}
-            >
-              Cancel
-            </button>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Saved Routes Modal */}
-      {showSavedRoutes && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-          padding: '20px'
-        }}>
+        {/* Saved Routes Modal */}
+        {showSavedRoutes && (
           <div style={{
-            backgroundColor: 'white',
-            borderRadius: '8px',
-            padding: '20px',
-            maxWidth: '600px',
-            width: '100%',
-            maxHeight: '80vh',
-            overflowY: 'auto',
-            position: 'relative'
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: '20px'
           }}>
-            <button
-              onClick={() => setShowSavedRoutes(false)}
-              style={{
-                position: 'absolute',
-                top: '10px',
-                right: '10px',
-                background: 'none',
-                border: 'none',
-                fontSize: '24px',
-                cursor: 'pointer',
-                color: '#666'
-              }}
-            >
-              ×
-            </button>
-            
-            <h2 style={{ color: '#2196F3', marginBottom: '20px' }}>📚 My Saved Routes</h2>
-            
-            {savedRoutes.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
-                <p>No saved routes yet.</p>
-                <p>Create a route with selected restaurants and save it for future reference!</p>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {savedRoutes.map((route) => (
-                  <div
-                    key={route.id}
-                    style={{
-                      border: '1px solid #ddd',
-                      borderRadius: '8px',
-                      padding: '15px',
-                      backgroundColor: '#f9f9f9'
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <div style={{ flex: 1 }}>
-                        <h3 style={{ margin: '0 0 10px 0', color: '#2196F3' }}>{route.name}</h3>
-                        <div style={{ fontSize: '14px', color: '#666', marginBottom: '10px' }}>
-                          <div>🚀 <strong>Start:</strong> {route.startLocation?.name}</div>
-                          <div>🏁 <strong>End:</strong> {route.endLocation?.name}</div>
-                          <div>🍽️ <strong>Stops:</strong> {route.totalStops} restaurant{route.totalStops > 1 ? 's' : ''}</div>
-                          <div>📏 <strong>Distance:</strong> {route.totalDistance}</div>
-                          <div>⏱️ <strong>Duration:</strong> {route.totalDuration}</div>
-                          <div style={{ fontSize: '12px', color: '#999', marginTop: '5px' }}>
-                            Saved: {route.createdAt?.toDate?.()?.toLocaleDateString() || 'Unknown'}
+            <div style={{
+              backgroundColor: 'white',
+              borderRadius: '8px',
+              padding: '20px',
+              maxWidth: '600px',
+              width: '100%',
+              maxHeight: '80vh',
+              overflowY: 'auto',
+              position: 'relative'
+            }}>
+              <button
+                onClick={() => setShowSavedRoutes(false)}
+                style={{
+                  position: 'absolute',
+                  top: '10px',
+                  right: '10px',
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '24px',
+                  cursor: 'pointer',
+                  color: '#666'
+                }}
+              >
+                ×
+              </button>
+
+              <h2 style={{ color: '#2196F3', marginBottom: '20px' }}>📚 My Saved Routes</h2>
+
+              {savedRoutes.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
+                  <p>No saved routes yet.</p>
+                  <p>Create a route with selected restaurants and save it for future reference!</p>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {savedRoutes.map((route) => (
+                    <div
+                      key={route.id}
+                      style={{
+                        border: '1px solid #ddd',
+                        borderRadius: '8px',
+                        padding: '15px',
+                        backgroundColor: '#f9f9f9'
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <div style={{ flex: 1 }}>
+                          <h3 style={{ margin: '0 0 10px 0', color: '#2196F3' }}>{route.name}</h3>
+                          <div style={{ fontSize: '14px', color: '#666', marginBottom: '10px' }}>
+                            <div>🚀 <strong>Start:</strong> {route.startLocation?.name}</div>
+                            <div>🏁 <strong>End:</strong> {route.endLocation?.name}</div>
+                            <div>🍽️ <strong>Stops:</strong> {route.totalStops} restaurant{route.totalStops > 1 ? 's' : ''}</div>
+                            <div>📏 <strong>Distance:</strong> {route.totalDistance}</div>
+                            <div>⏱️ <strong>Duration:</strong> {route.totalDuration}</div>
+                            <div style={{ fontSize: '12px', color: '#999', marginTop: '5px' }}>
+                              Saved: {route.createdAt?.toDate?.()?.toLocaleDateString() || 'Unknown'}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', marginLeft: '10px' }}>
-                        <button
-                          onClick={() => handleLoadRoute(route)}
-                          style={{
-                            padding: '8px 12px',
-                            backgroundColor: '#4CAF50',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '4px',
-                            fontSize: '12px',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          🔄 Load
-                        </button>
-                        <button
-                          onClick={() => handleDeleteRoute(route.id, route.name)}
-                          style={{
-                            padding: '8px 12px',
-                            backgroundColor: '#f44336',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '4px',
-                            fontSize: '12px',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          🗑️ Delete
-                        </button>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', marginLeft: '10px' }}>
+                          <button
+                            onClick={() => handleLoadRoute(route)}
+                            style={{
+                              padding: '8px 12px',
+                              backgroundColor: '#4CAF50',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '4px',
+                              fontSize: '12px',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            🔄 Load
+                          </button>
+                          <button
+                            onClick={() => handleDeleteRoute(route.id, route.name)}
+                            style={{
+                              padding: '8px 12px',
+                              backgroundColor: '#f44336',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '4px',
+                              fontSize: '12px',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            🗑️ Delete
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Navigation Choice Dialog */}
-      {showNavigationChoice && navigationChoiceData && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000
-        }}>
+        {/* Navigation Choice Dialog */}
+        {showNavigationChoice && navigationChoiceData && (
           <div style={{
-            backgroundColor: 'white',
-            padding: '30px',
-            borderRadius: '12px',
-            maxWidth: '400px',
-            width: '90%',
-            textAlign: 'center',
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)'
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000
           }}>
-            <h3 style={{ 
-              marginBottom: '20px', 
-              color: '#333',
-              fontSize: '20px',
-              fontWeight: 'bold'
+            <div style={{
+              backgroundColor: 'white',
+              padding: '30px',
+              borderRadius: '12px',
+              maxWidth: '400px',
+              width: '90%',
+              textAlign: 'center',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)'
             }}>
-              🎯 You're {navigationChoiceData.distance.toFixed(1)}km from {navigationChoiceData.startName}
-            </h3>
-            
-            <p style={{ 
-              marginBottom: '25px', 
-              color: '#666',
-              fontSize: '16px',
-              lineHeight: '1.5'
-            }}>
-              What would you like to do?
-            </p>
-            
-            <div style={{ 
-              display: 'flex', 
-              gap: '15px',
-              flexDirection: 'column'
-            }}>
+              <h3 style={{
+                marginBottom: '20px',
+                color: '#333',
+                fontSize: '20px',
+                fontWeight: 'bold'
+              }}>
+                🎯 You're {navigationChoiceData.distance.toFixed(1)}km from {navigationChoiceData.startName}
+              </h3>
+
+              <p style={{
+                marginBottom: '25px',
+                color: '#666',
+                fontSize: '16px',
+                lineHeight: '1.5'
+              }}>
+                What would you like to do?
+              </p>
+
+              <div style={{
+                display: 'flex',
+                gap: '15px',
+                flexDirection: 'column'
+              }}>
+                <button
+                  onClick={() => handleNavigationChoice('start')}
+                  style={{
+                    padding: '15px 25px',
+                    backgroundColor: '#4CAF50',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '16px',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px'
+                  }}
+                >
+                  🚀 Start Navigation Now
+                  <div style={{ fontSize: '12px', opacity: 0.9 }}>
+                    (Turn-by-turn from your location)
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => handleNavigationChoice('preview')}
+                  style={{
+                    padding: '15px 25px',
+                    backgroundColor: '#2196F3',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '16px',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px'
+                  }}
+                >
+                  📋 Plan Route
+                  <div style={{ fontSize: '12px', opacity: 0.9 }}>
+                    (Preview route for later)
+                  </div>
+                </button>
+              </div>
+
               <button
-                onClick={() => handleNavigationChoice('start')}
+                onClick={() => setShowNavigationChoice(false)}
                 style={{
-                  padding: '15px 25px',
-                  backgroundColor: '#4CAF50',
+                  marginTop: '20px',
+                  padding: '8px 16px',
+                  backgroundColor: '#666',
                   color: 'white',
                   border: 'none',
-                  borderRadius: '8px',
-                  fontSize: '16px',
-                  fontWeight: 'bold',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px'
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  cursor: 'pointer'
                 }}
               >
-                🚀 Start Navigation Now
-                <div style={{ fontSize: '12px', opacity: 0.9 }}>
-                  (Turn-by-turn from your location)
-                </div>
-              </button>
-              
-              <button
-                onClick={() => handleNavigationChoice('preview')}
-                style={{
-                  padding: '15px 25px',
-                  backgroundColor: '#2196F3',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '8px',
-                  fontSize: '16px',
-                  fontWeight: 'bold',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px'
-                }}
-              >
-                📋 Plan Route
-                <div style={{ fontSize: '12px', opacity: 0.9 }}>
-                  (Preview route for later)
-                </div>
+                Cancel
               </button>
             </div>
-            
-            <button
-              onClick={() => setShowNavigationChoice(false)}
-              style={{
-                marginTop: '20px',
-                padding: '8px 16px',
-                backgroundColor: '#666',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                fontSize: '14px',
-                cursor: 'pointer'
-              }}
-            >
-              Cancel
-            </button>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Restaurant Details Modal */}
-      {showRestaurantModal && selectedRestaurant && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-          padding: '20px'
-        }}>
+        {/* Restaurant Details Modal */}
+        {showRestaurantModal && selectedRestaurant && (
           <div style={{
-            backgroundColor: 'white',
-            borderRadius: '8px',
-            maxHeight: '90vh',
-            overflowY: 'auto',
-            position: 'relative',
-            width: '100%',
-            maxWidth: '520px'
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: '20px'
           }}>
-            <button
-              onClick={() => setShowRestaurantModal(false)}
-              style={{
-                position: 'absolute',
-                top: '10px',
-                right: '10px',
-                background: 'none',
-                border: 'none',
-                fontSize: '24px',
-                cursor: 'pointer',
-                color: '#666'
-              }}
-            >
-              ×
-            </button>
-            <RestaurantModal isOpen={true} restaurant={selectedRestaurant} onClose={() => setShowRestaurantModal(false)} />
+            <div style={{
+              backgroundColor: 'white',
+              borderRadius: '8px',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              position: 'relative',
+              width: '100%',
+              maxWidth: '520px'
+            }}>
+              <button
+                onClick={() => setShowRestaurantModal(false)}
+                style={{
+                  position: 'absolute',
+                  top: '10px',
+                  right: '10px',
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '24px',
+                  cursor: 'pointer',
+                  color: '#666'
+                }}
+              >
+                ×
+              </button>
+              <RestaurantModal isOpen={true} restaurant={selectedRestaurant} onClose={() => setShowRestaurantModal(false)} />
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
         <BottomNavigation activeTab={activeTab} onTabChange={handleTabChange} isAdmin={isAdmin} />
-        </div>
-      </FavoritesProvider>
+      </div>
+    </FavoritesProvider>
   );
 };
 
@@ -2428,19 +2498,19 @@ const App: React.FC = () => {
 export default App;
 
 // Global navigation function
-(window as any).navigateToRestaurant = function(placeId: string) {
+(window as any).navigateToRestaurant = function (placeId: string) {
   console.log('🗺️ Navigate button clicked!');
   console.log('📍 Restaurant Place ID:', placeId);
-  
+
   if (!placeId) {
     console.error('❌ No place ID provided for navigation');
     alert('Sorry, navigation information is not available for this restaurant.');
     return;
   }
-  
+
   const url = `https://www.google.com/maps/place/?q=place_id:${placeId}`;
   console.log('🌐 Opening Google Maps URL:', url);
-  
+
   try {
     window.open(url, '_blank');
     console.log('✅ Navigation opened successfully');

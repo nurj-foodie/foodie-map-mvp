@@ -11,7 +11,7 @@ import './SearchTab.css';
 const SearchTab = () => {
   const { user } = useAuth();
   const { isFavorite } = useFavorites();
-  
+
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]); // For Search tab
   const [browseResults, setBrowseResults] = useState({
@@ -49,7 +49,7 @@ const SearchTab = () => {
     popularQueries: [],
     filterUsage: {}
   });
-  
+
   const [filters, setFilters] = useState({
     cuisineType: 'all',
     minRating: 0,
@@ -129,7 +129,7 @@ const SearchTab = () => {
       let mapCenter;
       let bounds = null;
       const shouldShowUserLocation = filters.nearMe && userLocation;
-      
+
       // Check if search query is a food item without location (e.g., "nasi lemak" vs "nasi lemak in Alor Star")
       // Parse query to detect if it's food-only (no location)
       let parsedQuery = null;
@@ -166,7 +166,7 @@ const SearchTab = () => {
             }
           }
         });
-        
+
         // If we have valid bounds, use center of bounds
         if (!bounds.isEmpty()) {
           mapCenter = bounds.getCenter().toJSON();
@@ -221,10 +221,10 @@ const SearchTab = () => {
       mapInstanceRef.current = map;
 
       // Determine if map is centered on user location
-      const isCenteredOnUserLocation = userLocation && 
-        Math.abs(mapCenter.lat - userLocation.lat) < 0.01 && 
+      const isCenteredOnUserLocation = userLocation &&
+        Math.abs(mapCenter.lat - userLocation.lat) < 0.01 &&
         Math.abs(mapCenter.lng - userLocation.lng) < 0.01;
-      
+
       // Fit bounds logic:
       // - If food item only search: Don't fit bounds, keep user-centered view
       // - If location-specific search: Fit bounds to show all results
@@ -296,7 +296,7 @@ const SearchTab = () => {
 
         const lat = typeof location === 'object' ? location.lat : location.latitude;
         const lng = typeof location === 'object' ? location.lng : location.longitude;
-        
+
         if (!lat || !lng) return;
 
         // Use AdvancedMarkerElement if available, fallback to Marker
@@ -366,7 +366,7 @@ const SearchTab = () => {
   // Save search to history
   const saveToSearchHistory = (query) => {
     if (!query.trim()) return;
-    
+
     const newHistory = [query, ...searchHistory.filter(item => item !== query)].slice(0, 10);
     setSearchHistory(newHistory);
     localStorage.setItem('searchHistory', JSON.stringify(newHistory));
@@ -459,7 +459,7 @@ const SearchTab = () => {
   const handleSearchInputChange = async (e) => {
     const query = e.target.value;
     setSearchQuery(query);
-    
+
     if (query.length >= 2) {
       // Use intelligent keyword service for better suggestions
       try {
@@ -500,11 +500,11 @@ const SearchTab = () => {
       // Parse query to determine search type
       const parsedQuery = searchKeywordService.parseCompoundQuery(searchQuery);
       const isFoodItemOnly = parsedQuery && parsedQuery.foodItem && !parsedQuery.location;
-      
+
       // Always use userLocation if available (for better UX - show nearby results first)
       // Exception: If search has explicit location (e.g., "nasi lemak in Alor Star"), don't use user location
       const locationToUse = (userLocation && !parsedQuery?.location) ? userLocation : (filters.nearMe ? userLocation : null);
-      
+
       // Adjust distance filter based on search type
       let searchFilters = { ...filters };
       if (filters.nearMe) {
@@ -513,13 +513,13 @@ const SearchTab = () => {
         // Food item search: Start with reasonable radius (will expand if needed)
         searchFilters.distance = searchFilters.distance || 25; // Default 25km for food items
       }
-      
+
       const results = await enhancedSearchService.searchRestaurants(
-        searchQuery, 
-        searchFilters, 
+        searchQuery,
+        searchFilters,
         locationToUse
       );
-      
+
       // Track search with analytics service (includes parsed query and result count)
       searchAnalyticsService.trackSearch(
         searchQuery,
@@ -529,14 +529,14 @@ const SearchTab = () => {
       ).catch(error => {
         console.warn('⚠️ Error tracking search analytics:', error);
       });
-      
+
       setSearchResults(results);
       setShowSuggestions(false);
       setShowSearchHistory(false);
     } catch (error) {
       console.error('Search error:', error);
       setSearchResults([]);
-      
+
       // Track failed search
       const parsedQuery = searchKeywordService.parseCompoundQuery(searchQuery);
       searchAnalyticsService.trackSearch(
@@ -555,12 +555,12 @@ const SearchTab = () => {
     setSearchQuery(category.name);
     setFilters(prev => ({ ...prev, cuisineType: category.name }));
     saveToSearchHistory(category.name);
-    
+
     setLoadingStates(prev => ({ ...prev, category: true }));
     try {
       const results = await enhancedSearchService.searchRestaurants(
-        category.name, 
-        { ...filters, cuisineType: category.name }, 
+        category.name,
+        { ...filters, cuisineType: category.name },
         userLocation
       );
       // Store in browseResults.category instead of searchResults
@@ -673,7 +673,7 @@ const SearchTab = () => {
     // Don't clear searchResults when switching tabs - keep them separate
     setShowSuggestions(false);
     setShowSearchHistory(false);
-    
+
     if (tab === 'browse') {
       // Load popular and trending when Browse tab is opened
       loadPopularRestaurants();
@@ -754,75 +754,7 @@ const SearchTab = () => {
 
   // Get active filter chips for display
   const getActiveFilterChips = () => {
-    const chips = [];
-    
-    // Near Me filter chip (NEW)
-    if (filters.nearMe) {
-      chips.push({
-        key: 'nearMe',
-        label: 'Near Me',
-        icon: '📍',
-        onRemove: () => handleNearMeToggle(false)
-      });
-    }
-    
-    if (filters.cuisineType !== 'all') {
-      chips.push({
-        key: 'cuisine',
-        label: filters.cuisineType,
-        icon: '🍽️',
-        onRemove: () => handleFilterChange('cuisineType', 'all')
-      });
-    }
-    
-    if (filters.minRating > 0) {
-      chips.push({
-        key: 'rating',
-        label: `${filters.minRating}+ Stars`,
-        icon: '⭐',
-        onRemove: () => handleFilterChange('minRating', 0)
-      });
-    }
-    
-    if (filters.halalStatus !== 'all') {
-      const halalIcon = filters.halalStatus === 'halal' ? '🕌' : 
-                       filters.halalStatus === 'pork-free' ? '🥩' : '🍖';
-      chips.push({
-        key: 'halal',
-        label: filters.halalStatus.replace('-', ' ').toUpperCase(),
-        icon: halalIcon,
-        onRemove: () => handleFilterChange('halalStatus', 'all')
-      });
-    }
-    
-    if (filters.distance !== 10 && !filters.nearMe) {
-      chips.push({
-        key: 'distance',
-        label: `Within ${filters.distance}km`,
-        icon: '📍',
-        onRemove: () => handleFilterChange('distance', 10)
-      });
-    }
-    
-    if (filters.priceRange !== 'all') {
-      chips.push({
-        key: 'price',
-        label: filters.priceRange,
-        icon: '💰',
-        onRemove: () => handleFilterChange('priceRange', 'all')
-      });
-    }
-    
-    if (filters.openNow) {
-      chips.push({
-        key: 'open',
-        label: 'Open Now',
-        icon: '🟢',
-        onRemove: () => handleFilterChange('openNow', false)
-      });
-    }
-    
-    return chips;
+    return null; // Not used in new UI
   };
 
   const activeFilterCount = getActiveFilterCount();
@@ -834,16 +766,16 @@ const SearchTab = () => {
         <h2>🔍 Search & Discover</h2>
         <p>Find amazing restaurants across Malaysia</p>
       </div>
-      
+
       {/* Search Tabs - Reduced to 2 tabs */}
       <div className="search-tabs">
-        <button 
+        <button
           className={`tab-button ${activeTab === 'search' ? 'active' : ''}`}
           onClick={() => handleTabChange('search')}
         >
           🔍 Search
         </button>
-        <button 
+        <button
           className={`tab-button ${activeTab === 'browse' ? 'active' : ''}`}
           onClick={() => handleTabChange('browse')}
         >
@@ -871,7 +803,7 @@ const SearchTab = () => {
                 }}
                 className="search-input"
               />
-              <button 
+              <button
                 className="search-btn"
                 onClick={handleSearch}
                 disabled={isSearching}
@@ -901,7 +833,7 @@ const SearchTab = () => {
             <div className="search-history">
               <div className="history-header">
                 <h4>Recent Searches</h4>
-                <button 
+                <button
                   className="clear-history-btn"
                   onClick={() => {
                     setSearchHistory([]);
@@ -929,177 +861,70 @@ const SearchTab = () => {
           )}
 
           {/* Active Filter Chips - Always visible */}
-          {activeFilterChips.length > 0 && (
-            <div className="active-filter-chips">
-              <div className="chips-header">
-                <span>Active Filters:</span>
-                <button className="clear-all-chips-btn" onClick={clearFilters}>
-                  Clear All
-                </button>
-              </div>
-              <div className="filter-chips">
-                {activeFilterChips.map((chip) => (
-                  <div key={chip.key} className="filter-chip">
-                    <span className="chip-icon">{chip.icon}</span>
-                    <span className="chip-label">{chip.label}</span>
-                    <button 
-                      className="chip-remove"
-                      onClick={chip.onRemove}
-                    >
-                      ×
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          {/* Active Filter Chips - Replaced by horizontal scroll above */}
 
-          {/* Quick Filters - Collapsible on mobile */}
-          <div className={`quick-filters ${!showFilters ? 'filters-collapsed' : ''}`}>
-            <div className="filters-header">
-              <button 
-                className="filters-toggle-btn"
-                onClick={() => {
-                  // Only toggle on mobile
-                  if (isMobile) {
-                    setShowFilters(!showFilters);
-                  }
-                }}
+          {/* Quick Filters - Minimalist Horizontal Scroll */}
+          <div className="quick-filters-wrapper">
+            <div className="quick-filters">
+              {/* Near Me Chip */}
+              <div
+                className={`filter-chip ${filters.nearMe ? 'active' : ''}`}
+                onClick={() => handleNearMeToggle(!filters.nearMe)}
               >
-                <h3>Quick Filters</h3>
-                {isMobile && (
-                  <span className="toggle-icon">
-                    {showFilters ? '🔼' : '🔽'}
-                  </span>
-                )}
-                {activeFilterCount > 0 && (
-                  <span className="filter-count-badge">({activeFilterCount})</span>
-                )}
-              </button>
-              <div className={`filters-actions ${!showFilters && isMobile ? 'filters-actions-collapsed' : ''}`}>
-                {activeFilterCount > 0 && (
-                  <button className="clear-filters-btn" onClick={clearFilters}>
-                    Clear ({activeFilterCount})
-                  </button>
-                )}
-                <button 
-                  className="save-search-btn"
-                  onClick={saveCurrentSearch}
-                  title="Save this search"
+                <span className="filter-chip-icon">📍</span>
+                Near Me
+              </div>
+
+              {/* Rating Chip */}
+              <div
+                className={`filter-chip ${filters.minRating >= 4 ? 'active' : ''}`}
+                onClick={() => handleFilterChange('minRating', filters.minRating >= 4 ? 0 : 4)}
+              >
+                <span className="filter-chip-icon">⭐</span>
+                4.0+ Stars
+              </div>
+
+              {/* Halal Status Chip */}
+              <div
+                className={`filter-chip ${filters.halalStatus === 'halal' ? 'active' : ''}`}
+                onClick={() => handleFilterChange('halalStatus', filters.halalStatus === 'halal' ? 'all' : 'halal')}
+              >
+                <span className="filter-chip-icon">🕌</span>
+                Halal
+              </div>
+
+              {/* Open Now Chip */}
+              <div
+                className={`filter-chip ${filters.openNow ? 'active' : ''}`}
+                onClick={() => handleFilterChange('openNow', !filters.openNow)}
+              >
+                <span className="filter-chip-icon">🕒</span>
+                Open Now
+              </div>
+
+              {/* Price Chip ($) */}
+              <div
+                className={`filter-chip ${filters.priceRange === 'cheap' ? 'active' : ''}`}
+                onClick={() => handleFilterChange('priceRange', filters.priceRange === 'cheap' ? 'all' : 'cheap')}
+              >
+                <span className="filter-chip-icon">💵</span>
+                Budget
+              </div>
+
+              {/* Cuisine Chips */}
+              {['Malay', 'Chinese', 'Indian', 'Western', 'Thai'].map(cuisine => (
+                <div
+                  key={cuisine}
+                  className={`filter-chip ${filters.cuisineType === cuisine ? 'active' : ''}`}
+                  onClick={() => handleFilterChange('cuisineType', filters.cuisineType === cuisine ? 'all' : cuisine)}
                 >
-                  💾 Save
-                </button>
-              </div>
-            </div>
-
-            {/* Filter Panel - Collapsible */}
-            {showFilters && (
-              <div className="filters-panel">
-                {/* Near Me Filter - NEW */}
-                <div className="filter-row">
-                  <label className="checkbox-filter near-me-filter">
-                    <input
-                      type="checkbox"
-                      checked={filters.nearMe}
-                      onChange={(e) => handleNearMeToggle(e.target.checked)}
-                    />
-                    <span>📍 Near Me (within 5km)</span>
-                  </label>
+                  <span className="filter-chip-icon">🍽️</span>
+                  {cuisine}
                 </div>
-
-                <div className="filter-row">
-                  <select
-                    value={filters.cuisineType}
-                    onChange={(e) => handleFilterChange('cuisineType', e.target.value)}
-                    className="filter-select"
-                  >
-                    <option value="all">All Cuisines</option>
-                    <option value="Malay">Malay</option>
-                    <option value="Chinese">Chinese</option>
-                    <option value="Indian">Indian</option>
-                    <option value="Western">Western</option>
-                    <option value="Japanese">Japanese</option>
-                    <option value="Korean">Korean</option>
-                    <option value="Thai">Thai</option>
-                    <option value="Italian">Italian</option>
-                    <option value="Fast Food">Fast Food</option>
-                    <option value="Cafe">Cafe</option>
-                  </select>
-
-              <select
-                value={filters.minRating}
-                onChange={(e) => handleFilterChange('minRating', parseFloat(e.target.value))}
-                className="filter-select"
-              >
-                <option value={0}>Any Rating</option>
-                <option value={3}>3+ Stars</option>
-                <option value={3.5}>3.5+ Stars</option>
-                <option value={4}>4+ Stars</option>
-                <option value={4.5}>4.5+ Stars</option>
-              </select>
-
-              <select
-                value={filters.halalStatus}
-                onChange={(e) => handleFilterChange('halalStatus', e.target.value)}
-                className="filter-select"
-              >
-                <option value="all">All</option>
-                <option value="halal">🕌 Halal</option>
-                <option value="pork-free">🥩 Pork-Free</option>
-                <option value="non-halal">🍖 Non-Halal</option>
-              </select>
-
-              <select
-                value={filters.distance}
-                onChange={(e) => handleFilterChange('distance', parseInt(e.target.value))}
-                className="filter-select"
-              >
-                <option value={1}>Within 1km</option>
-                <option value={5}>Within 5km</option>
-                <option value={10}>Within 10km</option>
-                <option value={25}>Within 25km</option>
-                <option value={50}>Within 50km</option>
-              </select>
+              ))}
             </div>
-
-            <div className="filter-row">
-              <select
-                value={filters.priceRange}
-                onChange={(e) => handleFilterChange('priceRange', e.target.value)}
-                className="filter-select"
-              >
-                <option value="all">Any Price</option>
-                <option value="$">$ Budget</option>
-                <option value="$$">$$ Moderate</option>
-                <option value="$$$">$$$ Expensive</option>
-                <option value="$$$$">$$$$ Very Expensive</option>
-              </select>
-
-              <select
-                value={filters.sortBy}
-                onChange={(e) => handleFilterChange('sortBy', e.target.value)}
-                className="filter-select"
-              >
-                <option value="rating">Highest Rated</option>
-                <option value="distance">Nearest</option>
-                <option value="newest">Newest</option>
-                <option value="mostReviews">Most Reviews</option>
-                <option value="price_low">Price: Low to High</option>
-                <option value="price_high">Price: High to Low</option>
-              </select>
-
-              <label className="checkbox-filter">
-                <input
-                  type="checkbox"
-                  checked={filters.openNow}
-                  onChange={(e) => handleFilterChange('openNow', e.target.checked)}
-                />
-                <span>Open Now</span>
-              </label>
-            </div>
-              </div>
-            )}
           </div>
+
         </div>
       )}
 
@@ -1129,8 +954,8 @@ const SearchTab = () => {
                   setLoadingStates(prev => ({ ...prev, location: true }));
                   try {
                     const results = await enhancedSearchService.searchRestaurants(
-                      '', 
-                      { ...filters, distance: 5 }, 
+                      '',
+                      { ...filters, distance: 5 },
                       userLocation
                     );
                     // Store in browseResults.location (NOT searchResults)
@@ -1158,7 +983,7 @@ const SearchTab = () => {
                 🌍 All Areas
               </button>
             </div>
-            
+
             {/* Location Search Results (Near Me) */}
             {browseLocation === 'nearMe' && browseResults.location.length > 0 && (
               <div className="browse-results" style={{ marginTop: '20px' }}>
@@ -1166,8 +991,8 @@ const SearchTab = () => {
                   📍 Restaurants Near Me ({browseResults.location.length})
                 </h4>
                 {browseResults.location.slice(0, 6).map((restaurant, index) => (
-                  <div 
-                    key={restaurant.id || restaurant.place_id || index} 
+                  <div
+                    key={restaurant.id || restaurant.place_id || index}
                     className="result-item"
                     onClick={() => handleRestaurantClick(restaurant)}
                   >
@@ -1175,7 +1000,7 @@ const SearchTab = () => {
                       <div className="result-header">
                         <h4>{restaurant.name || restaurant.displayName}</h4>
                         {user && (
-                          <FavoriteButton 
+                          <FavoriteButton
                             restaurant={restaurant}
                             size="small"
                           />
@@ -1198,12 +1023,12 @@ const SearchTab = () => {
                         )}
                         {restaurant.halalStatus && restaurant.halalStatus !== 'unknown' && (
                           <span className="halal">
-                            {restaurant.halalStatus === 'halal' ? '🕌' : 
-                             restaurant.halalStatus === 'pork-free' ? '🥩' : '🍖'}
+                            {restaurant.halalStatus === 'halal' ? '🕌' :
+                              restaurant.halalStatus === 'pork-free' ? '🥩' : '🍖'}
                           </span>
                         )}
                       </div>
-                      <button 
+                      <button
                         className="view-details-btn"
                         onClick={(e) => {
                           e.stopPropagation();
@@ -1236,7 +1061,7 @@ const SearchTab = () => {
                 </button>
               ))}
             </div>
-            
+
             {/* Category Search Results */}
             {browseResults.category.length > 0 && (
               <div className="browse-results" style={{ marginTop: '20px' }}>
@@ -1244,8 +1069,8 @@ const SearchTab = () => {
                   {searchQuery} Restaurants ({browseResults.category.length})
                 </h4>
                 {browseResults.category.slice(0, 6).map((restaurant, index) => (
-                  <div 
-                    key={restaurant.id || restaurant.place_id || index} 
+                  <div
+                    key={restaurant.id || restaurant.place_id || index}
                     className="result-item"
                     onClick={() => handleRestaurantClick(restaurant)}
                   >
@@ -1253,7 +1078,7 @@ const SearchTab = () => {
                       <div className="result-header">
                         <h4>{restaurant.name || restaurant.displayName}</h4>
                         {user && (
-                          <FavoriteButton 
+                          <FavoriteButton
                             restaurant={restaurant}
                             size="small"
                           />
@@ -1271,12 +1096,12 @@ const SearchTab = () => {
                         )}
                         {restaurant.halalStatus && restaurant.halalStatus !== 'unknown' && (
                           <span className="halal">
-                            {restaurant.halalStatus === 'halal' ? '🕌' : 
-                             restaurant.halalStatus === 'pork-free' ? '🥩' : '🍖'}
+                            {restaurant.halalStatus === 'halal' ? '🕌' :
+                              restaurant.halalStatus === 'pork-free' ? '🥩' : '🍖'}
                           </span>
                         )}
                       </div>
-                      <button 
+                      <button
                         className="view-details-btn"
                         onClick={(e) => {
                           e.stopPropagation();
@@ -1301,8 +1126,8 @@ const SearchTab = () => {
             ) : browseResults.popular.length > 0 ? (
               <div className="browse-results">
                 {browseResults.popular.slice(0, 6).map((restaurant, index) => (
-                  <div 
-                    key={restaurant.id || restaurant.place_id || index} 
+                  <div
+                    key={restaurant.id || restaurant.place_id || index}
                     className="result-item"
                     onClick={() => handleRestaurantClick(restaurant)}
                   >
@@ -1310,7 +1135,7 @@ const SearchTab = () => {
                       <div className="result-header">
                         <h4>{restaurant.name || restaurant.displayName}</h4>
                         {user && (
-                          <FavoriteButton 
+                          <FavoriteButton
                             restaurant={restaurant}
                             size="small"
                           />
@@ -1328,12 +1153,12 @@ const SearchTab = () => {
                         )}
                         {restaurant.halalStatus && restaurant.halalStatus !== 'unknown' && (
                           <span className="halal">
-                            {restaurant.halalStatus === 'halal' ? '🕌' : 
-                             restaurant.halalStatus === 'pork-free' ? '🥩' : '🍖'}
+                            {restaurant.halalStatus === 'halal' ? '🕌' :
+                              restaurant.halalStatus === 'pork-free' ? '🥩' : '🍖'}
                           </span>
                         )}
                       </div>
-                      <button 
+                      <button
                         className="view-details-btn"
                         onClick={(e) => {
                           e.stopPropagation();
@@ -1347,7 +1172,7 @@ const SearchTab = () => {
                 ))}
               </div>
             ) : (
-              <button 
+              <button
                 className="load-section-btn"
                 onClick={loadPopularRestaurants}
               >
@@ -1365,8 +1190,8 @@ const SearchTab = () => {
             ) : browseResults.trending.length > 0 ? (
               <div className="browse-results">
                 {browseResults.trending.slice(0, 6).map((restaurant, index) => (
-                  <div 
-                    key={restaurant.id || restaurant.place_id || index} 
+                  <div
+                    key={restaurant.id || restaurant.place_id || index}
                     className="result-item"
                     onClick={() => handleRestaurantClick(restaurant)}
                   >
@@ -1374,7 +1199,7 @@ const SearchTab = () => {
                       <div className="result-header">
                         <h4>{restaurant.name || restaurant.displayName}</h4>
                         {user && (
-                          <FavoriteButton 
+                          <FavoriteButton
                             restaurant={restaurant}
                             size="small"
                           />
@@ -1392,12 +1217,12 @@ const SearchTab = () => {
                         )}
                         {restaurant.halalStatus && restaurant.halalStatus !== 'unknown' && (
                           <span className="halal">
-                            {restaurant.halalStatus === 'halal' ? '🕌' : 
-                             restaurant.halalStatus === 'pork-free' ? '🥩' : '🍖'}
+                            {restaurant.halalStatus === 'halal' ? '🕌' :
+                              restaurant.halalStatus === 'pork-free' ? '🥩' : '🍖'}
                           </span>
                         )}
                       </div>
-                      <button 
+                      <button
                         className="view-details-btn"
                         onClick={(e) => {
                           e.stopPropagation();
@@ -1411,7 +1236,7 @@ const SearchTab = () => {
                 ))}
               </div>
             ) : (
-              <button 
+              <button
                 className="load-section-btn"
                 onClick={loadTrendingRestaurants}
               >
@@ -1439,7 +1264,7 @@ const SearchTab = () => {
                       </div>
                     </div>
                     <div className="saved-search-actions">
-                      <button 
+                      <button
                         className="load-search-btn"
                         onClick={() => {
                           loadSavedSearch(savedSearch);
@@ -1448,7 +1273,7 @@ const SearchTab = () => {
                       >
                         🔄 Load
                       </button>
-                      <button 
+                      <button
                         className="delete-search-btn"
                         onClick={() => {
                           const newSaved = savedSearches.filter(s => s.id !== savedSearch.id);
@@ -1487,13 +1312,13 @@ const SearchTab = () => {
               <div className="results-title">
                 <h3>Found {searchResults.length} restaurants</h3>
                 <div className="results-actions">
-                  <button 
+                  <button
                     className={`view-toggle-btn ${showMapView ? 'active' : ''}`}
                     onClick={() => setShowMapView(!showMapView)}
                   >
                     {showMapView ? '📋 List View' : '🗺️ Map View'}
                   </button>
-                  <button 
+                  <button
                     className="save-search-btn"
                     onClick={saveCurrentSearch}
                     title="Save this search"
@@ -1504,13 +1329,13 @@ const SearchTab = () => {
               </div>
             </div>
           )}
-          
+
           {/* Map View - Full Screen Experience */}
           {showMapView && (
             <>
               <div className="map-view-fullscreen">
                 <div className="map-container-fullscreen">
-                  <div 
+                  <div
                     ref={mapRef}
                     id="search-map"
                     className="map-fullscreen"
@@ -1527,120 +1352,122 @@ const SearchTab = () => {
               </div>
               {/* Map View Exit Button */}
               <div className="map-view-controls">
-                <button 
+                <button
                   className="map-exit-btn"
                   onClick={() => setShowMapView(false)}
                 >
                   📋 List View
                 </button>
               </div>
+              {/* Quick Filters - Minimalist Horizontal Scroll */}
+
             </>
           )}
-          
+
           {/* Results List - Only show when map view is NOT active */}
           {!showMapView && (
-          <div className="results-list">
-            {searchResults.map((restaurant, index) => (
-              <div 
-                key={restaurant.id || restaurant.place_id || index} 
-                className="result-item"
-                onClick={() => handleRestaurantClick(restaurant)}
-              >
-                <div className="result-content">
-                  <div className="result-header">
-                    <h4>{restaurant.name || restaurant.displayName}</h4>
-                    <div className="result-actions">
-                      {user && (
-                        <FavoriteButton 
-                          restaurant={restaurant}
-                          size="small"
-                        />
+            <div className="results-list">
+              {searchResults.map((restaurant, index) => (
+                <div
+                  key={restaurant.id || restaurant.place_id || index}
+                  className="result-item"
+                  onClick={() => handleRestaurantClick(restaurant)}
+                >
+                  <div className="result-content">
+                    <div className="result-header">
+                      <h4>{restaurant.name || restaurant.displayName}</h4>
+                      <div className="result-actions">
+                        {user && (
+                          <FavoriteButton
+                            restaurant={restaurant}
+                            size="small"
+                          />
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Quick Actions */}
+                    <div className="quick-actions">
+                      <button
+                        className="quick-action-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleQuickAction('call', restaurant);
+                        }}
+                        title={restaurant.phoneNumber || restaurant.phone ? `Call ${restaurant.phoneNumber || restaurant.phone}` : 'Phone number not available'}
+                      >
+                        📞
+                      </button>
+                      <button
+                        className="quick-action-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleQuickAction('directions', restaurant);
+                        }}
+                        title="Get Directions"
+                      >
+                        🗺️
+                      </button>
+                      <button
+                        className="quick-action-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleQuickAction('share', restaurant);
+                        }}
+                        title="Share Restaurant"
+                      >
+                        📤
+                      </button>
+                    </div>
+
+                    <p className="result-address">
+                      {restaurant.address || restaurant.formattedAddress || 'Address not available'}
+                    </p>
+
+                    <div className="result-meta">
+                      <span className="rating">⭐ {restaurant.rating?.toFixed(1) || 'N/A'}</span>
+                      {restaurant.priceLevel && (
+                        <span className="price">
+                          {'$'.repeat(restaurant.priceLevel)}
+                        </span>
+                      )}
+                      {restaurant.distanceFromUser && (
+                        <span className="distance">
+                          📍 {restaurant.distanceFromUser.toFixed(1)}km
+                        </span>
+                      )}
+                      {restaurant.halalStatus && restaurant.halalStatus !== 'unknown' && (
+                        <span className="halal">
+                          {restaurant.halalStatus === 'halal' ? '🕌' :
+                            restaurant.halalStatus === 'pork-free' ? '🥩' : '🍖'}
+                        </span>
                       )}
                     </div>
-                  </div>
-                  
-                  {/* Quick Actions */}
-                  <div className="quick-actions">
-                    <button 
-                      className="quick-action-btn"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleQuickAction('call', restaurant);
-                      }}
-                      title={restaurant.phoneNumber || restaurant.phone ? `Call ${restaurant.phoneNumber || restaurant.phone}` : 'Phone number not available'}
-                    >
-                      📞
-                    </button>
-                    <button 
-                      className="quick-action-btn"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleQuickAction('directions', restaurant);
-                      }}
-                      title="Get Directions"
-                    >
-                      🗺️
-                    </button>
-                    <button 
-                      className="quick-action-btn"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleQuickAction('share', restaurant);
-                      }}
-                      title="Share Restaurant"
-                    >
-                      📤
-                    </button>
-                  </div>
-                  
-                  <p className="result-address">
-                    {restaurant.address || restaurant.formattedAddress || 'Address not available'}
-                  </p>
-                  
-                  <div className="result-meta">
-                    <span className="rating">⭐ {restaurant.rating?.toFixed(1) || 'N/A'}</span>
-                    {restaurant.priceLevel && (
-                      <span className="price">
-                        {'$'.repeat(restaurant.priceLevel)}
-                      </span>
-                    )}
-                    {restaurant.distanceFromUser && (
-                      <span className="distance">
-                        📍 {restaurant.distanceFromUser.toFixed(1)}km
-                      </span>
-                    )}
-                    {restaurant.halalStatus && restaurant.halalStatus !== 'unknown' && (
-                      <span className="halal">
-                        {restaurant.halalStatus === 'halal' ? '🕌' : 
-                         restaurant.halalStatus === 'pork-free' ? '🥩' : '🍖'}
-                      </span>
-                    )}
-                  </div>
 
-                  {restaurant.currentOpeningHours && (
-                    <div className="result-hours">
-                      {restaurant.currentOpeningHours.openNow ? (
-                        <span className="open-now">🟢 Open Now</span>
-                      ) : (
-                        <span className="closed-now">🔴 Closed</span>
-                      )}
-                    </div>
-                  )}
+                    {restaurant.currentOpeningHours && (
+                      <div className="result-hours">
+                        {restaurant.currentOpeningHours.openNow ? (
+                          <span className="open-now">🟢 Open Now</span>
+                        ) : (
+                          <span className="closed-now">🔴 Closed</span>
+                        )}
+                      </div>
+                    )}
 
-                  {/* View Details Button - NEW */}
-                  <button 
-                    className="view-details-btn"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleRestaurantClick(restaurant);
-                    }}
-                  >
-                    View Details
-                  </button>
+                    {/* View Details Button - NEW */}
+                    <button
+                      className="view-details-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRestaurantClick(restaurant);
+                      }}
+                    >
+                      View Details
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
           )}
         </div>
       )}

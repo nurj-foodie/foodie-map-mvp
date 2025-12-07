@@ -2,11 +2,11 @@ import React, { useRef } from 'react';
 import FavoriteButton from './FavoriteButton';
 import './RouteResults.css';
 
-const RouteResults = ({ 
-  startLocation, 
-  endLocation, 
-  availableRoutes, 
-  selectedRouteIndex, 
+const RouteResults = ({
+  startLocation,
+  endLocation,
+  availableRoutes,
+  selectedRouteIndex,
   onRouteSelect,
   filteredRestaurants,
   filteredRNRStops,
@@ -42,6 +42,17 @@ const RouteResults = ({
   const touchStartX = useRef(null);
   const touchStartY = useRef(null);
 
+  // Debug: Log all props to diagnose rendering issues
+  React.useEffect(() => {
+    console.log('🔍 RouteResults - availableRoutes:', availableRoutes);
+    console.log('🔍 RouteResults - availableRoutes.length:', availableRoutes?.length);
+    console.log('🔍 RouteResults - selectedRouteIndex:', selectedRouteIndex);
+    console.log('🔍 RouteResults - filteredRestaurants:', filteredRestaurants?.length || 0);
+    console.log('🔍 RouteResults - filteredRNRStops:', filteredRNRStops?.length || 0);
+    console.log('🔍 RouteResults - filteredPetrolStations:', filteredPetrolStations?.length || 0);
+    console.log('🔍 RouteResults - selectedPlaceType:', selectedPlaceType);
+  }, [availableRoutes, selectedRouteIndex, filteredRestaurants, filteredRNRStops, filteredPetrolStations, selectedPlaceType]);
+
   const handleTouchStart = (e) => {
     const t = e.touches && e.touches[0];
     if (!t) return;
@@ -62,25 +73,11 @@ const RouteResults = ({
 
   return (
     <div
-      className="route-results"
+      className="route-results-container"
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
       <div className="results-header">
-        <button
-          className="back-to-search"
-          onClick={() => onBack && onBack()}
-          style={{
-            marginRight: '10px',
-            padding: '6px 10px',
-            borderRadius: '6px',
-            border: '1px solid #ddd',
-            background: '#fff',
-            cursor: 'pointer'
-          }}
-        >
-          ← Back
-        </button>
         <h2>🗺️ Route Results</h2>
         <div className="route-info">
           <span>📍 {startLocation?.name}</span>
@@ -89,37 +86,10 @@ const RouteResults = ({
         </div>
       </div>
 
-      {/* Route Selection */}
-      {availableRoutes && availableRoutes.length > 1 && (
-        <div className="route-selection">
-          <h3>Choose Your Route:</h3>
-          <div className="route-options">
-            {availableRoutes.map((route, index) => (
-              <button
-                key={index}
-                className={`route-option ${selectedRouteIndex === index ? 'selected' : ''}`}
-                onClick={() => onRouteSelect(index)}
-              >
-                <div className="route-summary">
-                  {route.summary || `Route ${index + 1}`}
-                </div>
-                <div className="route-details">
-                  <span>📏 {route.legs?.[0]?.distance?.text || 'Unknown'}</span>
-                  <span>⏱️ {route.legs?.[0]?.duration?.text || 'Unknown'}</span>
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Map Container */}
-      <div className="map-container">
-        <div id="map" style={{ height: '50vh', minHeight: '300px', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)' }}></div>
-      </div>
-
-      {/* Place Type Filter Tabs */}
-      <div className="place-type-tabs">
+      {/* Scrollable Content Area */}
+      <div className="route-results-content">
+        {/* Place Type Filter Tabs */}
+        <div className="place-type-tabs">
         <button
           className={`tab-btn ${selectedPlaceType === 'all' ? 'active' : ''}`}
           onClick={() => setSelectedPlaceType('all')}
@@ -164,7 +134,13 @@ const RouteResults = ({
           placesToShow = (filteredPetrolStations || []).map(p => ({ ...p, placeType: 'petrol_station' }));
         }
 
-        if (placesToShow.length === 0) return null;
+        console.log('🔍 RouteResults - placesToShow.length:', placesToShow.length);
+        console.log('🔍 RouteResults - placesToShow (first 3):', placesToShow.slice(0, 3));
+        
+        if (placesToShow.length === 0) {
+          console.log('⚠️ RouteResults - No places to show, returning null');
+          return null;
+        }
 
         const getTypeLabel = (type) => {
           if (type === 'restaurant') return '🍽️ Restaurant';
@@ -176,7 +152,7 @@ const RouteResults = ({
         return (
           <div className="restaurant-selection">
             <h3>
-              {selectedPlaceType === 'all' 
+              {selectedPlaceType === 'all'
                 ? `📍 Places Along Route (${placesToShow.length})`
                 : `${getTypeLabel(selectedPlaceType)}s Along Route (${placesToShow.length})`
               }
@@ -187,61 +163,94 @@ const RouteResults = ({
                 const getUniqueId = (p) =>
                   p?.place_id || p?.id || `${p?.location?.lat}_${p?.location?.lng}_${p?.name || p?.displayName || p?.eateryName}`;
 
-                const isSelected = selectedEateries.some(eatery => 
+                const isSelected = selectedEateries.some(eatery =>
                   getUniqueId(eatery) === getUniqueId(place)
                 );
-                
+
                 const placeType = place.placeType || place.type || 'restaurant';
                 const brand = place.brand ? ` (${place.brand})` : '';
-                
+
                 return (
                   <div
                     key={index}
                     className={`restaurant-card ${isSelected ? 'selected' : ''}`}
-                    onClick={() => onEaterySelect(place)}
+                    onClick={(e) => {
+                      // Selecting anywhere on the card selects it, unless specific details clicked
+                      onEaterySelect(place);
+                    }}
                   >
-                    <div className="restaurant-info">
-                      <h4>
-                        {getTypeLabel(placeType)} {place.name || place.displayName || place.eateryName}{brand}
-                      </h4>
-                      <p>{place.address || place.formattedAddress}</p>
-                      <div className="restaurant-details">
-                        {place.rating && <span>⭐ {place.rating}</span>}
-                        {place.detourDistanceKm && (
-                          <span className="detour-info">🚗 {place.detourDistanceKm.toFixed(1)}km detour</span>
-                        )}
-                        {place.detourDurationMinutes && (
-                          <span className="detour-info">⏱️ {place.detourDurationMinutes.toFixed(0)}min</span>
+                    {/* Left: Image Section */}
+                    <div className="card-image-section">
+                      {place.photos && place.photos.length > 0 ? (
+                        <img
+                          src={place.photos[0].getUrl ? place.photos[0].getUrl({ maxWidth: 200 }) : place.icon || ''}
+                          alt={place.name}
+                          className="card-image"
+                        />
+                      ) : (
+                        <div className="card-image-placeholder">
+                          {placeType === 'restaurant' ? '🍽️' : placeType === 'rnr' ? '🛣️' : '⛽'}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Middle: Details Section */}
+                    <div className="card-details-section">
+                      <div className="card-title">{place.name || place.displayName || place.eateryName}{brand}</div>
+
+                      <div className="card-info-row">
+                        {place.rating ? (
+                          <div className="rating-badge">
+                            <span className="rating-star">★</span>
+                            <span>{place.rating}</span>
+                            <span style={{ color: '#666' }}>({place.userRatingCount || 0})</span>
+                          </div>
+                        ) : (
+                          <span style={{ color: '#666' }}>No rating</span>
                         )}
                       </div>
-                    </div>
-                    <div className="restaurant-actions">
+
+                      <div className="card-info-row">
+                        {(place.detourDurationMinutes !== undefined && place.detourDurationMinutes !== Infinity) ? (
+                          <div className="detour-badge">
+                            +{place.detourDurationMinutes.toFixed(0)} min detour
+                          </div>
+                        ) : (
+                          <div className="detour-badge">Unknown detour</div>
+                        )}
+                      </div>
+
                       <button
-                        className={`select-btn ${isSelected ? 'selected' : ''}`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onEaterySelect(place);
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: '#4CAF50',
+                          fontSize: '11px',
+                          padding: 0,
+                          cursor: 'pointer',
+                          textAlign: 'left',
+                          marginTop: '4px'
                         }}
-                      >
-                        {isSelected ? '✅ Selected' : '➕ Select'}
-                      </button>
-                      <button
-                        className="select-btn"
                         onClick={(e) => {
                           e.stopPropagation();
                           onViewDetails && onViewDetails(place);
                         }}
                       >
-                        👁️ View Details
+                        View Info &gt;
                       </button>
-                      {placeType === 'restaurant' && (
-                        <FavoriteButton
-                          restaurant={place}
-                          size="small"
-                          showText={false}
-                          className="favorite-btn"
-                        />
-                      )}
+                    </div>
+
+                    {/* Right: Add Action Section */}
+                    <div
+                      className={`card-action-section ${isSelected ? 'selected' : ''}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onEaterySelect(place);
+                      }}
+                    >
+                      <div className="action-icon">
+                        {isSelected ? '✓' : '+'}
+                      </div>
                     </div>
                   </div>
                 );
@@ -250,32 +259,44 @@ const RouteResults = ({
           </div>
         );
       })()}
+      </div>
+      {/* End of scrollable content */}
 
       {/* Action Buttons */}
-      <div className="action-buttons">
-        {/* Smart Start Journey Button - Always visible after route search */}
-        <button
-          className="start-journey-btn"
-          onClick={onStartNavigation}
-        >
-          {selectedEateries.length > 0 
-            ? `🚀 Start Journey${selectedEateries.length > 1 ? ` (${selectedEateries.length} stops)` : ''}`
-            : '🚀 Start Journey'
-          }
-        </button>
-        
-        <div className="secondary-actions">
-          <button className="save-btn" onClick={onShowSaveForm}>
-            💾 Save This Route
-          </button>
-          <button className="load-btn" onClick={onShowSavedRoutes}>
-            📚 My Saved Routes
-          </button>
-        </div>
-      </div>
-
-
       {/* Modals would go here - Save Route, Saved Routes, etc. */}
+      {/* Footer is now outside the scrollable content */}
+      <div className="results-footer">
+        <div className="action-buttons">
+          <button
+            className="start-journey-btn"
+            onClick={() => onStartNavigation && onStartNavigation(selectedEateries)}
+          >
+            Start Journey ({selectedEateries.length} Stops)
+          </button>
+
+          <div className="secondary-actions">
+            <button
+              className="save-btn"
+              onClick={onSaveRoute}
+            >
+              💾 Save Route
+            </button>
+            <button
+              className="load-btn"
+              onClick={() => onShowSavedRoutes && onShowSavedRoutes(true)}
+            >
+              📂 Saved Routes
+            </button>
+          </div>
+        </div>
+
+        {/* User Actions (Logout etc) - Optional in footer, or keep hidden */}
+        {currentUserId && (
+          <div className="user-actions-footer">
+            <span style={{ fontSize: '12px', color: '#666' }}>User: {currentUserId.substring(0, 8)}...</span>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
