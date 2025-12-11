@@ -1,105 +1,47 @@
-/* V2 Refinements */
-.route-results-container {
-  padding: 0;
-  background-color: transparent;
-  /* Let bottom-sheet bg show through */
-  /* Ensure it fills the parent .bottom-sheet-section (which is flex col) */
-  height: 100%;
-  width: 100%;
-  flex: 1;
-  /* Grow to fill parent */
+/* Place Type Filter Tabs */
+.place-type-tabs {
   display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  /* Prevent double scrollbars */
-  min-height: 0;
-  /* Critical for flex children to shrink properly */
+  gap: 8px;
+  margin-bottom: 20px;
+  overflow-x: auto;
+  padding-bottom: 4px;
 }
 
-.results-header {
-  padding: 6px 16px;
-  /* Minimal padding - compact header (~5% of page) */
-  background-color: #1E1E1E;
-  /* Match sheet bg */
-  /* Sticky header at the top of the flex container */
-  position: relative;
-  z-index: 20;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  /* Subtle separator */
-  flex-shrink: 0;
-  /* Don't shrink header */
-}
-
-.results-header h2 {
-  margin: 0;
-  font-size: 16px;
-  /* Reduced from default */
-  font-weight: 600;
-  color: var(--primary-gold);
-  line-height: 1.2;
-}
-
-.results-header .route-info {
-  margin-top: 4px;
-  font-size: 11px;
-  /* Small font for route info */
+.tab-btn {
+  padding: 8px 16px;
+  background: #2A2A2A;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
   color: #aaa;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-  line-height: 1.3;
-}
-
-.results-header .route-info span {
+  font-size: 13px;
+  font-weight: 500;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 45%;
-  /* Limit width to prevent overflow */
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
-.user-greeting h2 {
+.tab-btn.active {
+  background: rgba(212, 175, 55, 0.1);
   color: var(--primary-gold);
-  margin: 0 0 4px 0;
-  font-family: 'Outfit', sans-serif;
-  font-size: 20px;
+  border-color: var(--primary-gold);
+  box-shadow: 0 2px 8px rgba(212, 175, 55, 0.2);
 }
 
-.user-greeting p {
-  color: #aaa;
-  font-size: 14px;
+.tab-btn:hover:not(.active) {
+  background: #333;
+  color: white;
 }
 
-/* Scrollable Content Area - FIX FOR SCROLLING */
-.route-results-content {
-  flex: 1 1 auto;
-  /* Grow to fill ALL available space - CRITICAL */
-  overflow-y: auto;
-  overflow-x: hidden;
-  min-height: 0;
-  /* Allow shrinking - CRITICAL for flex scrolling */
-  padding: 16px 20px;
-  width: 100%;
-  box-sizing: border-box;
-  /* Include padding in width calculation */
-
-  /* Premium Scrollbar */
-  scrollbar-width: thin;
-  scrollbar-color: #444 transparent;
+/* Restaurant Selection */
+.restaurant-selection {
+  position: relative;
+  z-index: 1;
 }
 
-.route-results-content::-webkit-scrollbar {
-  width: 6px;
-}
-
-.route-results-content::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.route-results-content::-webkit-scrollbar-thumb {
-  background-color: #444;
-  border-radius: 3px;
+.restaurant-selection h3 {
+  color: #ddd;
+  margin: 0 0 16px 0;
+  font-size: 16px;
 }
 
 /* Filter Chips with Gold Active Border */
@@ -324,14 +266,11 @@
 /* Right: Action Section */
 .card-action-section {
   width: 56px;
-  /* w-14 */
   height: 100%;
   flex-shrink: 0;
   background: #252525;
   border-left: 1px solid rgba(255, 255, 255, 0.05);
-  /* border-l border-white/5 */
   border-radius: 0 12px 12px 0;
-  /* rounded-r-xl */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -345,13 +284,11 @@
 
 .card-action-section.selected {
   background: #2A2A2A;
-  /* Slightly lighter */
 }
 
 .action-icon {
   font-size: 24px;
   color: #9CA3AF;
-  /* Default grey */
   transition: all 0.2s ease;
 }
 
@@ -360,135 +297,53 @@
   transform: scale(1.1);
 }
 
-/* Icon turns Gold when selected */
 .card-action-section.selected .action-icon {
   color: #D4AF37;
   transform: scale(1.1);
 }
 
-/* Sticky Footer Implementation */
-.results-footer {
-  background-color: #1E1E1E;
-  /* Match sheet bg */
-  padding: 6px 16px;
-  /* Minimal padding - compact footer */
-  padding-bottom: calc(6px + 80px);
-  /* Add space for bottom navigation (80px height) */
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
-  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.2);
-  /* Minimal shadow */
-  position: sticky;
-  bottom: 0;
-  z-index: 30;
-  /* Lower than bottom-navigation z-index: 1000 */
-  flex-shrink: 0;
-  /* Don't shrink footer */
+/* Fixed Start Button (Above Nav Bar) */
+.fixed-start-button {
+  position: fixed;
+  bottom: 84px;
+  /* 80px nav height + 4px gap */
+  left: 0;
+  right: 0;
+  padding: 0 16px;
+  z-index: 25;
+  /* Above sheet (z-15), below FOB (z-100) */
+  pointer-events: none;
+  /* Allow clicks through container */
 }
 
-.action-buttons {
-  background: transparent;
-  padding: 0;
-  border-radius: 0;
-  box-shadow: none;
-  margin-bottom: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  /* Minimal gap */
-}
-
-/* Primary Action: Gold Gradient */
 .start-journey-btn {
   width: 100%;
-  padding: 8px 12px;
-  /* Minimal padding - compact button */
+  padding: 16px;
   background: linear-gradient(135deg, #D4AF37, #B4941F);
-  /* Gold Gradient */
   color: #121212;
-  /* Dark text for contrast */
   border: none;
-  border-radius: 8px;
-  /* Smaller radius */
-  font-size: 12px;
-  /* Smaller font size */
+  border-radius: 12px;
+  font-size: 16px;
   font-weight: 700;
   cursor: pointer;
-  margin-bottom: 0;
-  /* Handled by flex gap */
   transition: all 0.3s ease;
-  box-shadow: 0 1px 6px rgba(212, 175, 55, 0.3);
-  /* Minimal shadow */
+  box-shadow: 0 4px 16px rgba(212, 175, 55, 0.4),
+    0 -2px 8px rgba(0, 0, 0, 0.3);
+  /* Shadow on top too */
   text-transform: uppercase;
-  letter-spacing: 0.2px;
-  /* Minimal letter spacing */
+  letter-spacing: 0.5px;
   font-family: 'Outfit', sans-serif;
-  line-height: 1.2;
-  /* Tighter line height */
+  pointer-events: auto;
+  /* Button itself is clickable */
 }
 
 .start-journey-btn:hover {
   background: linear-gradient(135deg, #ECC54D, #C6A325);
-  /* Lighter Gold */
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(212, 175, 55, 0.4);
+  box-shadow: 0 6px 24px rgba(212, 175, 55, 0.5),
+    0 -2px 8px rgba(0, 0, 0, 0.3);
 }
 
 .start-journey-btn:active {
-  transform: translateY(-1px);
-}
-
-/* Secondary Actions: Dark Outline */
-.secondary-actions {
-  display: flex;
-  gap: 6px;
-  /* Minimal gap */
-}
-
-.save-btn,
-.load-btn {
-  flex: 1;
-  padding: 5px 8px;
-  /* Minimal padding - compact buttons */
-  border: 1px solid rgba(212, 175, 55, 0.5);
-  /* Gold border */
-  border-radius: 6px;
-  /* Smaller radius */
-  background: rgba(255, 255, 255, 0.03);
-  /* Subtle glass */
-  color: #D4AF37;
-  /* Gold text */
-  cursor: pointer;
-  font-size: 11px;
-  /* Smaller font size */
-  font-weight: 600;
-  transition: all 0.2s ease;
-  font-family: 'Outfit', sans-serif;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 3px;
-  /* Minimal gap */
-  line-height: 1.2;
-  /* Tighter line height */
-}
-
-.save-btn:hover,
-.load-btn:hover {
-  background: rgba(212, 175, 55, 0.15);
-  /* Gold tint on hover */
-  border-color: #D4AF37;
-  color: #FFF;
-  transform: translateY(-1px);
-}
-
-.user-actions-footer {
-  margin-top: 6px;
-  /* Reduced margin */
-  text-align: center;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
-  padding-top: 4px;
-  /* Reduced padding */
-  font-size: 10px;
-  /* Smaller font */
-  color: #666;
+  transform: translateY(0);
 }

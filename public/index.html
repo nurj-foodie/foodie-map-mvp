@@ -1,40 +1,51 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#000000" />
-    <meta name="description" content="Simple Foodie Map App" />
-    <title>Foodie Map - Simple</title>
-    
-    <!-- Google Maps API -->
-    <script>
-      // Google Maps API key will be injected by the inject-env.js script
-      // This prevents the API key from being exposed in the source code
-      // IMPORTANT: Replace with your actual API key from .env file
-      // The AIzaSyAPa5fnA9SvBe4rTy17WVOptcn0dsLiEWE will be replaced by inject-env.js
-      const GOOGLE_MAPS_API_KEY = 'AIzaSyAPa5fnA9SvBe4rTy17WVOptcn0dsLiEWE';
-      
-      (g=>{var h,a,k,p="The Google Maps JavaScript API",c="google",l="importLibrary",q="__ib__",m=document,b=window;b=b[c]||(b[c]={});var d=b.maps||(b.maps={}),r=new Set,e=new URLSearchParams,u=()=>h||(h=new Promise(async(f,n)=>{await (a=m.createElement("script"));e.set("libraries",[...r]+"");for(k in g)e.set(k.replace(/[A-Z]/g,t=>"_"+t[0].toLowerCase()),g[k]);e.set("callback",c+".maps."+q);a.src=`https://maps.${c}apis.com/maps/api/js?`+e;d[q]=f;a.onerror=()=>h=n(Error(p+" could not load."));a.nonce=m.querySelector("script[nonce]")?.nonce||"";m.head.append(a)}));d[l]?console.warn(p+" only loads once. Ignoring:",g):d[l]=(f,...n)=>r.add(f)&&u().then(()=>d[l](f,...n))})({
-        key: GOOGLE_MAPS_API_KEY,
-        v: "weekly",
-        libraries: ["places", "geometry"]
-      });
-      
-      // Dispatch event when Google Maps is loaded
-      window.addEventListener('load', () => {
-        setTimeout(() => {
-          if (window.google && window.google.maps) {
-            console.log('✅ Google Maps fully loaded');
-            window.dispatchEvent(new CustomEvent('googleMapsLoaded'));
-          }
-        }, 1000);
-      });
-    </script>
-  </head>
-  <body>
-    <noscript>You need to enable JavaScript to run this app.</noscript>
-    <div id="root"></div>
-  </body>
+
+<head>
+  <meta charset="utf-8" />
+  <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#000000" />
+  <meta name="description" content="Simple Foodie Map App" />
+  <title>Foodie Map - Simple</title>
+
+  <!-- Google Fonts: Outfit (Headings) & Inter (Body) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap"
+    rel="stylesheet">
+
+  <!-- Google Maps API -->
+  <script>
+    // Google Maps API key will be injected by the inject-env.js script
+    // This prevents the API key from being exposed in the source code
+    // IMPORTANT: Replace with your actual API key from .env file
+    // The AIzaSyAPa5fnA9SvBe4rTy17WVOptcn0dsLiEWE will be replaced by inject-env.js
+    const GOOGLE_MAPS_API_KEY = 'AIzaSyAPa5fnA9SvBe4rTy17WVOptcn0dsLiEWE';
+
+    (g => { var h, a, k, p = "The Google Maps JavaScript API", c = "google", l = "importLibrary", q = "__ib__", m = document, b = window; b = b[c] || (b[c] = {}); var d = b.maps || (b.maps = {}), r = new Set, e = new URLSearchParams, u = () => h || (h = new Promise(async (f, n) => { await (a = m.createElement("script")); e.set("libraries", [...r] + ""); for (k in g) e.set(k.replace(/[A-Z]/g, t => "_" + t[0].toLowerCase()), g[k]); e.set("callback", c + ".maps." + q); a.src = `https://maps.${c}apis.com/maps/api/js?` + e; d[q] = f; a.onerror = () => h = n(Error(p + " could not load.")); a.nonce = m.querySelector("script[nonce]")?.nonce || ""; m.head.append(a) })); d[l] ? console.warn(p + " only loads once. Ignoring:", g) : d[l] = (f, ...n) => r.add(f) && u().then(() => d[l](f, ...n)) })({
+      key: GOOGLE_MAPS_API_KEY,
+      v: "weekly",
+      libraries: ["places", "geometry"]
+    });
+
+    // Dispatch event when Google Maps is loaded
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        if (window.google && window.google.maps) {
+          console.log('✅ Google Maps fully loaded');
+          window.dispatchEvent(new CustomEvent('googleMapsLoaded'));
+        }
+      }, 1000);
+    });
+  </script>
+</head>
+
+<body>
+  <noscript>You need to enable JavaScript to run this app.</noscript>
+  <div id="root"></div>
+</body>
+
 </html>

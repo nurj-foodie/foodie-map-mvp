@@ -1,7 +1,7 @@
 .user-tab {
   padding: 20px;
   min-height: calc(100vh - 80px);
-  background: #f8f9fa;
+  background: var(--bg-primary);
 }
 
 .loading-state {
@@ -16,15 +16,20 @@
 .loading-spinner {
   width: 32px;
   height: 32px;
-  border: 3px solid #e9ecef;
-  border-top: 3px solid #007bff;
+  border: 3px solid rgba(255, 255, 255, 0.1);
+  border-top: 3px solid var(--primary-gold);
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 .login-welcome {
@@ -35,12 +40,12 @@
 .login-welcome h2 {
   margin: 0 0 8px 0;
   font-size: 24px;
-  color: #1a1a1a;
+  color: var(--primary-gold);
 }
 
 .login-welcome p {
   margin: 0;
-  color: #666;
+  color: var(--text-secondary);
   font-size: 16px;
 }
 
@@ -50,7 +55,7 @@
 }
 
 .user-header h2 {
-  color: #333;
+  color: var(--text-primary);
   margin: 0;
   font-size: 24px;
 }
@@ -63,13 +68,14 @@
 }
 
 .login-card {
-  background: white;
+  background: var(--bg-secondary);
   padding: 40px;
   border-radius: 16px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-lg);
   text-align: center;
   max-width: 400px;
   width: 100%;
+  border: var(--glass-border);
 }
 
 .login-icon {
@@ -78,21 +84,21 @@
 }
 
 .login-card h3 {
-  color: #333;
+  color: var(--primary-gold);
   margin: 0 0 12px 0;
   font-size: 24px;
 }
 
 .login-card p {
-  color: #666;
+  color: var(--text-secondary);
   margin: 0 0 30px 0;
   font-size: 16px;
   line-height: 1.5;
 }
 
 .login-btn {
-  background: #CC0001;
-  color: white;
+  background: linear-gradient(135deg, var(--primary-gold), #B4941F);
+  color: #121212;
   border: none;
   padding: 16px 32px;
   border-radius: 12px;
@@ -105,20 +111,21 @@
 }
 
 .login-btn:hover {
-  background: #B30000;
+  background: linear-gradient(135deg, #ECC54D, #C6A325);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(204, 0, 1, 0.3);
+  box-shadow: 0 4px 12px rgba(212, 175, 55, 0.3);
 }
 
 .login-features {
   text-align: left;
-  background: #f8f9fa;
+  background: rgba(255, 255, 255, 0.03);
   padding: 20px;
   border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .login-features h4 {
-  color: #333;
+  color: var(--text-primary);
   margin: 0 0 16px 0;
   font-size: 16px;
 }
@@ -126,7 +133,7 @@
 .login-features ul {
   margin: 0;
   padding-left: 20px;
-  color: #666;
+  color: var(--text-secondary);
 }
 
 .login-features li {
@@ -140,10 +147,11 @@
 }
 
 .profile-card {
-  background: white;
+  background: var(--bg-secondary);
   padding: 30px;
   border-radius: 16px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-lg);
+  border: var(--glass-border);
 }
 
 .profile-header {
@@ -151,14 +159,14 @@
   align-items: center;
   margin-bottom: 30px;
   padding-bottom: 20px;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .profile-avatar {
   width: 60px;
   height: 60px;
-  background: #CC0001;
-  color: white;
+  background: linear-gradient(135deg, var(--primary-gold), #B4941F);
+  color: #121212;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -169,19 +177,19 @@
 }
 
 .profile-info h3 {
-  color: #333;
+  color: var(--text-primary);
   margin: 0 0 8px 0;
   font-size: 20px;
 }
 
 .profile-info p {
-  color: #666;
+  color: var(--text-secondary);
   margin: 0 0 4px 0;
   font-size: 14px;
 }
 
 .join-date {
-  color: #999 !important;
+  color: rgba(255, 255, 255, 0.5) !important;
   font-size: 12px !important;
 }
 
@@ -190,7 +198,7 @@
 }
 
 .profile-stats h4 {
-  color: #333;
+  color: var(--text-primary);
   margin: 0 0 20px 0;
   font-size: 18px;
 }
@@ -204,19 +212,20 @@
 .stat-item {
   text-align: center;
   padding: 20px;
-  background: #f8f9fa;
+  background: rgba(255, 255, 255, 0.03);
   border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .stat-number {
-  color: #CC0001;
+  color: var(--primary-gold);
   font-size: 24px;
   font-weight: bold;
   margin-bottom: 8px;
 }
 
 .stat-label {
-  color: #666;
+  color: var(--text-secondary);
   font-size: 12px;
   font-weight: 500;
 }
@@ -226,9 +235,9 @@
 }
 
 .logout-btn {
-  background: #f8f9fa;
-  color: #666;
-  border: 1px solid #e0e0e0;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-secondary);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   padding: 12px 24px;
   border-radius: 8px;
   font-size: 14px;
@@ -237,37 +246,37 @@
 }
 
 .logout-btn:hover {
-  background: #e9ecef;
-  color: #333;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
 }
 
 @media (max-width: 480px) {
   .user-tab {
     padding: 16px;
   }
-  
+
   .user-header h2 {
     font-size: 20px;
   }
-  
+
   .login-card {
     padding: 30px 20px;
   }
-  
+
   .profile-card {
     padding: 20px;
   }
-  
+
   .profile-header {
     flex-direction: column;
     text-align: center;
   }
-  
+
   .profile-avatar {
     margin-right: 0;
     margin-bottom: 16px;
   }
-  
+
   .stats-grid {
     grid-template-columns: 1fr;
     gap: 16px;

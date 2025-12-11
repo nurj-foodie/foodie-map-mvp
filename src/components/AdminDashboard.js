@@ -6,14 +6,18 @@ import RestaurantReviewDashboard from './RestaurantReviewDashboard';
 import RestaurantEditReviewDashboard from './RestaurantEditReviewDashboard';
 import ReviewModerationDashboard from './ReviewModerationDashboard';
 import UserManagementDashboard from './UserManagementDashboard';
+import AdminCohortDashboard from './AdminCohortDashboard';
+import AdminWaveDashboard from './AdminWaveDashboard';
+import AdminCreatorDashboard from './AdminCreatorDashboard';
 import './AdminDashboard.css';
 
 const AdminDashboard = () => {
   const [hasAdminAccess, setHasAdminAccess] = useState(false);
-  const [activeMainTab, setActiveMainTab] = useState('analytics'); // analytics, restaurants, users
+  const [activeMainTab, setActiveMainTab] = useState('analytics'); // analytics, restaurants, users, beta
   const [activeSubTab, setActiveSubTab] = useState({
     analytics: 'overview', // overview, cost, users, performance
-    restaurants: 'submissions' // submissions, edits, reviews
+    restaurants: 'submissions', // submissions, edits, reviews
+    beta: 'cohort' // cohort, waves, creators
   });
   const [dateRange, setDateRange] = useState({
     startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 7 days ago
@@ -41,6 +45,7 @@ const AdminDashboard = () => {
       // Set up real-time updates every 30 seconds
       const interval = setInterval(loadAnalyticsData, 30000);
       return () => clearInterval(interval);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }
   }, [dateRange, hasAdminAccess]);
 
@@ -506,6 +511,12 @@ const AdminDashboard = () => {
         >
           👥 Users
         </button>
+        <button 
+          className={`main-tab-btn ${activeMainTab === 'beta' ? 'active' : ''}`}
+          onClick={() => setActiveMainTab('beta')}
+        >
+          🎯 Beta
+        </button>
       </div>
 
       {/* Sub-tabs based on main tab */}
@@ -561,6 +572,29 @@ const AdminDashboard = () => {
         </div>
       )}
 
+      {activeMainTab === 'beta' && (
+        <div className="admin-sub-tabs">
+          <button 
+            className={`sub-tab-btn ${activeSubTab.beta === 'cohort' ? 'active' : ''}`}
+            onClick={() => setActiveSubTab({ ...activeSubTab, beta: 'cohort' })}
+          >
+            🎯 Cohort Scoring
+          </button>
+          <button 
+            className={`sub-tab-btn ${activeSubTab.beta === 'waves' ? 'active' : ''}`}
+            onClick={() => setActiveSubTab({ ...activeSubTab, beta: 'waves' })}
+          >
+            🌊 Waves
+          </button>
+          <button 
+            className={`sub-tab-btn ${activeSubTab.beta === 'creators' ? 'active' : ''}`}
+            onClick={() => setActiveSubTab({ ...activeSubTab, beta: 'creators' })}
+          >
+            ⭐ Creators
+          </button>
+        </div>
+      )}
+
       <div className="admin-content">
         {loading && activeMainTab === 'analytics' ? (
           <div className="loading">Loading analytics data...</div>
@@ -579,6 +613,11 @@ const AdminDashboard = () => {
             
             {/* Users Tab */}
             {activeMainTab === 'users' && <UserManagementDashboard />}
+            
+            {/* Beta Sub-tabs */}
+            {activeMainTab === 'beta' && activeSubTab.beta === 'cohort' && <AdminCohortDashboard />}
+            {activeMainTab === 'beta' && activeSubTab.beta === 'waves' && <AdminWaveDashboard />}
+            {activeMainTab === 'beta' && activeSubTab.beta === 'creators' && <AdminCreatorDashboard />}
           </>
         )}
       </div>

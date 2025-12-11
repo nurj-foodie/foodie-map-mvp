@@ -1,10 +1,11 @@
 .auth-form {
-  padding: 24px;
+  padding: 32px;
   max-width: 400px;
   margin: 0 auto;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  background: var(--bg-secondary);
+  border-radius: 16px;
+  box-shadow: var(--shadow-lg);
+  border: var(--glass-border);
 }
 
 .auth-form__header {
@@ -14,25 +15,26 @@
 
 .auth-form__header h2 {
   margin: 0 0 8px 0;
-  font-size: 24px;
+  font-size: 28px;
+  font-family: 'Outfit', sans-serif;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--primary-gold);
 }
 
 .auth-form__header p {
   margin: 0;
-  color: #666;
+  color: var(--text-secondary);
   font-size: 14px;
 }
 
 .auth-form__error {
-  background: #fee;
-  color: #c33;
+  background: rgba(207, 102, 121, 0.2);
+  color: #EF9A9A;
   padding: 12px;
   border-radius: 8px;
   margin-bottom: 16px;
   font-size: 14px;
-  border: 1px solid #fcc;
+  border: 1px solid rgba(207, 102, 121, 0.4);
 }
 
 .auth-form__form {
@@ -40,58 +42,65 @@
 }
 
 .auth-form__field {
-  margin-bottom: 16px;
+  margin-bottom: 20px;
 }
 
 .auth-form__field label {
   display: block;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
   font-weight: 500;
-  color: #333;
+  color: var(--text-primary);
   font-size: 14px;
 }
 
 .auth-form__field input {
   width: 100%;
-  padding: 12px;
-  border: 1px solid #ddd;
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
   font-size: 16px;
-  transition: border-color 0.2s;
+  transition: all 0.2s;
   box-sizing: border-box;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
 }
 
 .auth-form__field input:focus {
   outline: none;
-  border-color: #007bff;
-  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+  border-color: var(--primary-gold);
+  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.15);
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .auth-form__submit {
   width: 100%;
-  padding: 12px;
-  background: #007bff;
-  color: white;
+  padding: 14px;
+  background: linear-gradient(135deg, var(--primary-gold), #B4941F);
+  color: #121212;
   border: none;
   border-radius: 8px;
   font-size: 16px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: all 0.3s ease;
+  font-family: 'Outfit', sans-serif;
 }
 
 .auth-form__submit:hover:not(:disabled) {
-  background: #0056b3;
+  background: linear-gradient(135deg, #ECC54D, #C6A325);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(212, 175, 55, 0.3);
 }
 
 .auth-form__submit:disabled {
-  background: #ccc;
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.3);
   cursor: not-allowed;
 }
 
 .auth-form__divider {
   text-align: center;
-  margin: 20px 0;
+  margin: 24px 0;
   position: relative;
 }
 
@@ -102,20 +111,22 @@
   left: 0;
   right: 0;
   height: 1px;
-  background: #ddd;
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .auth-form__divider span {
-  background: white;
+  background: var(--bg-secondary);
   padding: 0 16px;
-  color: #666;
+  color: var(--text-secondary);
   font-size: 14px;
+  position: relative;
 }
 
 .auth-form__google {
   width: 100%;
   padding: 12px;
   background: white;
+  /* Google brand requirement */
   color: #333;
   border: 1px solid #ddd;
   border-radius: 8px;
@@ -130,8 +141,8 @@
 }
 
 .auth-form__google:hover:not(:disabled) {
-  background: #f8f9fa;
-  border-color: #bbb;
+  background: #f1f1f1;
+  transform: translateY(-1px);
 }
 
 .auth-form__google:disabled {
@@ -141,28 +152,30 @@
 
 .auth-form__toggle {
   text-align: center;
-  margin-top: 20px;
+  margin-top: 24px;
 }
 
 .auth-form__toggle p {
   margin: 0;
-  color: #666;
+  color: var(--text-secondary);
   font-size: 14px;
 }
 
 .auth-form__toggle-btn {
   background: none;
   border: none;
-  color: #007bff;
+  color: var(--primary-gold);
   cursor: pointer;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   margin-left: 4px;
-  text-decoration: underline;
+  text-decoration: none;
+  transition: color 0.2s;
 }
 
 .auth-form__toggle-btn:hover {
-  color: #0056b3;
+  color: #ECC54D;
+  text-decoration: underline;
 }
 
 /* Mobile optimizations */
@@ -172,17 +185,15 @@
     margin: 16px;
     border-radius: 8px;
   }
-  
+
   .auth-form__header h2 {
     font-size: 20px;
   }
-  
+
   .auth-form__field input,
   .auth-form__submit,
   .auth-form__google {
-    font-size: 16px; /* Prevent zoom on iOS */
+    font-size: 16px;
+    /* Prevent zoom on iOS */
   }
 }
-
-
-

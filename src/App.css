@@ -17,6 +17,12 @@
   align-items: center;
   justify-content: flex-start;
   font-size: calc(10px + 2vmin);
+  /* Override horizontal safe area insets from parent .app-split-layout */
+  margin-left: calc(-1 * env(safe-area-inset-left));
+  margin-right: calc(-1 * env(safe-area-inset-right));
+  /* Restore horizontal padding with safe area support */
+  padding-left: calc(20px + env(safe-area-inset-left));
+  padding-right: calc(20px + env(safe-area-inset-right));
 }
 
 .App-header h1 {
@@ -74,7 +80,10 @@ button {
 .app-split-layout {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 100dvh;
+  /* Dynamic viewport height - excludes browser UI */
+  min-height: -webkit-fill-available;
+  /* Safari mobile fix */
   width: 100%;
   overflow: hidden;
   position: fixed;
@@ -82,14 +91,23 @@ button {
   left: 0;
   background-color: #121212;
   /* charcoal base */
+  /* Safe area insets for notched devices */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
 }
 
 .top-map-section {
-  height: 40vh;
-  /* Fixed 40% height */
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 0;
+  /* Background layer */
   width: 100%;
-  position: relative;
-  z-index: 1;
+  height: 100%;
 }
 
 .back-button {
@@ -122,83 +140,111 @@ button {
   height: 100%;
 }
 
-/* Route Selection Circles - FOB style */
+/* Route Selection Circles - FOB Enhanced for Full-Screen */
 .route-selection-circles {
-  position: absolute;
+  position: fixed;
+  /* Changed from absolute for full-screen map */
   left: 16px;
   top: 50%;
   transform: translateY(-50%);
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  z-index: 1000;
+  z-index: 100;
+  /* Above map (z-0), below sheet (z-20) */
   pointer-events: auto;
+  gap: 8px;
 }
 
 .route-label {
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 800;
   color: #D4AF37;
-  margin-bottom: 8px;
+  /* Gold */
+  margin-bottom: 4px;
   text-transform: uppercase;
-  letter-spacing: 1px;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8), 0 0 8px rgba(212, 175, 55, 0.5);
-  background: rgba(0, 0, 0, 0.4);
-  padding: 4px 8px;
-  border-radius: 4px;
-  backdrop-filter: blur(4px);
+  letter-spacing: 1.2px;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8),
+    0 0 8px rgba(212, 175, 55, 0.5);
+  /* Gold glow */
+  background: rgba(30, 30, 30, 0.7);
+  /* Dark glass */
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(212, 175, 55, 0.2);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
 }
 
 .route-circle {
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  /* Slightly larger for touch */
+  height: 44px;
   border-radius: 50%;
-  border: 2px solid #666;
-  background: white;
-  color: #333;
-  font-size: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  background: rgba(30, 30, 30, 0.8);
+  /* Dark glass */
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: #FFF;
+  /* White text */
+  font-size: 16px;
   font-weight: 700;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-  transition: all 0.2s ease;
-  margin-bottom: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
 }
 
 .route-circle:hover {
-  transform: scale(1.1);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  transform: scale(1.15);
+  background: rgba(30, 30, 30, 0.95);
+  border-color: rgba(212, 175, 55, 0.5);
+  box-shadow: 0 6px 20px rgba(212, 175, 55, 0.3);
 }
 
 .route-circle.selected {
   border: 3px solid #D4AF37;
-  background: #D4AF37;
-  color: white;
-  box-shadow: 0 4px 12px rgba(212, 175, 55, 0.5);
+  /* Gold border */
+  background: linear-gradient(135deg, #D4AF37, #B4941F);
+  /* Gold gradient */
+  color: #121212;
+  /* Dark text on gold */
+  box-shadow: 0 6px 24px rgba(212, 175, 55, 0.6),
+    0 0 20px rgba(212, 175, 55, 0.4);
+  /* Strong gold glow */
+  transform: scale(1.1);
 }
 
-.bottom-sheet-section {
-  height: 60vh;
-  /* Remaining 60% height */
-  width: 100%;
-  background-color: #1E1E1E;
-  /* slightly lighter charcoal */
-  border-radius: 24px 24px 0 0;
-  /* rounded-t-3xl */
-  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.5);
-  /* deep shadow */
-  position: relative;
-  z-index: 10;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  /* Flex Fixes */
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  min-height: 0;
-  /* Critical for flex children to shrink properly */
+/* Pulse animation for selected route */
+.route-circle.selected::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 2px solid rgba(212, 175, 55, 0.3);
+  animation: pulseBorder 2s infinite;
 }
+
+@keyframes pulseBorder {
+
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+
+  50% {
+    transform: scale(1.2);
+    opacity: 0;
+  }
+}
+
+/* Removed .bottom-sheet-section - replaced by DraggableBottomSheet component */
 
 /* Navigation Modals (Midnight Gourmet) */
 .modal-overlay {
@@ -439,4 +485,37 @@ button {
 
 .mini-btn-delete:hover {
   background: rgba(244, 67, 54, 0.3);
+}
+
+/* Mobile Viewport Optimizations */
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+  position: fixed;
+  width: 100%;
+  touch-action: manipulation;
+  /* Prevents double-tap zoom */
+  -webkit-text-size-adjust: 100%;
+  /* Prevents text inflation */
+}
+
+@supports (-webkit-touch-callout: none) {
+
+  /* Safari-specific mobile fixes */
+  .app-split-layout {
+    height: -webkit-fill-available;
+  }
+}
+
+/* Prevent zoom on input focus (mobile) */
+@media screen and (max-width: 768px) {
+
+  input[type="text"],
+  input[type="email"],
+  input[type="search"],
+  textarea {
+    font-size: 16px !important;
+    /* Prevents auto-zoom on iOS */
+  }
 }

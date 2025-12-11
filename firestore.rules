@@ -370,5 +370,11 @@ service cloud.firestore {
       allow read: if true; // Public read for community updates
       allow create, update, delete: if isAdmin();
     }
+    
+    // Waves collection - admin only (wave management)
+    match /waves/{waveId} {
+      allow read: if isAdmin(); // Only admins can read waves
+      allow create, update, delete: if isAdmin(); // Only admins can manage waves
+    }
   }
 }

@@ -1,89 +1,209 @@
+/* Container for the Glass Card */
 .route-input-form {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 12px;
+  gap: 20px;
+  padding: 30px;
+  background: rgba(30, 30, 30, 0.6);
+  /* Glass base */
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 24px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  max-width: 400px;
+  width: calc(100% - 40px);
+  /* Account for parent's horizontal padding (20px each side) */
+  margin: 0 auto;
+  /* Center it */
+  position: relative;
+  z-index: 10;
+  box-sizing: border-box;
+  /* Include padding in width calculation */
+}
+
+/* Group for Inputs (relative for connector line) */
+.route-inputs-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: relative;
+}
+
+/* Connector Line */
+.connector-line {
+  position: absolute;
+  left: 24px;
+  /* Align with input icons if present, or adjust */
+  top: 40px;
+  bottom: 40px;
+  width: 2px;
+  background-image: linear-gradient(to bottom, rgba(255, 255, 255, 0.2) 33%, rgba(255, 255, 255, 0) 0%);
+  background-position: right;
+  background-size: 2px 10px;
+  background-repeat: repeat-y;
+  z-index: 0;
+  pointer-events: none;
 }
 
 .route-input-group {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
+  position: relative;
+  z-index: 1;
+}
+
+/* When suggestions are showing, increase z-index to appear above other inputs */
+.route-input-group.has-suggestions {
+  z-index: 100;
+}
+
+.input-with-suggestions {
+  position: relative;
+  z-index: 1;
+}
+
+.input-with-suggestions.has-suggestions {
+  z-index: 100;
 }
 
 .route-label {
-  font-size: 14px;
-  color: #333;
-}
-
-.route-input {
-  height: 40px;
-  padding: 0 12px;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  font-size: 16px;
-}
-
-.find-route-button {
-  height: 44px;
-  border: none;
-  border-radius: 10px;
-  background: #0a7cff;
-  color: #fff;
-  font-size: 16px;
+  font-size: 12px;
   font-weight: 600;
-  cursor: pointer;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-left: 4px;
 }
 
-.find-route-button:disabled {
-  background: #a5c8ff;
-  cursor: not-allowed;
-}
-
-/* Autocomplete styles */
 .input-with-suggestions {
   position: relative;
 }
 
+/* Premium Inputs */
+.route-input {
+  height: 50px;
+  padding: 0 16px 0 44px;
+  /* Left padding for icon space */
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  font-size: 16px;
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--text-primary);
+  width: 100%;
+  box-sizing: border-box;
+  transition: all 0.3s ease;
+  font-family: 'Inter', sans-serif;
+}
+
+.route-input:focus {
+  outline: none;
+  border-color: var(--primary-gold);
+  background: rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 0 4px rgba(212, 175, 55, 0.15);
+}
+
+/* Icons for Inputs (Pseudo-elements) */
+.route-input-group::before {
+  content: '';
+  position: absolute;
+  left: 14px;
+  bottom: 15px;
+  /* Vertically center in input */
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  z-index: 2;
+  box-shadow: 0 0 0 2px rgba(30, 30, 30, 0.6);
+  /* Cutout effect */
+}
+
+/* Start Dot (Green/Gold) */
+.route-input-group:first-child::before {
+  background: var(--primary-gold);
+  border: 2px solid #fff;
+}
+
+/* End Dot (Red/Location) */
+.route-input-group:nth-child(2):before {
+  background: #FF5252;
+  border: 2px solid #fff;
+}
+
+.find-route-button {
+  height: 50px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--primary-gold), #B4941F);
+  color: #121212;
+  font-size: 16px;
+  font-weight: 700;
+  font-family: 'Outfit', sans-serif;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-top: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.find-route-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(212, 175, 55, 0.3);
+  background: linear-gradient(135deg, #ECC54D, #C6A325);
+}
+
+.find-route-button:disabled {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.3);
+  cursor: not-allowed;
+}
+
+/* Autocomplete styles */
 .suggestions-dropdown {
   position: absolute;
-  top: 100%;
+  top: calc(100% + 4px);
   left: 0;
   right: 0;
-  background: white;
-  border: 1px solid #ddd;
-  border-top: none;
-  border-radius: 0 0 8px 8px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  z-index: 1000;
-  max-height: 200px;
+  background: #1E1E1E;
+  /* Solid dark background for readability */
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  z-index: 1001;
+  /* Higher than input groups to appear above end location input */
+  max-height: 240px;
   overflow-y: auto;
+  padding: 8px 0;
 }
 
 .suggestion-item {
   width: 100%;
-  padding: 12px;
+  padding: 12px 16px;
   border: none;
-  background: white;
+  background: transparent;
   text-align: left;
   font-size: 14px;
-  color: #333;
+  color: var(--text-secondary);
   cursor: pointer;
-  border-bottom: 1px solid #f0f0f0;
-  transition: background-color 0.2s;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.suggestion-item::before {
+  content: '📍';
+  font-size: 12px;
+  opacity: 0.7;
 }
 
 .suggestion-item:hover {
-  background-color: #f8f9fa;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
+  padding-left: 20px;
 }
 
 .suggestion-item:last-child {
   border-bottom: none;
 }
-
-.suggestion-item:focus {
-  outline: none;
-  background-color: #e3f2fd;
-}
-
-

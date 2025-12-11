@@ -46,55 +46,58 @@ function RouteInputForm({
 
   return (
     <div className="route-input-form" ref={formRef}>
-      <div className="route-input-group">
-        <label className="route-label">Start</label>
-        <div className="input-with-suggestions">
-          <input
-            className="route-input"
-            type="text"
-            placeholder="Enter start location"
-            value={resolvedStart}
-            onChange={(e) => onStartLocationChange && onStartLocationChange(e.target.value)}
-          />
-          {showStartSuggestions && startSuggestions.length > 0 && (
-            <div className="suggestions-dropdown">
-              {startSuggestions.map((suggestion, index) => (
-                <button
-                  key={index}
-                  className="suggestion-item"
-                  onClick={() => onStartSuggestionClick && onStartSuggestionClick(suggestion)}
-                >
-                  {suggestion}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
+      <div className="route-inputs-container">
+        <div className="connector-line"></div>
 
-      <div className="route-input-group">
-        <label className="route-label">End</label>
-        <div className="input-with-suggestions">
-          <input
-            className="route-input"
-            type="text"
-            placeholder="Enter destination"
-            value={resolvedEnd}
-            onChange={(e) => onEndLocationChange && onEndLocationChange(e.target.value)}
-          />
-          {showEndSuggestions && endSuggestions.length > 0 && (
-            <div className="suggestions-dropdown">
-              {endSuggestions.map((suggestion, index) => (
-                <button
-                  key={index}
-                  className="suggestion-item"
-                  onClick={() => onEndSuggestionClick && onEndSuggestionClick(suggestion)}
-                >
-                  {suggestion}
-                </button>
-              ))}
-            </div>
-          )}
+        <div className={`route-input-group ${showStartSuggestions && startSuggestions.length > 0 ? 'has-suggestions' : ''}`}>
+          {/* Label removed for cleaner look, relying on placeholder and icons */}
+          <div className={`input-with-suggestions ${showStartSuggestions && startSuggestions.length > 0 ? 'has-suggestions' : ''}`}>
+            <input
+              className="route-input"
+              type="text"
+              placeholder="Where are you starting?"
+              value={resolvedStart}
+              onChange={(e) => onStartLocationChange && onStartLocationChange(e.target.value)}
+            />
+            {showStartSuggestions && startSuggestions.length > 0 && (
+              <div className="suggestions-dropdown">
+                {startSuggestions.map((suggestion, index) => (
+                  <button
+                    key={index}
+                    className="suggestion-item"
+                    onClick={() => onStartSuggestionClick && onStartSuggestionClick(suggestion)}
+                  >
+                    {suggestion}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className={`route-input-group ${showEndSuggestions && endSuggestions.length > 0 ? 'has-suggestions' : ''}`}>
+          <div className={`input-with-suggestions ${showEndSuggestions && endSuggestions.length > 0 ? 'has-suggestions' : ''}`}>
+            <input
+              className="route-input"
+              type="text"
+              placeholder="Where do you want to go?"
+              value={resolvedEnd}
+              onChange={(e) => onEndLocationChange && onEndLocationChange(e.target.value)}
+            />
+            {showEndSuggestions && endSuggestions.length > 0 && (
+              <div className="suggestions-dropdown">
+                {endSuggestions.map((suggestion, index) => (
+                  <button
+                    key={index}
+                    className="suggestion-item"
+                    onClick={() => onEndSuggestionClick && onEndSuggestionClick(suggestion)}
+                  >
+                    {suggestion}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

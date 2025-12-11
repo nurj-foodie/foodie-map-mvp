@@ -1,13 +1,14 @@
 /* Global Search Styles */
 .global-search {
-  background: white;
+  background: var(--bg-secondary);
   border-radius: 16px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
   max-width: 800px;
   width: 100%;
   max-height: 90vh;
   overflow-y: auto;
   margin: 20px auto;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 /* Search Header */
@@ -16,21 +17,21 @@
   align-items: center;
   justify-content: space-between;
   padding: 20px 24px;
-  border-bottom: 1px solid #e9ecef;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .search-header h2 {
   margin: 0;
   font-size: 24px;
   font-weight: 700;
-  color: #2c3e50;
+  color: var(--primary-gold);
 }
 
 .close-btn {
   background: none;
   border: none;
   font-size: 24px;
-  color: #6c757d;
+  color: var(--text-secondary);
   cursor: pointer;
   padding: 4px;
   border-radius: 50%;
@@ -43,8 +44,8 @@
 }
 
 .close-btn:hover {
-  background: #f8f9fa;
-  color: #495057;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
 }
 
 /* Search Bar */
@@ -52,26 +53,28 @@
   display: flex;
   gap: 12px;
   padding: 20px 24px;
-  border-bottom: 1px solid #e9ecef;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .search-input {
   flex: 1;
   padding: 12px 16px;
-  border: 2px solid #e9ecef;
+  border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 8px;
   font-size: 16px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
   transition: border-color 0.3s ease;
 }
 
 .search-input:focus {
   outline: none;
-  border-color: #007bff;
+  border-color: var(--primary-gold);
 }
 
 .search-btn {
-  background: #007bff;
-  color: white;
+  background: linear-gradient(135deg, var(--primary-gold), #B4941F);
+  color: #121212;
   border: none;
   border-radius: 8px;
   padding: 12px 24px;
@@ -83,18 +86,20 @@
 }
 
 .search-btn:hover:not(:disabled) {
-  background: #0056b3;
+  background: linear-gradient(135deg, #ECC54D, #C6A325);
+  box-shadow: 0 4px 12px rgba(212, 175, 55, 0.3);
 }
 
 .search-btn:disabled {
-  background: #6c757d;
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.3);
   cursor: not-allowed;
 }
 
 /* Filters Section */
 .filters-section {
   padding: 20px 24px;
-  border-bottom: 1px solid #e9ecef;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .filters-header {
@@ -108,13 +113,13 @@
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: #2c3e50;
+  color: var(--text-primary);
 }
 
 .clear-filters-btn {
-  background: #dc3545;
-  color: white;
-  border: none;
+  background: rgba(207, 102, 121, 0.2);
+  color: #EF9A9A;
+  border: 1px solid rgba(207, 102, 121, 0.4);
   border-radius: 6px;
   padding: 6px 12px;
   font-size: 12px;
@@ -124,7 +129,7 @@
 }
 
 .clear-filters-btn:hover {
-  background: #c82333;
+  background: rgba(207, 102, 121, 0.4);
 }
 
 /* Basic Filters */
@@ -144,31 +149,32 @@
 .filter-group label {
   font-size: 14px;
   font-weight: 600;
-  color: #495057;
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
 .filter-group select {
   padding: 10px 12px;
-  border: 2px solid #e9ecef;
+  border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 6px;
   font-size: 14px;
-  background: white;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
   cursor: pointer;
   transition: border-color 0.3s ease;
 }
 
 .filter-group select:focus {
   outline: none;
-  border-color: #007bff;
+  border-color: var(--primary-gold);
 }
 
 /* Advanced Filters Toggle */
 .advanced-toggle {
   background: none;
   border: none;
-  color: #007bff;
+  color: var(--primary-gold);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
@@ -180,14 +186,14 @@
 }
 
 .advanced-toggle:hover {
-  color: #0056b3;
+  color: #ECC54D;
 }
 
 /* Advanced Filters */
 .advanced-filters {
   margin-top: 16px;
   padding-top: 16px;
-  border-top: 1px solid #e9ecef;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 16px;
@@ -208,13 +214,13 @@
   gap: 8px;
   cursor: pointer;
   font-size: 14px;
-  color: #495057;
+  color: var(--text-secondary);
 }
 
 .checkbox-label input[type="checkbox"] {
   width: 16px;
   height: 16px;
-  accent-color: #007bff;
+  accent-color: var(--primary-gold);
 }
 
 /* Sort Section */
@@ -223,29 +229,30 @@
   align-items: center;
   gap: 12px;
   padding: 16px 24px;
-  border-bottom: 1px solid #e9ecef;
-  background: #f8f9fa;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.02);
 }
 
 .sort-section label {
   font-size: 14px;
   font-weight: 600;
-  color: #495057;
+  color: var(--text-secondary);
 }
 
 .sort-section select {
   padding: 8px 12px;
-  border: 2px solid #e9ecef;
+  border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 6px;
   font-size: 14px;
-  background: white;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
   cursor: pointer;
   transition: border-color 0.3s ease;
 }
 
 .sort-section select:focus {
   outline: none;
-  border-color: #007bff;
+  border-color: var(--primary-gold);
 }
 
 /* Search Results */
@@ -261,7 +268,7 @@
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: #2c3e50;
+  color: var(--text-primary);
 }
 
 .results-list {
@@ -272,27 +279,29 @@
 
 .result-item {
   padding: 16px;
-  border: 1px solid #e9ecef;
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
-  background: #f8f9fa;
+  background: rgba(255, 255, 255, 0.03);
   transition: background 0.3s ease;
 }
 
 .result-item:hover {
-  background: #e9ecef;
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--primary-gold);
 }
 
 .result-item h4 {
   margin: 0 0 8px 0;
   font-size: 16px;
   font-weight: 600;
-  color: #2c3e50;
+  color: var(--primary-gold);
+  /* Gold title */
 }
 
 .result-item p {
   margin: 0 0 8px 0;
   font-size: 14px;
-  color: #6c757d;
+  color: var(--text-secondary);
 }
 
 .result-meta {
@@ -310,25 +319,25 @@
 }
 
 .result-meta .cuisine {
-  background: #e3f2fd;
-  color: #1976d2;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
 }
 
 .result-meta .rating {
-  background: #fff3e0;
-  color: #f57c00;
+  background: rgba(255, 193, 7, 0.15);
+  color: #FFD54F;
 }
 
 .result-meta .halal {
-  background: #e8f5e8;
-  color: #2e7d32;
+  background: rgba(46, 125, 50, 0.2);
+  color: #81C784;
 }
 
 /* No Results */
 .no-results {
   padding: 40px 24px;
   text-align: center;
-  color: #6c757d;
+  color: var(--text-secondary);
 }
 
 .no-results p {
@@ -342,53 +351,53 @@
     margin: 10px;
     max-height: 95vh;
   }
-  
+
   .search-header {
     padding: 16px 20px;
   }
-  
+
   .search-header h2 {
     font-size: 20px;
   }
-  
+
   .search-bar {
     flex-direction: column;
     padding: 16px 20px;
   }
-  
+
   .search-btn {
     width: 100%;
   }
-  
+
   .filters-section {
     padding: 16px 20px;
   }
-  
+
   .basic-filters {
     grid-template-columns: 1fr;
     gap: 12px;
   }
-  
+
   .advanced-filters {
     grid-template-columns: 1fr;
     gap: 12px;
   }
-  
+
   .checkbox-filters {
     gap: 8px;
   }
-  
+
   .sort-section {
     padding: 12px 20px;
     flex-direction: column;
     align-items: flex-start;
     gap: 8px;
   }
-  
+
   .search-results {
     padding: 16px 20px;
   }
-  
+
   .result-meta {
     gap: 8px;
   }
@@ -399,31 +408,31 @@
     margin: 5px;
     border-radius: 12px;
   }
-  
+
   .search-header {
     padding: 12px 16px;
   }
-  
+
   .search-header h2 {
     font-size: 18px;
   }
-  
+
   .search-bar {
     padding: 12px 16px;
   }
-  
+
   .filters-section {
     padding: 12px 16px;
   }
-  
+
   .sort-section {
     padding: 10px 16px;
   }
-  
+
   .search-results {
     padding: 12px 16px;
   }
-  
+
   .result-item {
     padding: 12px;
   }
