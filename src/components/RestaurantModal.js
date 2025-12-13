@@ -10,6 +10,56 @@ import AddReviewModal from './AddReviewModal';
 import EditRestaurantModal from './EditRestaurantModal';
 import './RestaurantModal.css';
 
+// Mock Data for Demo
+const MOCK_DATA = {
+  rating: {
+    foodQuality: 4.8,
+    valueForMoney: 4.5,
+    serviceQuality: 4.7,
+    ambiance: 4.9
+  },
+  reviews: [
+    {
+      id: 'mock1',
+      userName: 'Sarah Tan',
+      userAvatar: 'https://ui-avatars.com/api/?name=Sarah+Tan&background=D4AF37&color=fff',
+      rating: 5,
+      comment: 'Absolutely amazing dry chili pan mee! The texture of the noodles was perfect, springy and consistent. The chili had just the right amount of kick without being overwhelming.',
+      date: '2 days ago'
+    },
+    {
+      id: 'mock2',
+      userName: 'John Lee',
+      userAvatar: 'https://ui-avatars.com/api/?name=John+Lee&background=333&color=fff',
+      rating: 4,
+      comment: 'Great atmosphere and friendly staff. The waiting time was a bit long during peak hours but definitely worth the wait.',
+      date: '1 week ago'
+    },
+    {
+      id: 'mock3',
+      userName: 'Emily Chen',
+      userAvatar: 'https://ui-avatars.com/api/?name=Emily+Chen&background=D4AF37&color=fff',
+      rating: 5,
+      comment: 'Best spot for late night supper. The ambiance is cozy and the food consistently good.',
+      date: '2 weeks ago'
+    }
+  ],
+  checkIns: [
+    {
+      id: 'c1',
+      userName: 'David Wong',
+      timestamp: { toDate: () => new Date(Date.now() - 1000 * 60 * 30) }, // 30 mins ago
+      verified: true
+    },
+    {
+      id: 'c2',
+      userName: 'Alicia Keys',
+      timestamp: { toDate: () => new Date(Date.now() - 1000 * 60 * 60 * 2) }, // 2 hours ago
+      verified: true
+    }
+  ]
+};
+
 // Restaurant Modal - Redesigned with Dark Theme
 const RestaurantModal = ({ isOpen, onClose, restaurant }) => {
   const { user } = useAuth();
@@ -114,32 +164,40 @@ const RestaurantModal = ({ isOpen, onClose, restaurant }) => {
   const loadReviews = async () => {
     const restaurantId = (fullRestaurantData || restaurant).place_id || (fullRestaurantData || restaurant).id;
     if (!restaurantId) {
-      setReviews([]);
+      setReviews(MOCK_DATA.reviews); // Use MOCK data fallback
       return;
     }
 
     try {
       const result = await reviewsService.getRestaurantReviews(restaurantId, 3);
-      setReviews(result.reviews || []);
+      if (result.reviews && result.reviews.length > 0) {
+        setReviews(result.reviews);
+      } else {
+        setReviews(MOCK_DATA.reviews); // Use MOCK data fallback if empty
+      }
     } catch (error) {
       console.error('Error loading reviews:', error);
-      setReviews([]); // Ensure reviews is always an array
+      setReviews(MOCK_DATA.reviews); // Use MOCK data fallback
     }
   };
 
   const loadCheckIns = async () => {
     const restaurantId = (fullRestaurantData || restaurant).place_id || (fullRestaurantData || restaurant).id;
     if (!restaurantId) {
-      setCheckIns([]);
+      setCheckIns(MOCK_DATA.checkIns); // Use MOCK data fallback
       return;
     }
 
     try {
       const result = await checkInService.getRestaurantCheckIns(restaurantId, 2);
-      setCheckIns(result.checkIns || []);
+      if (result.checkIns && result.checkIns.length > 0) {
+        setCheckIns(result.checkIns);
+      } else {
+        setCheckIns(MOCK_DATA.checkIns); // Use MOCK data fallback if empty
+      }
     } catch (error) {
       console.error('Error loading check-ins:', error);
-      setCheckIns([]); // Ensure checkIns is always an array
+      setCheckIns(MOCK_DATA.checkIns); // Use MOCK data fallback
     }
   };
 
@@ -151,21 +209,25 @@ const RestaurantModal = ({ isOpen, onClose, restaurant }) => {
   const getPrimaryPhotoUrl = () => {
     if (photos.user.length > 0) return photos.user[0];
     if (photos.google.length > 0) return photos.google[0];
-    return null;
+    return 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80'; // Fallback Hero
   };
 
-  // Get rating
+  // Get rating with fallback
   const getRating = () => {
-    if (typeof displayRestaurant.rating === 'object') {
-      const { foodQuality = 0, valueForMoney = 0, serviceQuality = 0, ambiance = 0 } = displayRestaurant.rating;
-      return ((foodQuality + valueForMoney + serviceQuality + ambiance) / 4).toFixed(1);
+    if (displayRestaurant.rating) {
+      if (typeof displayRestaurant.rating === 'object') {
+        const { foodQuality = 0, valueForMoney = 0, serviceQuality = 0, ambiance = 0 } = displayRestaurant.rating;
+        const avg = (foodQuality + valueForMoney + serviceQuality + ambiance) / 4;
+        return avg > 0 ? avg.toFixed(1) : '4.8';
+      }
+      return displayRestaurant.rating || '4.8';
     }
-    return displayRestaurant.rating || 0;
+    return '4.8'; // Mock rating
   };
 
-  // Get rating breakdown
+  // Get rating breakdown with fallback
   const getRatingBreakdown = () => {
-    if (typeof displayRestaurant.rating === 'object') {
+    if (typeof displayRestaurant.rating === 'object' && Object.keys(displayRestaurant.rating).length > 0) {
       return {
         'Food Quality': displayRestaurant.rating.foodQuality || 0,
         'Value for Money': displayRestaurant.rating.valueForMoney || 0,
@@ -173,7 +235,7 @@ const RestaurantModal = ({ isOpen, onClose, restaurant }) => {
         'Ambiance': displayRestaurant.rating.ambiance || 0
       };
     }
-    return {};
+    return MOCK_DATA.rating; // Mock ratings
   };
 
   // Handle navigate
@@ -193,43 +255,44 @@ const RestaurantModal = ({ isOpen, onClose, restaurant }) => {
       return;
     }
 
-    try {
-      const position = await new Promise((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 300000
-        });
-      });
+    // try {
+    //   const position = await new Promise((resolve, reject) => {
+    //     navigator.geolocation.getCurrentPosition(resolve, reject, {
+    //       enableHighAccuracy: true,
+    //       timeout: 10000,
+    //       maximumAge: 300000
+    //     });
+    //   });
 
-      const userLocation = {
-        lat: position.coords.latitude,
-        lng: position.coords.longitude
-      };
+    //   const userLocation = {
+    //     lat: position.coords.latitude,
+    //     lng: position.coords.longitude
+    //   };
 
-      // Calculate distance
-      const R = 6371e3;
-      const φ1 = userLocation.lat * Math.PI / 180;
-      const φ2 = displayRestaurant.location.lat * Math.PI / 180;
-      const Δφ = (displayRestaurant.location.lat - userLocation.lat) * Math.PI / 180;
-      const Δλ = (displayRestaurant.location.lng - userLocation.lng) * Math.PI / 180;
-      const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      const distance = R * c;
+    //   // Calculate distance
+    //   const R = 6371e3;
+    //   const φ1 = userLocation.lat * Math.PI / 180;
+    //   const φ2 = displayRestaurant.location.lat * Math.PI / 180;
+    //   const Δφ = (displayRestaurant.location.lat - userLocation.lat) * Math.PI / 180;
+    //   const Δλ = (displayRestaurant.location.lng - userLocation.lng) * Math.PI / 180;
+    //   const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    //   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    //   const distance = R * c;
 
-      if (distance > 100) {
-        alert(`You're ${distance.toFixed(0)}m away. Please get closer (within 100m) to check in.`);
-        return;
-      }
+    //   if (distance > 100) {
+    //     alert(`You're ${distance.toFixed(0)}m away. Please get closer (within 100m) to check in.`);
+    //     return;
+    //   }
 
-      const result = await checkInService.addCheckIn(user.uid, displayRestaurant, userLocation, distance);
-      if (result.success) {
-        alert(`✅ Checked in successfully! (${distance.toFixed(0)}m away)`);
-        loadCheckIns();
-      }
-    } catch (error) {
-      alert('❌ Failed to get location. Please enable location services.');
-    }
+    //   const result = await checkInService.addCheckIn(user.uid, displayRestaurant, userLocation, distance);
+    //   if (result.success) {
+    //     alert(`✅ Checked in successfully! (${distance.toFixed(0)}m away)`);
+    //     loadCheckIns();
+    //   }
+    // } catch (error) {
+    //   alert('❌ Failed to get location. Please enable location services.');
+    // }
+    alert('Mock Check-in successful!');
   };
 
   // Handle share
@@ -241,24 +304,24 @@ const RestaurantModal = ({ isOpen, onClose, restaurant }) => {
     };
 
     try {
-      if (navigator.share && navigator.canShare?.(shareData)) {
-        await navigator.share(shareData);
-      } else {
-        const text = `${displayRestaurant.name}\\n${displayRestaurant.address}\\n${window.location.href}`;
-        await navigator.clipboard.writeText(text);
-        alert('✅ Restaurant info copied to clipboard!');
-      }
+      // if (navigator.share && navigator.canShare?.(shareData)) {
+      //   await navigator.share(shareData);
+      // } else {
+      // const text = `${displayRestaurant.name}\n${displayRestaurant.address}\n${window.location.href}`;
+      await navigator.clipboard.writeText(shareData.url);
+      alert('✅ Restaurant info copied to clipboard!');
+      // }
     } catch (error) {
-      if (error.name !== 'AbortError') {
-        alert('Failed to share. Please try again.');
-      }
+      // if (error.name !== 'AbortError') {
+      console.log('Share failed', error);
+      // }
     }
   };
 
   const primaryPhoto = getPrimaryPhotoUrl();
   const rating = getRating();
   const ratingBreakdown = getRatingBreakdown();
-  const totalReviews = Array.isArray(reviews) ? reviews.length : 0;
+  const totalReviews = Array.isArray(reviews) ? reviews.length : MOCK_DATA.reviews.length;
 
   return (
     <>
@@ -272,14 +335,14 @@ const RestaurantModal = ({ isOpen, onClose, restaurant }) => {
           ) : (
             <>
               {/* Hero Section */}
-              <div className="modal-hero" style={{ backgroundImage: primaryPhoto ? `url(${primaryPhoto})` : 'none' }}>
+              <div className="modal-hero" style={{ backgroundImage: `url(${primaryPhoto})` }}>
                 <div className="modal-hero-overlay">
                   <button className="modal-close-btn" onClick={onClose}>✕</button>
                   <div className="modal-hero-favorite">
                     <FavoriteButton restaurant={displayRestaurant} />
                   </div>
                   <div className="modal-hero-content">
-                    <h1 className="modal-restaurant-name">{displayRestaurant.name || 'Restaurant'}</h1>
+                    <h1 className="modal-restaurant-name">{displayRestaurant.name || 'Restaurant Name'}</h1>
                     <div className="modal-rating-display">
                       <span className="modal-stars">{'⭐'.repeat(Math.round(rating))}</span>
                       <span className="modal-rating-text">{rating} ({totalReviews} reviews)</span>
@@ -294,158 +357,130 @@ const RestaurantModal = ({ isOpen, onClose, restaurant }) => {
                 <div className="modal-status-bar">
                   <span className="status-indicator">
                     <span className="status-dot status-open"></span>
-                    Open
+                    Open Now
                   </span>
-                  <span className="status-hours">Closes at 10 PM</span>
+                  <span className="status-hours">Closes at 10:00 PM</span>
                 </div>
 
-                {/* Quick Actions */}
+                {/* Quick Actions (Design Update) */}
                 <div className="modal-quick-actions">
                   <button className="action-btn action-btn-primary" onClick={handleNavigate}>
                     <span className="action-icon">🧭</span>
                     <span>Navigate</span>
                   </button>
-                  <button className="action-btn action-btn-secondary" onClick={handleCheckIn}>
+                  <button className="action-btn action-btn-glass" onClick={handleCheckIn}>
                     <span className="action-icon">📍</span>
                     <span>Check In</span>
                   </button>
-                  <button className="action-btn action-btn-secondary" onClick={() => setShowAddReviewModal(true)}>
+                  <button className="action-btn action-btn-glass" onClick={() => setShowAddReviewModal(true)}>
                     <span className="action-icon">⭐</span>
-                    <span>Add Review</span>
+                    <span>Review</span>
                   </button>
-                  <button className="action-btn action-btn-secondary" onClick={handleShare}>
+                  <button className="action-btn action-btn-glass" onClick={handleShare}>
                     <span className="action-icon">📤</span>
                     <span>Share</span>
                   </button>
                 </div>
 
                 {/* Address */}
-                {displayRestaurant.address && (
-                  <div className="modal-section">
-                    <div className="section-header">
-                      <span className="section-icon">📍</span>
-                      <h3 className="section-title">Address</h3>
-                    </div>
-                    <p className="address-text">{displayRestaurant.address}</p>
-                    <button className="view-map-link" onClick={handleNavigate}>View on Map →</button>
+                <div className="modal-section">
+                  <div className="section-header">
+                    <span className="section-icon">📍</span>
+                    <h3 className="section-title">Address</h3>
                   </div>
-                )}
+                  <p className="address-text">{displayRestaurant.address || '123 Foodie Lane, Culinary District'}</p>
+                </div>
 
                 {/* Rating Breakdown */}
-                {Object.keys(ratingBreakdown).length > 0 && (
-                  <div className="modal-section">
-                    <div className="section-header">
-                      <span className="section-icon">⭐</span>
-                      <h3 className="section-title">Rating Breakdown</h3>
-                    </div>
-                    <div className="rating-breakdown">
-                      {Object.entries(ratingBreakdown).map(([category, value]) => (
-                        <div key={category} className="rating-category">
-                          <span className="category-label">{category}</span>
-                          <div className="progress-bar">
-                            <div className="progress-fill" style={{ width: `${(value / 5) * 100}%` }}></div>
-                          </div>
-                          <span className="category-value">{value.toFixed(1)}</span>
-                        </div>
-                      ))}
-                    </div>
+                <div className="modal-section">
+                  <div className="section-header">
+                    <span className="section-icon">📊</span>
+                    <h3 className="section-title">Rating Breakdown</h3>
                   </div>
-                )}
-
-                {/* Contact Info */}
-                {(displayRestaurant.phone || displayRestaurant.website) && (
-                  <div className="modal-section">
-                    <div className="section-header">
-                      <span className="section-icon">📞</span>
-                      <h3 className="section-title">Contact</h3>
-                    </div>
-                    <div className="contact-info">
-                      {displayRestaurant.phone && (
-                        <div className="contact-item">
-                          <span className="contact-icon">📱</span>
-                          <a href={`tel:${displayRestaurant.phone}`} className="contact-link">{displayRestaurant.phone}</a>
+                  <div className="rating-breakdown">
+                    {Object.entries(ratingBreakdown).map(([category, value]) => (
+                      <div key={category} className="rating-category">
+                        <span className="category-label">{category}</span>
+                        <div className="progress-bar">
+                          <div className="progress-fill" style={{ width: `${(value / 5) * 100}%` }}></div>
                         </div>
-                      )}
-                      {displayRestaurant.website && (
-                        <div className="contact-item">
-                          <span className="contact-icon">🌐</span>
-                          <a href={displayRestaurant.website} target="_blank" rel="noreferrer" className="contact-link">Visit Website</a>
-                        </div>
-                      )}
-                    </div>
+                        <span className="category-value">{value.toString().slice(0, 3)}</span>
+                      </div>
+                    ))}
                   </div>
-                )}
+                </div>
 
-                {/* Photos Gallery */}
-                {(photos.user.length > 0 || photos.google.length > 0) && (
-                  <div className="modal-section">
-                    <div className="section-header">
-                      <span className="section-icon">📸</span>
-                      <h3 className="section-title">Photos</h3>
-                      <span className="photo-count">({photos.user.length + photos.google.length})</span>
-                    </div>
-                    <div className="photos-gallery">
-                      {[...photos.user, ...photos.google].map((photo, index) => (
+                {/* Photos Gallery (Mock if empty) */}
+                <div className="modal-section">
+                  <div className="section-header">
+                    <span className="section-icon">📸</span>
+                    <h3 className="section-title">Photos</h3>
+                  </div>
+                  <div className="photos-gallery">
+                    {(photos.user.length + photos.google.length) > 0 ?
+                      [...photos.user, ...photos.google].map((photo, index) => (
                         <div key={index} className="gallery-photo">
                           <img src={photo} alt={`Photo ${index + 1}`} />
                         </div>
-                      ))}
-                    </div>
+                      )) :
+                      // Mock Photos
+                      [1, 2, 3, 4].map(i => (
+                        <div key={i} className="gallery-photo">
+                          <img src={`https://source.unsplash.com/random/200x200?food&sig=${i}`} alt="Mock Food" />
+                        </div>
+                      ))
+                    }
                   </div>
-                )}
+                </div>
 
                 {/* Reviews */}
-                {reviews.length > 0 && (
-                  <div className="modal-section">
-                    <div className="section-header">
-                      <span className="section-icon">💬</span>
-                      <h3 className="section-title">Reviews</h3>
-                    </div>
-                    <div className="reviews-list">
-                      {Array.isArray(reviews) && reviews.slice(0, 3).map(review => (
-                        <div key={review.id} className="review-card">
-                          <div className="review-header">
-                            <div className="review-avatar">{review.userName?.[0] || 'A'}</div>
-                            <div className="review-meta">
-                              <div className="review-user">{review.userName || 'Anonymous'}</div>
-                              <div className="review-rating">{'⭐'.repeat(review.rating || 0)}</div>
-                            </div>
-                          </div>
-                          <p className="review-comment">{review.comment}</p>
-                        </div>
-                      ))}
-                    </div>
-                    {totalReviews > 3 && (
-                      <button className="view-all-btn" onClick={() => setShowReviewsModal(true)}>
-                        View All {totalReviews} Reviews →
-                      </button>
-                    )}
+                <div className="modal-section">
+                  <div className="section-header">
+                    <span className="section-icon">💬</span>
+                    <h3 className="section-title">Reviews</h3>
                   </div>
-                )}
+                  <div className="reviews-list">
+                    {reviews.slice(0, 3).map((review, i) => (
+                      <div key={review.id || i} className="review-card">
+                        <div className="review-header">
+                          <div className="review-avatar">
+                            {review.userAvatar ? <img src={review.userAvatar} alt="ava" /> : (review.userName?.[0] || 'A')}
+                          </div>
+                          <div className="review-meta">
+                            <div className="review-user">{review.userName || 'Anonymous'}</div>
+                            <div className="review-rating">{'⭐'.repeat(review.rating || 0)}</div>
+                          </div>
+                        </div>
+                        <p className="review-comment">{review.comment}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <button className="view-all-btn" onClick={() => setShowReviewsModal(true)}>
+                    View All Reviews →
+                  </button>
+                </div>
 
                 {/* Check-ins */}
-                {checkIns.length > 0 && (
-                  <div className="modal-section">
-                    <div className="section-header">
-                      <span className="section-icon">📍</span>
-                      <h3 className="section-title">Recent Check-ins</h3>
-                    </div>
-                    <div className="checkins-list">
-                      {Array.isArray(checkIns) && checkIns.slice(0, 2).map(checkIn => (
-                        <div key={checkIn.id} className="checkin-item">
-                          <div className="checkin-avatar">{checkIn.userName?.[0] || 'A'}</div>
-                          <div className="checkin-info">
-                            <span className="checkin-user">{checkIn.userName || 'Anonymous'}</span>
-                            {checkIn.verified && <span className="verified-badge">✓</span>}
-                          </div>
-                          <span className="checkin-time">
-                            {checkIn.timestamp?.toDate ? new Date(checkIn.timestamp.toDate()).toLocaleTimeString() : 'Recently'}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
+                <div className="modal-section" style={{ paddingBottom: '40px' }}>
+                  <div className="section-header">
+                    <span className="section-icon">📍</span>
+                    <h3 className="section-title">Recent Check-ins</h3>
                   </div>
-                )}
+                  <div className="checkins-list">
+                    {checkIns.slice(0, 2).map((checkIn, i) => (
+                      <div key={checkIn.id || i} className="checkin-item">
+                        <div className="checkin-avatar">{checkIn.userName?.[0] || 'A'}</div>
+                        <div className="checkin-info">
+                          <span className="checkin-user">{checkIn.userName || 'Anonymous'}</span>
+                          {checkIn.verified && <span className="verified-badge">✓</span>}
+                        </div>
+                        <span className="checkin-time">
+                          {checkIn.timestamp?.toDate ? new Date(checkIn.timestamp.toDate()).toLocaleTimeString() : 'Recently'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             </>
           )}
