@@ -1,12 +1,12 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
-  signInWithPopup, 
+import {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signInWithPopup,
   signInWithRedirect,
   getRedirectResult,
-  GoogleAuthProvider, 
-  signOut, 
+  GoogleAuthProvider,
+  signOut,
   onAuthStateChanged,
   updateProfile
 } from 'firebase/auth';
@@ -87,20 +87,16 @@ export const AuthProvider = ({ children }) => {
   // Detect if we're on mobile (mobile browsers work better with redirect)
   const shouldUseRedirect = () => {
     const userAgent = navigator.userAgent.toLowerCase();
-    
+
     // Check if mobile device
     const isMobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent);
-    
+
     // Check if previous redirect attempt failed
     const redirectFailed = sessionStorage.getItem('redirectFailed') === 'true';
-    
-    // For mobile, use redirect directly
-    // For all desktop browsers (Chrome, Safari, Brave, Cursor, etc.), try popup first
-    if (isMobile || redirectFailed) {
-      return true; // Use redirect directly for mobile or if redirect previously failed
-    }
-    
-    return false; // Try popup first for all desktop browsers (including Brave & Cursor)
+
+    // FORCE POPUP for all devices including mobile to avoid redirect loops
+    console.log('📱 Mobile/Desktop detected: Enforcing Popup Auth for stability');
+    return false;
   };
 
   // Sign in with Google - tries popup first, falls back to redirect if popup fails
@@ -112,12 +108,13 @@ export const AuthProvider = ({ children }) => {
         // Firebase will automatically redirect back to current URL after auth
         // No need to store URL manually - Firebase handles it
         console.log('📍 Current URL:', window.location.href);
-        
+
         // Use redirect method directly
+        sessionStorage.setItem('authRedirectPending', 'true');
         await signInWithRedirect(auth, googleProvider);
         return { success: true, redirect: true };
       }
-      
+
       // Try popup first (works in most desktop browsers)
       try {
         console.log('🔄 Attempting popup method...');
@@ -128,10 +125,10 @@ export const AuthProvider = ({ children }) => {
         return { success: true, user };
       } catch (popupError) {
         console.log('⚠️ Popup failed:', popupError.code, popupError.message);
-        
+
         // If popup is blocked or fails, use redirect
         // Common error codes: 'auth/popup-blocked', 'auth/popup-closed-by-user', 'auth/cancelled-popup-request'
-        const isPopupError = 
+        const isPopupError =
           popupError.code === 'auth/popup-blocked' ||
           popupError.code === 'auth/popup-closed-by-user' ||
           popupError.code === 'auth/cancelled-popup-request' ||
@@ -139,13 +136,14 @@ export const AuthProvider = ({ children }) => {
           popupError.message?.includes('popup') ||
           popupError.message?.includes('blocked') ||
           popupError.message?.includes('not allowed');
-        
+
         if (isPopupError) {
           console.log('⚠️ Popup blocked or failed, using redirect method...', popupError.code);
           // Firebase will automatically redirect back to current URL after auth
           console.log('📍 Current URL:', window.location.href);
-          
+
           // Use redirect method instead
+          sessionStorage.setItem('authRedirectPending', 'true');
           await signInWithRedirect(auth, googleProvider);
           return { success: true, redirect: true };
         }
@@ -178,12 +176,12 @@ export const AuthProvider = ({ children }) => {
 
       const authUpdateData = {};
       const firestoreUpdateData = {};
-      
+
       if (updates.displayName !== undefined) {
         authUpdateData.displayName = updates.displayName;
         firestoreUpdateData.displayName = updates.displayName;
       }
-      
+
       // Store photo in Firestore only (Firebase Auth photoURL has length limit)
       // For base64 images, we store in Firestore and read from there
       if (updates.photoURL !== undefined) {
@@ -223,7 +221,7 @@ export const AuthProvider = ({ children }) => {
     try {
       setBetaAccessLoading(true);
       const result = await checkBetaAccess(user.email);
-      
+
       if (result.success) {
         setBetaAccess(result.hasAccess || false);
         console.log(`🔐 Beta access check: ${user.email} - ${result.hasAccess ? 'Granted' : 'Not granted'}`);
@@ -244,32 +242,26 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const handleRedirectResult = async () => {
       const currentUrl = window.location.href;
-      
+
       console.log('🔍 Checking for redirect result on page load...', { currentUrl });
-      
+
       try {
         // ALWAYS check for redirect result - Firebase stores it automatically
-        // Don't rely on sessionStorage (it may not persist across redirects)
         const result = await getRedirectResult(auth);
-        
+
         if (result && result.user) {
           console.log('✅ Google redirect sign-in successful:', result.user.uid, result.user.email);
-          
+
           // Create user document if needed
           await createUserDocument(result.user);
-          
-          // Clean up any stored flags
-          sessionStorage.removeItem('authRedirectPending');
-          sessionStorage.removeItem('authRedirectUrl');
-          sessionStorage.removeItem('redirectFailed');
-          
+
           // Clean up URL parameters (Firebase adds auth params)
           if (window.location.search || window.location.hash) {
             const cleanUrl = window.location.origin + window.location.pathname;
             console.log('🧹 Cleaning up auth URL parameters');
             window.history.replaceState({}, document.title, cleanUrl);
           }
-          
+
           console.log('✅ Authentication complete, user will be redirected by onAuthStateChanged if needed');
         } else {
           // No redirect result - this is normal for regular page loads
@@ -278,10 +270,22 @@ export const AuthProvider = ({ children }) => {
       } catch (error) {
         console.error('❌ Error handling redirect result:', error);
         console.error('Error details:', error.code, error.message);
-        
-        // Clean up any stored flags on error
-        sessionStorage.removeItem('authRedirectPending');
-        sessionStorage.removeItem('authRedirectUrl');
+      } finally {
+        // ALWAYS clear the pending flag after checking for redirect
+        // This failsafe ensures we don't get stuck in loading state
+        const wasPending = sessionStorage.getItem('authRedirectPending');
+        if (wasPending) {
+          console.log('🧹 Clearing pending redirect flag');
+          sessionStorage.removeItem('authRedirectPending');
+          sessionStorage.removeItem('authRedirectUrl');
+          sessionStorage.removeItem('redirectFailed');
+
+          // If we had a pending redirect but got no user (cancelled/failed),
+          // we must turn off loading to show the login form again
+          if (!auth.currentUser) {
+            setLoading(false);
+          }
+        }
       }
     };
 
@@ -299,12 +303,12 @@ export const AuthProvider = ({ children }) => {
       if (user) {
         console.log('👤 User signed in:', user.uid, user.email);
         setUser(user);
-        
+
         // Clean up any stored auth flags
         sessionStorage.removeItem('authRedirectPending');
         sessionStorage.removeItem('authRedirectUrl');
         sessionStorage.removeItem('redirectFailed');
-        
+
         // Check beta access when user signs in
         await checkUserBetaAccess(user);
       } else {
@@ -312,6 +316,14 @@ export const AuthProvider = ({ children }) => {
         setUser(null);
         setBetaAccess(null);
         setBetaAccessLoading(false);
+
+        // Check for pending redirect
+        // If we expect a redirect, keep loading true until getRedirectResult handles it
+        const isRedirectPending = sessionStorage.getItem('authRedirectPending') === 'true';
+        if (isRedirectPending) {
+          console.log('⏳ Redirect confirmed pending, but we are switching to popup. clearing...');
+          sessionStorage.removeItem('authRedirectPending');
+        }
       }
       setLoading(false);
     });

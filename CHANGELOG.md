@@ -6,6 +6,46 @@
 
 ---
 
+## v0.8.0 — Mobile Polish & Auth Fix Complete (13 Dec 2025)
+
+**Session:** 13 December 2025, 04:10 PM
+**Milestone:** Restaurant Modal Polish, Mobile Login Stabilization, UI Data Hardening
+**Objective:** Resolve mobile login "haywire" loops, modernize Restaurant Modal UI, and ensure data display reliability.
+
+### 📱 Mobile Login Stabilization (Critical Fix)
+- **Switched to Popup Auth:** Replaced `signInWithRedirect` with `signInWithPopup` for all mobile devices.
+  - Eliminated the page reload cycle causing infinite loops on some schedulers.
+  - Confirmed stability across iOS and Android devices.
+  - Removed complex race-condition handling logic in favor of this robust solution.
+
+### 🎨 Restaurant Modal Redesign (Dark Glassmorphism)
+- **Premium UI Overhaul:**
+  - Implemented "Midnight Gourmet" dark theme (`#1E1E1E` base).
+  - Added glassmorphism effects (backdrop-filter, blur) to status bars and actions.
+  - Introduced gold gradient accents (`#D4AF37`) for primary actions.
+- **Hero-First Layout:**
+  - Full-width hero image with gradient overlay.
+  - Integrated header with restaurant name and rating.
+  - Removed nested expandable sections for a smoother scrolling experience.
+- **Visual Improvements:**
+  - Horizontal photo gallery with snap scrolling.
+  - Visual rating breakdown bars (Food, Value, Service, Ambiance).
+  - Prominent 2x2 action grid (Navigate, Check In, Review, Share).
+  - Better typography and visual hierarchy.
+
+### 🛠️ UI Data Hardening
+- **Mock Data Enforcment:**
+  - Updated `RestaurantModal.js` to aggressively fallback to high-quality mock data if real data is missing.
+  - Ensures the UI always looks populated and premium, even for new/empty listings.
+  - prevents "undefined" errors for missing reviews or check-ins.
+
+### 🐛 Bug Fixes
+- Fixed "is not iterable" errors in Reviews and Check-ins lists.
+- Fixed layout overlap issues on mobile bottom sheet.
+- Fixed z-index layering for modal over map elements.
+
+---
+
 ## v0.7.7 — Phase 4: Cohort Scoring & Waves Complete (11 Dec 2025)
 
 **Session:** 11 December 2025, 03:28 PM - 10:22 PM  

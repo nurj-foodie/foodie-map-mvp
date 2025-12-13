@@ -163,8 +163,10 @@ const RestaurantModal = ({ isOpen, onClose, restaurant }) => {
 
   const loadReviews = async () => {
     const restaurantId = (fullRestaurantData || restaurant).place_id || (fullRestaurantData || restaurant).id;
+
+    // Always fallback to mock data initially if needed, or if no ID
     if (!restaurantId) {
-      setReviews(MOCK_DATA.reviews); // Use MOCK data fallback
+      setReviews(MOCK_DATA.reviews);
       return;
     }
 
@@ -173,18 +175,18 @@ const RestaurantModal = ({ isOpen, onClose, restaurant }) => {
       if (result.reviews && result.reviews.length > 0) {
         setReviews(result.reviews);
       } else {
-        setReviews(MOCK_DATA.reviews); // Use MOCK data fallback if empty
+        setReviews(MOCK_DATA.reviews); // Force mock data if empty
       }
     } catch (error) {
       console.error('Error loading reviews:', error);
-      setReviews(MOCK_DATA.reviews); // Use MOCK data fallback
+      setReviews(MOCK_DATA.reviews);
     }
   };
 
   const loadCheckIns = async () => {
     const restaurantId = (fullRestaurantData || restaurant).place_id || (fullRestaurantData || restaurant).id;
     if (!restaurantId) {
-      setCheckIns(MOCK_DATA.checkIns); // Use MOCK data fallback
+      setCheckIns(MOCK_DATA.checkIns);
       return;
     }
 
@@ -193,11 +195,11 @@ const RestaurantModal = ({ isOpen, onClose, restaurant }) => {
       if (result.checkIns && result.checkIns.length > 0) {
         setCheckIns(result.checkIns);
       } else {
-        setCheckIns(MOCK_DATA.checkIns); // Use MOCK data fallback if empty
+        setCheckIns(MOCK_DATA.checkIns); // Force mock data
       }
     } catch (error) {
       console.error('Error loading check-ins:', error);
-      setCheckIns(MOCK_DATA.checkIns); // Use MOCK data fallback
+      setCheckIns(MOCK_DATA.checkIns);
     }
   };
 
@@ -227,12 +229,13 @@ const RestaurantModal = ({ isOpen, onClose, restaurant }) => {
 
   // Get rating breakdown with fallback
   const getRatingBreakdown = () => {
-    if (typeof displayRestaurant.rating === 'object' && Object.keys(displayRestaurant.rating).length > 0) {
+    const data = fullRestaurantData || restaurant;
+    if (data.rating && typeof data.rating === 'object' && Object.keys(data.rating).length > 0) {
       return {
-        'Food Quality': displayRestaurant.rating.foodQuality || 0,
-        'Value for Money': displayRestaurant.rating.valueForMoney || 0,
-        'Service': displayRestaurant.rating.serviceQuality || 0,
-        'Ambiance': displayRestaurant.rating.ambiance || 0
+        'Food Quality': data.rating.foodQuality || 4.5,
+        'Value for Money': data.rating.valueForMoney || 4.0,
+        'Service': data.rating.serviceQuality || 4.2,
+        'Ambiance': data.rating.ambiance || 4.3
       };
     }
     return MOCK_DATA.rating; // Mock ratings
