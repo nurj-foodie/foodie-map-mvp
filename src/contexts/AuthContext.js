@@ -113,6 +113,10 @@ export const AuthProvider = ({ children }) => {
         // No need to store URL manually - Firebase handles it
         console.log('📍 Current URL:', window.location.href);
         
+        // Set a flag to indicate we are expecting a redirect result
+        // This prevents the loading state from clearing too early on the return trip
+        sessionStorage.setItem('authRedirectPending', 'true');
+
         // Use redirect method directly
         await signInWithRedirect(auth, googleProvider);
         return { success: true, redirect: true };
@@ -145,6 +149,9 @@ export const AuthProvider = ({ children }) => {
           // Firebase will automatically redirect back to current URL after auth
           console.log('📍 Current URL:', window.location.href);
           
+          // Set pending flag
+          sessionStorage.setItem('authRedirectPending', 'true');
+
           // Use redirect method instead
           await signInWithRedirect(auth, googleProvider);
           return { success: true, redirect: true };
@@ -244,24 +251,20 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const handleRedirectResult = async () => {
       const currentUrl = window.location.href;
+      const isRedirectPending = sessionStorage.getItem('authRedirectPending');
       
-      console.log('🔍 Checking for redirect result on page load...', { currentUrl });
+      console.log('🔍 Checking for redirect result...', { currentUrl, isRedirectPending });
       
       try {
         // ALWAYS check for redirect result - Firebase stores it automatically
-        // Don't rely on sessionStorage (it may not persist across redirects)
         const result = await getRedirectResult(auth);
         
         if (result && result.user) {
           console.log('✅ Google redirect sign-in successful:', result.user.uid, result.user.email);
           
           // Create user document if needed
+          // Note: onAuthStateChanged will also trigger, but we do this here too to be safe
           await createUserDocument(result.user);
-          
-          // Clean up any stored flags
-          sessionStorage.removeItem('authRedirectPending');
-          sessionStorage.removeItem('authRedirectUrl');
-          sessionStorage.removeItem('redirectFailed');
           
           // Clean up URL parameters (Firebase adds auth params)
           if (window.location.search || window.location.hash) {
@@ -270,27 +273,37 @@ export const AuthProvider = ({ children }) => {
             window.history.replaceState({}, document.title, cleanUrl);
           }
           
-          console.log('✅ Authentication complete, user will be redirected by onAuthStateChanged if needed');
+          console.log('✅ Authentication complete');
         } else {
           // No redirect result - this is normal for regular page loads
-          console.log('ℹ️ No redirect result (normal page load)');
+          // unless we were expecting one
+          if (isRedirectPending) {
+             console.log('ℹ️ No redirect result found even though pending flag was set');
+          } else {
+             console.log('ℹ️ No redirect result (normal page load)');
+          }
         }
       } catch (error) {
         console.error('❌ Error handling redirect result:', error);
         console.error('Error details:', error.code, error.message);
-        
-        // Clean up any stored flags on error
+      } finally {
+        // Clean up pending flag
         sessionStorage.removeItem('authRedirectPending');
         sessionStorage.removeItem('authRedirectUrl');
+        sessionStorage.removeItem('redirectFailed');
+
+        // If we were waiting for a redirect and didn't get a user (or if it failed),
+        // we need to ensure loading is turned off if onAuthStateChanged isn't going to do it.
+        // If a user WAS found, onAuthStateChanged will fire and handle loading.
+        // If no user found, onAuthStateChanged might have already fired with null.
+        if (!auth.currentUser) {
+           setLoading(false);
+        }
       }
     };
 
-    // Small delay to ensure Firebase is fully initialized
-    const timer = setTimeout(() => {
-      handleRedirectResult();
-    }, 100);
-
-    return () => clearTimeout(timer);
+    // Execute immediately, no timeout
+    handleRedirectResult();
   }, []);
 
   // Listen for auth state changes
@@ -307,13 +320,24 @@ export const AuthProvider = ({ children }) => {
         
         // Check beta access when user signs in
         await checkUserBetaAccess(user);
+
+        // User is confirmed, so stop loading
+        setLoading(false);
       } else {
         console.log('👤 User signed out');
         setUser(null);
         setBetaAccess(null);
         setBetaAccessLoading(false);
+
+        // ONLY stop loading if we are NOT waiting for a redirect
+        // This prevents the "flash of login screen" before redirect result is processed
+        const isRedirectPending = sessionStorage.getItem('authRedirectPending');
+        if (!isRedirectPending) {
+          setLoading(false);
+        } else {
+          console.log('⏳ Redirect pending, keeping loading state true...');
+        }
       }
-      setLoading(false);
     });
 
     return unsubscribe;
