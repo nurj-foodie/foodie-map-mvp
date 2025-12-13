@@ -1,7 +1,18 @@
 .user-tab {
   padding: 20px;
+  padding-top: 20px;
+  /* Ensure content starts at top */
   min-height: calc(100vh - 80px);
   background: var(--bg-primary);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  height: calc(100vh - 80px);
+  max-height: calc(100vh - 80px);
+  position: relative;
+  /* Ensure scrolling works on mobile */
+  overscroll-behavior-y: contain;
+  /* Reset scroll position to top when tab becomes active */
+  scroll-behavior: smooth;
 }
 
 .loading-state {
@@ -34,19 +45,23 @@
 
 .login-welcome {
   text-align: center;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
+  margin-top: 0;
+  /* Ensure it's at the top */
+  padding-top: 0;
 }
 
 .login-welcome h2 {
-  margin: 0 0 8px 0;
-  font-size: 24px;
+  margin: 0 0 6px 0;
+  font-size: 22px;
   color: var(--primary-gold);
 }
 
 .login-welcome p {
   margin: 0;
   color: var(--text-secondary);
-  font-size: 16px;
+  font-size: 14px;
+  line-height: 1.4;
 }
 
 .user-header {
@@ -62,9 +77,15 @@
 
 .login-section {
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  justify-content: flex-start;
   align-items: center;
   min-height: 400px;
+  padding: 20px 0;
+  padding-top: 0;
+  /* Start at top */
+  width: 100%;
+  overflow-y: visible;
 }
 
 .login-card {
@@ -252,11 +273,52 @@
 
 @media (max-width: 480px) {
   .user-tab {
-    padding: 16px;
+    padding: 8px;
+    padding-top: 8px;
+    /* Start content at top with minimal padding */
+    padding-bottom: 90px;
+    /* Extra padding for bottom nav */
+    height: calc(100dvh - 80px);
+    /* Use dynamic viewport height for mobile */
+    max-height: calc(100dvh - 80px);
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    position: relative;
+    overscroll-behavior-y: contain;
+    /* Allow momentum scrolling on iOS */
+    -webkit-overflow-scrolling: touch;
+    /* Ensure content starts at top */
+    display: flex;
+    flex-direction: column;
   }
 
   .user-header h2 {
     font-size: 20px;
+  }
+
+  .login-section {
+    padding: 0;
+    padding-top: 0;
+    /* Start at very top */
+    min-height: auto;
+    width: 100%;
+    gap: 0;
+  }
+
+  .login-welcome {
+    margin-bottom: 8px;
+    padding: 0 8px;
+    margin-top: 0;
+  }
+
+  .login-welcome h2 {
+    font-size: 16px;
+    margin-bottom: 2px;
+  }
+
+  .login-welcome p {
+    font-size: 11px;
+    line-height: 1.2;
   }
 
   .login-card {

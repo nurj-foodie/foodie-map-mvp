@@ -9,6 +9,7 @@ import UserManagementDashboard from './UserManagementDashboard';
 import AdminCohortDashboard from './AdminCohortDashboard';
 import AdminWaveDashboard from './AdminWaveDashboard';
 import AdminCreatorDashboard from './AdminCreatorDashboard';
+import TravelDraw from './TravelDraw';
 import './AdminDashboard.css';
 
 const AdminDashboard = () => {
@@ -17,7 +18,7 @@ const AdminDashboard = () => {
   const [activeSubTab, setActiveSubTab] = useState({
     analytics: 'overview', // overview, cost, users, performance
     restaurants: 'submissions', // submissions, edits, reviews
-    beta: 'cohort' // cohort, waves, creators
+    beta: 'cohort' // cohort, waves, creators, draw
   });
   const [dateRange, setDateRange] = useState({
     startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 7 days ago
@@ -592,6 +593,12 @@ const AdminDashboard = () => {
           >
             ⭐ Creators
           </button>
+          <button 
+            className={`sub-tab-btn ${activeSubTab.beta === 'draw' ? 'active' : ''}`}
+            onClick={() => setActiveSubTab({ ...activeSubTab, beta: 'draw' })}
+          >
+            🎁 Travel Draw
+          </button>
         </div>
       )}
 
@@ -618,6 +625,7 @@ const AdminDashboard = () => {
             {activeMainTab === 'beta' && activeSubTab.beta === 'cohort' && <AdminCohortDashboard />}
             {activeMainTab === 'beta' && activeSubTab.beta === 'waves' && <AdminWaveDashboard />}
             {activeMainTab === 'beta' && activeSubTab.beta === 'creators' && <AdminCreatorDashboard />}
+            {activeMainTab === 'beta' && activeSubTab.beta === 'draw' && <TravelDraw />}
           </>
         )}
       </div>

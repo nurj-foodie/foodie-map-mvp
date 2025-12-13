@@ -98,6 +98,23 @@ button {
   padding-right: env(safe-area-inset-right);
 }
 
+/* Allow scrolling for UserTab and AdminDashboard when active */
+.app-split-layout > .user-tab,
+.app-split-layout > .admin-dashboard {
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+}
+
+@media (max-width: 768px) {
+  .app-split-layout > .user-tab,
+  .app-split-layout > .admin-dashboard {
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    height: calc(100dvh - 80px) !important;
+    max-height: calc(100dvh - 80px) !important;
+  }
+}
+
 .top-map-section {
   position: fixed;
   top: 0;
@@ -498,6 +515,40 @@ body {
   /* Prevents double-tap zoom */
   -webkit-text-size-adjust: 100%;
   /* Prevents text inflation */
+}
+
+/* Allow scrolling for AdminDashboard (rendered outside app-split-layout) */
+.admin-dashboard {
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  height: calc(100dvh - 80px) !important;
+  max-height: calc(100dvh - 80px) !important;
+}
+
+/* Allow scrolling for UserTab on mobile when login form is visible */
+@media (max-width: 768px) {
+  .admin-dashboard {
+    height: calc(100dvh - 80px) !important;
+    max-height: calc(100dvh - 80px) !important;
+  }
+  
+  .user-tab {
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    height: calc(100dvh - 80px) !important;
+    /* Use dynamic viewport height for mobile */
+    max-height: calc(100dvh - 80px) !important;
+    position: relative !important;
+    overscroll-behavior-y: contain !important;
+    padding-bottom: 100px !important;
+    /* Extra padding to ensure content is scrollable above bottom nav */
+  }
+  
+  /* Ensure login section can scroll */
+  .login-section {
+    min-height: auto !important;
+    padding-bottom: 40px !important;
+  }
 }
 
 @supports (-webkit-touch-callout: none) {

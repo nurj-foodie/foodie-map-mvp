@@ -37,7 +37,7 @@ interface Location {
 
 // Main App component that uses auth context
 const AppWithAuth: React.FC = () => {
-  const { user } = useAuth();
+  const { user /* betaAccess, betaAccessLoading - temporarily disabled */ } = useAuth();
   const [startLocation, setStartLocation] = useState<Location | null>(null);
   const [endLocation, setEndLocation] = useState<Location | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -51,7 +51,7 @@ const AppWithAuth: React.FC = () => {
   const [filteredRestaurants, setFilteredRestaurants] = useState<any[]>([]); // Currently visible restaurants
   const [filteredRNRStops, setFilteredRNRStops] = useState<any[]>([]); // Currently visible R&R stops
   const [filteredPetrolStations, setFilteredPetrolStations] = useState<any[]>([]); // Currently visible petrol stations
-  const [selectedPlaceType, setSelectedPlaceType] = useState<'all' | 'restaurant' | 'rnr' | 'petrol_station'>('all'); // Filter by place type
+  // const [selectedPlaceType, setSelectedPlaceType] = useState<'all' | 'restaurant' | 'rnr' | 'petrol_station'>('all'); // Filter by place type - unused
   const [restaurantMarkers, setRestaurantMarkers] = useState<any[]>([]); // Track all markers for removal
   const [currentMapInstance, setCurrentMapInstance] = useState<any>(null); // Store map instance for route switching
   const [selectedEateries, setSelectedEateries] = useState<any[]>([]);
@@ -203,6 +203,38 @@ const AppWithAuth: React.FC = () => {
       setIsAdmin(false);
     }
   }, [user]);
+
+  // Beta Access Gating: TEMPORARILY DISABLED for pre-beta testing
+  // Re-enable when beta phase officially starts
+  // useEffect(() => {
+  //   // Only check if user is authenticated and beta access check is complete
+  //   if (user && !betaAccessLoading && betaAccess !== null) {
+  //     const currentUrl = window.location.href;
+  //     const isOnLandingPage = currentUrl.includes('waitlist') || currentUrl.includes('landing');
+  //     
+  //     // If user doesn't have beta access and is not on landing page, redirect to landing page
+  //     if (!betaAccess && !isOnLandingPage) {
+  //       const landingPageUrl = process.env.REACT_APP_LANDING_PAGE_URL || 
+  //                             (currentUrl.includes('localhost') 
+  //                               ? 'http://localhost:3000' 
+  //                               : 'https://waitlist-foodie-map-23842.web.app');
+  //       console.log('🔐 User authenticated but no beta access, redirecting to landing page:', landingPageUrl);
+  //       window.location.href = landingPageUrl;
+  //       return;
+  //     }
+  //     
+  //     // If user has beta access and is on landing page, redirect to app
+  //     if (betaAccess && isOnLandingPage) {
+  //       const appUrl = currentUrl.includes('localhost') 
+  //         ? 'http://localhost:3001' 
+  //         : currentUrl.split('/waitlist')[0].split('/landing')[0] || window.location.origin;
+  //       console.log('🔄 Authenticated user with beta access on landing page, redirecting to app:', appUrl);
+  //       setTimeout(() => {
+  //         window.location.href = appUrl;
+  //       }, 500);
+  //     }
+  //   }
+  // }, [user, betaAccess, betaAccessLoading]);
 
   // Load saved routes on component mount
   useEffect(() => {
@@ -1282,7 +1314,7 @@ const AppWithAuth: React.FC = () => {
   };
 
   // Legacy function name for backward compatibility
-  const clearRestaurantMarkers = clearPlaceMarkers;
+  // const clearRestaurantMarkers = clearPlaceMarkers; // Unused
 
   // Filter places for a specific route (applies to all routes including alternatives)
   // Concept: Quick detour from route only - not map exploration
@@ -1472,14 +1504,14 @@ const AppWithAuth: React.FC = () => {
   };
 
   // Legacy function for backward compatibility
-  const addRestaurantMarkers = async (restaurants: any[], map: any) => {
-    // Add placeType to restaurants if not present
-    const restaurantsWithType = restaurants.map((r: any) => ({
-      ...r,
-      placeType: r.placeType || 'restaurant'
-    }));
-    return addPlaceMarkers(restaurantsWithType, map);
-  };
+  // const addRestaurantMarkers = async (restaurants: any[], map: any) => { // Unused
+  //   // Add placeType to restaurants if not present
+  //   const restaurantsWithType = restaurants.map((r: any) => ({
+  //     ...r,
+  //     placeType: r.placeType || 'restaurant'
+  //   }));
+  //   return addPlaceMarkers(restaurantsWithType, map);
+  // };
 
   const handleLocationSelect = async (type: 'start' | 'end', location: Location) => {
     if (type === 'start') {

@@ -3,6 +3,8 @@ import {
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
   signInWithPopup, 
+  signInWithRedirect,
+  getRedirectResult,
   GoogleAuthProvider, 
   signOut, 
   onAuthStateChanged,
@@ -82,15 +84,77 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Sign in with Google
+  // Detect if we're on mobile (mobile browsers work better with redirect)
+  const shouldUseRedirect = () => {
+    const userAgent = navigator.userAgent.toLowerCase();
+    
+    // Check if mobile device
+    const isMobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent);
+    
+    // Check if previous redirect attempt failed
+    const redirectFailed = sessionStorage.getItem('redirectFailed') === 'true';
+    
+    // For mobile, use redirect directly
+    // For all desktop browsers (Chrome, Safari, Brave, Cursor, etc.), try popup first
+    if (isMobile || redirectFailed) {
+      return true; // Use redirect directly for mobile or if redirect previously failed
+    }
+    
+    return false; // Try popup first for all desktop browsers (including Brave & Cursor)
+  };
+
+  // Sign in with Google - tries popup first, falls back to redirect if popup fails
   const loginWithGoogle = async () => {
     try {
-      const { user } = await signInWithPopup(auth, googleProvider);
-      await createUserDocument(user);
-      return { success: true, user };
+      // Check if we should use redirect directly (Cursor browser, mobile, etc.)
+      if (shouldUseRedirect()) {
+        console.log('📍 Using redirect method directly (Cursor browser or mobile detected)');
+        // Firebase will automatically redirect back to current URL after auth
+        // No need to store URL manually - Firebase handles it
+        console.log('📍 Current URL:', window.location.href);
+        
+        // Use redirect method directly
+        await signInWithRedirect(auth, googleProvider);
+        return { success: true, redirect: true };
+      }
+      
+      // Try popup first (works in most desktop browsers)
+      try {
+        console.log('🔄 Attempting popup method...');
+        const { user } = await signInWithPopup(auth, googleProvider);
+        await createUserDocument(user);
+        // Clear any redirect failure flag if popup succeeds
+        sessionStorage.removeItem('redirectFailed');
+        return { success: true, user };
+      } catch (popupError) {
+        console.log('⚠️ Popup failed:', popupError.code, popupError.message);
+        
+        // If popup is blocked or fails, use redirect
+        // Common error codes: 'auth/popup-blocked', 'auth/popup-closed-by-user', 'auth/cancelled-popup-request'
+        const isPopupError = 
+          popupError.code === 'auth/popup-blocked' ||
+          popupError.code === 'auth/popup-closed-by-user' ||
+          popupError.code === 'auth/cancelled-popup-request' ||
+          popupError.code === 'auth/operation-not-allowed' ||
+          popupError.message?.includes('popup') ||
+          popupError.message?.includes('blocked') ||
+          popupError.message?.includes('not allowed');
+        
+        if (isPopupError) {
+          console.log('⚠️ Popup blocked or failed, using redirect method...', popupError.code);
+          // Firebase will automatically redirect back to current URL after auth
+          console.log('📍 Current URL:', window.location.href);
+          
+          // Use redirect method instead
+          await signInWithRedirect(auth, googleProvider);
+          return { success: true, redirect: true };
+        }
+        // If it's a different error, throw it
+        throw popupError;
+      }
     } catch (error) {
       console.error('❌ Google login error:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: error.message || 'Google sign-in failed. Please try again.' };
     }
   };
 
@@ -176,12 +240,71 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Handle redirect result from Google sign-in
+  useEffect(() => {
+    const handleRedirectResult = async () => {
+      const currentUrl = window.location.href;
+      
+      console.log('🔍 Checking for redirect result on page load...', { currentUrl });
+      
+      try {
+        // ALWAYS check for redirect result - Firebase stores it automatically
+        // Don't rely on sessionStorage (it may not persist across redirects)
+        const result = await getRedirectResult(auth);
+        
+        if (result && result.user) {
+          console.log('✅ Google redirect sign-in successful:', result.user.uid, result.user.email);
+          
+          // Create user document if needed
+          await createUserDocument(result.user);
+          
+          // Clean up any stored flags
+          sessionStorage.removeItem('authRedirectPending');
+          sessionStorage.removeItem('authRedirectUrl');
+          sessionStorage.removeItem('redirectFailed');
+          
+          // Clean up URL parameters (Firebase adds auth params)
+          if (window.location.search || window.location.hash) {
+            const cleanUrl = window.location.origin + window.location.pathname;
+            console.log('🧹 Cleaning up auth URL parameters');
+            window.history.replaceState({}, document.title, cleanUrl);
+          }
+          
+          console.log('✅ Authentication complete, user will be redirected by onAuthStateChanged if needed');
+        } else {
+          // No redirect result - this is normal for regular page loads
+          console.log('ℹ️ No redirect result (normal page load)');
+        }
+      } catch (error) {
+        console.error('❌ Error handling redirect result:', error);
+        console.error('Error details:', error.code, error.message);
+        
+        // Clean up any stored flags on error
+        sessionStorage.removeItem('authRedirectPending');
+        sessionStorage.removeItem('authRedirectUrl');
+      }
+    };
+
+    // Small delay to ensure Firebase is fully initialized
+    const timer = setTimeout(() => {
+      handleRedirectResult();
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, []);
+
   // Listen for auth state changes
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        console.log('👤 User signed in:', user.uid);
+        console.log('👤 User signed in:', user.uid, user.email);
         setUser(user);
+        
+        // Clean up any stored auth flags
+        sessionStorage.removeItem('authRedirectPending');
+        sessionStorage.removeItem('authRedirectUrl');
+        sessionStorage.removeItem('redirectFailed');
+        
         // Check beta access when user signs in
         await checkUserBetaAccess(user);
       } else {

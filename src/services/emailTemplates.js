@@ -561,3 +561,124 @@ ${COMMUNITY_NAME_EN} / ${COMMUNITY_NAME_BM}
   return { subject, html, text };
 };
 
+/**
+ * Email 7: Draw Announcement Email
+ * Sent when travel package draw is announced
+ */
+export const getDrawAnnouncementEmailTemplate = (name, month, isWinner, winnerName = null, nextMonth = null) => {
+  const subject = isWinner 
+    ? `🎉 Congratulations! You won the ${month} Travel Package Draw!`
+    : `🎁 ${month} Travel Package Draw - Winner Announced`;
+  
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>${isWinner ? 'You Won!' : 'Draw Results'} - ${COMMUNITY_NAME_EN}</title>
+    </head>
+    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <div style="background: linear-gradient(135deg, #d4af37 0%, #b4941f 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+        <h1 style="color: white; margin: 0; font-size: 28px;">${isWinner ? '🎉 Congratulations!' : '🎁 Travel Package Draw'}</h1>
+        <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0;">${month} Results</p>
+      </div>
+      
+      <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
+        <p style="font-size: 18px; margin-top: 0;">Hi ${name}! 👋</p>
+        
+        ${isWinner ? `
+          <div style="background: linear-gradient(135deg, #d4af37 0%, #b4941f 100%); padding: 30px; border-radius: 8px; margin: 20px 0; text-align: center; color: white;">
+            <h2 style="margin-top: 0; color: white; font-size: 32px;">🏆 YOU WON!</h2>
+            <p style="font-size: 20px; margin: 10px 0;">Malaysia Travel Package</p>
+            <p style="font-size: 16px; margin: 10px 0 0 0;">Thank you for being an amazing referrer!</p>
+          </div>
+          
+          <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #d4af37;">
+            <h3 style="margin-top: 0; color: #333;">🎁 What's Next?</h3>
+            <p>We'll be in touch within 48 hours to arrange your travel package details!</p>
+            <p style="margin-bottom: 0;">Keep referring friends to increase your chances in next month's draw!</p>
+          </div>
+        ` : `
+          <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #d4af37;">
+            <h3 style="margin-top: 0; color: #333;">🏆 ${month} Draw Winner</h3>
+            <p style="font-size: 18px; font-weight: bold; color: #d4af37; margin: 10px 0;">${winnerName || 'Winner Selected'}</p>
+            <p style="margin-bottom: 0;">Congratulations to our winner! 🎉</p>
+          </div>
+          
+          <div style="background: #fff3cd; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ffc107;">
+            <h3 style="margin-top: 0; color: #333;">🎯 Keep Referring!</h3>
+            <p>You're still in the running for next month's draw!</p>
+            ${nextMonth ? `<p style="font-weight: bold; margin-bottom: 0;">Next draw: <strong>${nextMonth}</strong></p>` : ''}
+          </div>
+        `}
+        
+        <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0;">
+          <h3 style="margin-top: 0; color: #333;">📊 How It Works</h3>
+          <ul style="line-height: 2;">
+            <li>Top referrers each month qualify for the draw</li>
+            <li>One random winner is selected from qualifiers</li>
+            <li>Winner receives a Malaysia Travel Package</li>
+            <li>Keep referring to increase your chances!</li>
+          </ul>
+        </div>
+        
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${LANDING_PAGE_URL}" style="background: #d4af37; color: #121212; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">
+            ${isWinner ? 'View Your Prize →' : 'Share Your Referral Link →'}
+          </a>
+        </div>
+        
+        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; text-align: center; font-size: 12px; color: #666;">
+          <p style="margin: 5px 0;">
+            <a href="${LANDING_PAGE_URL}" style="color: #d4af37; text-decoration: none;">Visit Landing Page</a>
+          </p>
+          <p style="margin: 5px 0;">
+            ${COMMUNITY_NAME_EN} / ${COMMUNITY_NAME_BM}<br>
+            Malaysia
+          </p>
+          <p style="margin: 5px 0; font-size: 11px; color: #999;">
+            You're receiving this email because you're part of the ${COMMUNITY_NAME_EN}.
+          </p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+  
+  const text = `
+${isWinner ? '🎉 Congratulations! You Won!' : '🎁 Travel Package Draw Results'}
+
+Hi ${name}!
+
+${isWinner ? `
+YOU WON THE ${month} TRAVEL PACKAGE DRAW!
+
+Malaysia Travel Package
+
+We'll be in touch within 48 hours to arrange your travel package details!
+
+Keep referring friends to increase your chances in next month's draw!
+` : `
+${month} DRAW WINNER: ${winnerName || 'Winner Selected'}
+
+Congratulations to our winner! 🎉
+
+KEEP REFERRING!
+You're still in the running for next month's draw!
+${nextMonth ? `Next draw: ${nextMonth}` : ''}
+`}
+
+HOW IT WORKS:
+- Top referrers each month qualify for the draw
+- One random winner is selected from qualifiers
+- Winner receives a Malaysia Travel Package
+- Keep referring to increase your chances!
+
+${COMMUNITY_NAME_EN} / ${COMMUNITY_NAME_BM}
+Visit: ${LANDING_PAGE_URL}
+  `;
+  
+  return { subject, html, text };
+};
+

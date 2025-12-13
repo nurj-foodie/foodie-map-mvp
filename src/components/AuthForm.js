@@ -43,12 +43,26 @@ const AuthForm = () => {
       const result = await loginWithGoogle();
       if (!result.success) {
         setError(result.error);
+        setLoading(false);
+      } else if (result.redirect) {
+        // Redirect is happening, keep loading state
+        // User will be redirected to Google, then back to app
+        // Don't set loading to false - the redirect will happen
+        // Set a timeout to show error if redirect takes too long
+        setTimeout(() => {
+          if (loading) {
+            setError('Redirect is taking longer than expected. Please check if you completed Google authentication.');
+            setLoading(false);
+          }
+        }, 30000); // 30 seconds timeout
+      } else {
+        // Popup succeeded
+        setLoading(false);
       }
     } catch (error) {
-      setError('An unexpected error occurred');
+      setError('An unexpected error occurred. Please try again.');
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   return (

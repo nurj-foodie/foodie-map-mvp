@@ -1,25 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import './ReviewsModal.css';
 
-const ReviewsModal = ({ 
-  isOpen, 
-  onClose, 
-  reviews, 
-  totalCount, 
+const ReviewsModal = ({
+  isOpen,
+  onClose,
+  reviews,
+  totalCount,
   onLikeReview,
-  restaurantName 
+  restaurantName
 }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [sortBy, setSortBy] = useState('mostLiked');
   const [filterBy, setFilterBy] = useState('all');
   const [displayedReviews, setDisplayedReviews] = useState([]);
-  
+
   const reviewsPerPage = 10; // Desktop: 10 reviews per page
   const totalPages = Math.ceil(totalCount / reviewsPerPage);
 
   // Sort and filter reviews
   useEffect(() => {
-    let processedReviews = [...reviews];
+    let processedReviews = Array.isArray(reviews) ? [...reviews] : [];
 
     // Apply sorting
     switch (sortBy) {
@@ -41,7 +41,7 @@ const ReviewsModal = ({
       case 'latest':
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        processedReviews = processedReviews.filter(review => 
+        processedReviews = processedReviews.filter(review =>
           new Date(review.createdAt) >= thirtyDaysAgo
         );
         break;
@@ -78,16 +78,16 @@ const ReviewsModal = ({
     for (let i = 0; i < fullStars; i++) {
       stars.push(<span key={i} className="star filled">⭐</span>);
     }
-    
+
     if (hasHalfStar) {
       stars.push(<span key="half" className="star half">⭐</span>);
     }
-    
+
     const emptyStars = 5 - Math.ceil(rating);
     for (let i = 0; i < emptyStars; i++) {
       stars.push(<span key={`empty-${i}`} className="star empty">☆</span>);
     }
-    
+
     return stars;
   };
 
@@ -127,8 +127,8 @@ const ReviewsModal = ({
           <div className="reviews-controls">
             <div className="sort-controls">
               <label>Sort by:</label>
-              <select 
-                value={sortBy} 
+              <select
+                value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
                 className="sort-select"
               >
@@ -140,8 +140,8 @@ const ReviewsModal = ({
 
             <div className="filter-controls">
               <label>Filter by:</label>
-              <select 
-                value={filterBy} 
+              <select
+                value={filterBy}
                 onChange={(e) => setFilterBy(e.target.value)}
                 className="filter-select"
               >
@@ -172,10 +172,10 @@ const ReviewsModal = ({
               <div key={review.id} className="review-item">
                 <div className="review-header">
                   <div className="reviewer-info">
-                    <img 
-                      src={review.user.avatar} 
-                      alt={review.user.name} 
-                      className="reviewer-avatar" 
+                    <img
+                      src={review.user.avatar}
+                      alt={review.user.name}
+                      className="reviewer-avatar"
                     />
                     <div className="reviewer-details">
                       <span className="reviewer-name">{review.user.name}</span>
@@ -186,7 +186,7 @@ const ReviewsModal = ({
                     </div>
                   </div>
                   <div className="review-actions">
-                    <button 
+                    <button
                       className={`like-button ${review.likes?.userLiked ? 'liked' : ''}`}
                       onClick={() => onLikeReview(review.id)}
                     >
@@ -194,10 +194,10 @@ const ReviewsModal = ({
                     </button>
                   </div>
                 </div>
-                
+
                 <div className="review-content">
                   <p className="review-comment">{review.comment}</p>
-                  
+
                   {/* Category Ratings */}
                   {review.categories && (
                     <div className="category-ratings">
@@ -209,7 +209,7 @@ const ReviewsModal = ({
                       ))}
                     </div>
                   )}
-                  
+
                   <div className="review-details">
                     <span className="visit-type">{review.visitDetails.visitType}</span>
                     <span className="party-size">{review.visitDetails.partySize} people</span>
@@ -227,14 +227,14 @@ const ReviewsModal = ({
           {/* Pagination */}
           {filteredTotalPages > 1 && (
             <div className="pagination">
-              <button 
+              <button
                 className="pagination-button"
                 onClick={() => handlePageChange(currentPage - 1)}
                 disabled={currentPage === 1}
               >
                 ← Previous
               </button>
-              
+
               <div className="page-numbers">
                 {Array.from({ length: filteredTotalPages }, (_, i) => i + 1).map(page => (
                   <button
@@ -246,8 +246,8 @@ const ReviewsModal = ({
                   </button>
                 ))}
               </div>
-              
-              <button 
+
+              <button
                 className="pagination-button"
                 onClick={() => handlePageChange(currentPage + 1)}
                 disabled={currentPage === filteredTotalPages}
